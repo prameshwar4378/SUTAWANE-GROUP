@@ -1,0 +1,929 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% load static %}
+
+{% block title %}Financial &amp; Administrative Reports Suite — Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full">
+  <!-- Page Header -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 no-print">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="bar-chart-3" class="w-6 h-6 text-primary"></i>
+        <span>Financial &amp; Administrative Reports Suite</span>
+      </h1>
+      <p class="text-sm text-muted-foreground mt-0.5">
+        Academic session audit, inflow channel breakdown, expense distribution, and unified financial statements.
+      </p>
+    </div>
+
+    <!-- Global Toolbar & Scope Controls -->
+    <div class="flex flex-wrap items-center gap-2.5">
+      <!-- In-Page Branch Selector -->
+      <form method="GET" id="reportScopeForm" class="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="tab" value="{{ active_tab }}">
+        
+        <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
+          <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground"></i>
+          <select
+            name="branch_id"
+            onchange="document.getElementById('reportScopeForm').submit()"
+            class="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-foreground"
+            title="Filter reports by branch"
+          >
+            <option value="ALL" {% if selected_branch_id == 'ALL' %}selected{% endif %}>All Branches</option>
+            {% for b in branches %}
+              <option value="{{ b.id }}" {% if selected_branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- In-Page Session Selector -->
+        <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
+          <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-muted-foreground"></i>
+          <select
+            name="session_id"
+            onchange="document.getElementById('reportScopeForm').submit()"
+            class="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-foreground"
+            title="Filter reports by academic session"
+          >
+            <option value="ALL" {% if selected_session_id == 'ALL' %}selected{% endif %}>All Academic Sessions</option>
+            {% for s in sessions %}
+              <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
+                {{ s.name }}{% if s.is_current %} (Current){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+
+      <a
+        href="{% url 'daily_reports' %}?mode=DAILY{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors"
+      >
+        <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+        <span>Open Daily Statement</span>
+      </a>
+
+      <button
+        type="button"
+        onclick="window.print()"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs font-medium transition-colors cursor-pointer"
+        title="Print report on A4 paper"
+      >
+        <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+        <span>Print Report</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Print-Only Executive Header -->
+  <div class="hidden print:block border-b-2 border-[#28375C] pb-4 mb-4">
+    <div class="flex justify-between items-start">
+      <div>
+        <h1 class="text-xl font-black text-[#28375C] uppercase tracking-wide">
+          {{ institute_name|default:"SUTAWANE CLASSES" }}
+        </h1>
+        <p class="text-xs text-slate-600 mt-0.5">
+          Official Institutional Audit &amp; Performance Report • Printed on {{ printed_date }}
+        </p>
+      </div>
+      <div class="text-right text-xs">
+        <p class="font-bold text-slate-900">
+          Session: {{ target_session.display_name|default:target_session.name|default:"Consolidated" }}
+        </p>
+        <p class="text-slate-500">
+          Branch: {% if selected_branch_id == 'ALL' %}All Campuses{% else %}{% for b in branches %}{% if b.id == selected_branch_id %}{{ b.name }}{% endif %}{% endfor %}{% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="flex flex-wrap items-center gap-2 border-b pb-2 no-print">
+    <a
+      href="?tab=SESSION_AUDIT{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer {% if active_tab == 'SESSION_AUDIT' %}bg-primary text-primary-foreground shadow-xs{% else %}text-muted-foreground hover:bg-muted hover:text-foreground{% endif %}"
+    >
+      <i data-lucide="layers" class="w-4 h-4"></i>
+      <span>Academic Session Audit</span>
+    </a>
+
+    <a
+      href="?tab=PAYMENT_MODES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer {% if active_tab == 'PAYMENT_MODES' %}bg-primary text-primary-foreground shadow-xs{% else %}text-muted-foreground hover:bg-muted hover:text-foreground{% endif %}"
+    >
+      <i data-lucide="credit-card" class="w-4 h-4"></i>
+      <span>Payment Channels &amp; Modes</span>
+    </a>
+
+    <a
+      href="?tab=EXPENSE_CATEGORIES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer {% if active_tab == 'EXPENSE_CATEGORIES' %}bg-primary text-primary-foreground shadow-xs{% else %}text-muted-foreground hover:bg-muted hover:text-foreground{% endif %}"
+    >
+      <i data-lucide="pie-chart" class="w-4 h-4"></i>
+      <span>Expense Category Analysis</span>
+    </a>
+
+    <a
+      href="?tab=STATEMENT_DIRECTORY{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer {% if active_tab == 'STATEMENT_DIRECTORY' %}bg-primary text-primary-foreground shadow-xs{% else %}text-muted-foreground hover:bg-muted hover:text-foreground{% endif %}"
+    >
+      <i data-lucide="file-text" class="w-4 h-4"></i>
+      <span>Statements &amp; Ledgers Directory</span>
+    </a>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 1: ACADEMIC SESSION AUDIT & PERFORMANCE                               -->
+  <!-- ========================================================================= -->
+  {% if active_tab == 'SESSION_AUDIT' %}
+  <div class="space-y-6">
+    <!-- Session Overview Ribbon -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-xl border">
+      <div>
+        <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+          Target Academic Session
+        </span>
+        <h2 class="text-lg font-bold text-foreground flex items-center gap-2 mt-0.5">
+          <span>{{ session_audit.session.displayName|default:session_audit.session.name }}</span>
+          {% if session_audit.session.isCurrent %}
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+              Active Current
+            </span>
+          {% endif %}
+        </h2>
+      </div>
+
+      <div class="flex items-center gap-2 no-print">
+        <a
+          href="?tab=SESSION_AUDIT{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs font-medium transition-colors"
+          title="Refresh metrics"
+        >
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Refresh</span>
+        </a>
+        <a
+          href="?tab=SESSION_AUDIT{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-medium transition-colors"
+        >
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span>Export Excel</span>
+        </a>
+        <a
+          href="?tab=SESSION_AUDIT{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=pdf"
+          target="_blank"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition-colors"
+        >
+          <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span>Export PDF</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 6 Key Financial & Enrollment KPI Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <!-- Active Students -->
+      <div class="p-3 bg-card border rounded-xl shadow-xs">
+        <div class="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+          <span>Enrollments</span>
+          <i data-lucide="users" class="w-3.5 h-3.5 text-blue-600"></i>
+        </div>
+        <div class="text-xl font-bold text-foreground mt-1">
+          {{ session_audit.summary.activeAdmissions }}
+        </div>
+        <p class="text-[10px] text-muted-foreground mt-0.5">
+          +{{ session_audit.summary.archivedAdmissions }} archived
+        </p>
+      </div>
+
+      <!-- Agreed Fees -->
+      <div class="p-3 bg-card border rounded-xl shadow-xs">
+        <div class="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+          <span>Agreed Fees</span>
+          <i data-lucide="indian-rupee" class="w-3.5 h-3.5 text-indigo-600"></i>
+        </div>
+        <div class="text-xl font-bold text-foreground mt-1">
+          ₹{{ session_audit.summary.totalFeesAgreed|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-muted-foreground mt-0.5">Committed revenue</p>
+      </div>
+
+      <!-- Total Collections -->
+      <div class="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-800 rounded-xl shadow-xs">
+        <div class="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+          <span>Realized Fees</span>
+          <i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-600"></i>
+        </div>
+        <div class="text-xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+          ₹{{ session_audit.summary.totalCollections|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 font-medium">
+          {{ session_audit.summary.collectionEfficiency }}% collected
+        </p>
+      </div>
+
+      <!-- Pending Dues -->
+      <div class="p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 rounded-xl shadow-xs">
+        <div class="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
+          <span>Pending Dues</span>
+          <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-600"></i>
+        </div>
+        <div class="text-xl font-black text-amber-700 dark:text-amber-300 mt-1">
+          ₹{{ session_audit.summary.totalPendingDues|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 font-medium">
+          Outstanding balance
+        </p>
+      </div>
+
+      <!-- Total Expenses -->
+      <div class="p-3 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-800 rounded-xl shadow-xs">
+        <div class="text-[11px] font-bold text-rose-800 dark:text-rose-300 flex items-center justify-between">
+          <span>Center Expenses</span>
+          <i data-lucide="trending-down" class="w-3.5 h-3.5 text-rose-600"></i>
+        </div>
+        <div class="text-xl font-black text-rose-700 dark:text-rose-300 mt-1">
+          ₹{{ session_audit.summary.totalExpenses|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-rose-700/80 dark:text-rose-400/80 mt-0.5 font-medium">
+          Operational outflow
+        </p>
+      </div>
+
+      <!-- Net Surplus / Balance -->
+      <div class="p-3 border rounded-xl shadow-xs {% if session_audit.summary.isSurplus %}bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700{% else %}bg-rose-50 dark:bg-rose-950/30 border-rose-400 dark:border-rose-700{% endif %}">
+        <div class="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+          <span>Net Surplus</span>
+          {% if session_audit.summary.isSurplus %}
+            <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-600"></i>
+          {% else %}
+            <i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-rose-600"></i>
+          {% endif %}
+        </div>
+        <div class="text-xl font-black mt-1 {% if session_audit.summary.isSurplus %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+          ₹{{ session_audit.summary.netSurplus|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-muted-foreground mt-0.5 font-medium">
+          Collections − Expenses
+        </p>
+      </div>
+    </div>
+
+    <!-- Section 1: Campus & Branch Performance Comparison -->
+    <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
+      <div class="py-3 px-4 border-b bg-muted/20 flex flex-row items-center justify-between">
+        <h3 class="text-sm font-bold flex items-center gap-2">
+          <i data-lucide="building-2" class="w-4 h-4 text-primary"></i>
+          <span>Campus &amp; Branch Performance Breakdown</span>
+        </h3>
+        <span class="text-xs text-muted-foreground">
+          Comparing all branches in session {{ session_audit.session.name }}
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
+              <th class="py-2.5 px-3 text-left font-semibold text-white">Branch Name</th>
+              <th class="py-2.5 px-3 text-center font-semibold text-white">Active Students</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Agreed Fees</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Realized Fees</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Pending Dues</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Expenses</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Net Operating Surplus</th>
+              <th class="py-2.5 px-3 text-center font-semibold text-white">Collection Rate</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% if session_audit.branchBreakdown %}
+              {% for b in session_audit.branchBreakdown %}
+                <tr class="hover:bg-muted/40 transition-colors">
+                  <td class="py-2.5 px-3 font-semibold text-foreground">
+                    <span>{{ b.branchName }}</span>
+                    <span class="font-mono text-[10px] text-muted-foreground ml-1.5">({{ b.branchCode }})</span>
+                  </td>
+                  <td class="py-2.5 px-3 text-center font-bold text-foreground">{{ b.studentsCount }}</td>
+                  <td class="py-2.5 px-3 text-right font-medium text-foreground">₹{{ b.totalFees|floatformat:0|intcomma }}</td>
+                  <td class="py-2.5 px-3 text-right font-bold text-emerald-700 dark:text-emerald-400">
+                    ₹{{ b.collections|floatformat:0|intcomma }}
+                  </td>
+                  <td class="py-2.5 px-3 text-right font-bold text-amber-700 dark:text-amber-400">
+                    ₹{{ b.pendingDues|floatformat:0|intcomma }}
+                  </td>
+                  <td class="py-2.5 px-3 text-right font-medium text-rose-700 dark:text-rose-400">
+                    ₹{{ b.expenses|floatformat:0|intcomma }}
+                  </td>
+                  <td class="py-2.5 px-3 text-right font-black">
+                    <span class="{% if b.netSurplus >= 0 %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+                      ₹{{ b.netSurplus|floatformat:0|intcomma }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3 text-center">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if b.collectionRate >= 50 %}bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300{% else %}bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300{% endif %}">
+                      {{ b.collectionRate }}%
+                    </span>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="8" class="text-center py-8 text-xs text-muted-foreground">
+                  No branch records found for this academic session.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 2: Standard & Course-wise Performance + Monthly Movement -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Course Breakdown Table -->
+      <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
+        <div class="py-3 px-4 border-b bg-muted/20">
+          <h3 class="text-sm font-bold flex items-center gap-2">
+            <i data-lucide="book-open" class="w-4 h-4 text-primary"></i>
+            <span>Class / Course Revenue &amp; Recovery</span>
+          </h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
+                <th class="py-2 px-3 text-left font-semibold text-white">Class / Course</th>
+                <th class="py-2 px-3 text-center font-semibold text-white">Students</th>
+                <th class="py-2 px-3 text-right font-semibold text-white">Agreed Fees</th>
+                <th class="py-2 px-3 text-right font-semibold text-white">Collected</th>
+                <th class="py-2 px-3 text-center font-semibold text-white">Recovery</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              {% for s in session_audit.standardBreakdown %}
+                <tr class="hover:bg-muted/40 transition-colors">
+                  <td class="py-2 px-3 font-semibold text-foreground">{{ s.standard }}</td>
+                  <td class="py-2 px-3 text-center font-bold text-foreground">{{ s.studentCount }}</td>
+                  <td class="py-2 px-3 text-right text-foreground">₹{{ s.totalFees|floatformat:0|intcomma }}</td>
+                  <td class="py-2 px-3 text-right font-bold text-emerald-700 dark:text-emerald-400">
+                    ₹{{ s.collected|floatformat:0|intcomma }}
+                  </td>
+                  <td class="py-2 px-3 text-center">
+                    <span class="font-bold text-xs">{{ s.collectionRate }}%</span>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center py-6 text-xs text-muted-foreground">
+                    No course enrollment data found.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Monthly Trend Table -->
+      <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
+        <div class="py-3 px-4 border-b bg-muted/20">
+          <h3 class="text-sm font-bold flex items-center gap-2">
+            <i data-lucide="calendar" class="w-4 h-4 text-primary"></i>
+            <span>Session Monthly Cash Movement</span>
+          </h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
+                <th class="py-2 px-3 text-left font-semibold text-white">Month</th>
+                <th class="py-2 px-3 text-right font-semibold text-white">Collections (₹)</th>
+                <th class="py-2 px-3 text-right font-semibold text-white">Expenses (₹)</th>
+                <th class="py-2 px-3 text-right font-semibold text-white">Net Movement</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              {% for m in session_audit.monthlyTrend %}
+                <tr class="hover:bg-muted/40 transition-colors">
+                  <td class="py-2 px-3 font-semibold text-foreground">{{ m.monthLabel }}</td>
+                  <td class="py-2 px-3 text-right font-bold text-emerald-700 dark:text-emerald-400">
+                    ₹{{ m.collections|floatformat:0|intcomma }}
+                  </td>
+                  <td class="py-2 px-3 text-right font-medium text-rose-700 dark:text-rose-400">
+                    ₹{{ m.expenses|floatformat:0|intcomma }}
+                  </td>
+                  <td class="py-2 px-3 text-right font-black">
+                    <span class="{% if m.collections >= m.expenses %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+                      ₹{{ m.collections|add:"0"|floatformat:0|intcomma }}
+                    </span>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="text-center py-6 text-xs text-muted-foreground">
+                    No monthly cash movement recorded.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ========================================================================= -->
+  <!-- TAB 2: PAYMENT CHANNELS & INFLOW MODES                                    -->
+  <!-- ========================================================================= -->
+  {% if active_tab == 'PAYMENT_MODES' %}
+  <div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-xl border">
+      <div>
+        <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+          Collections Reconciliation
+        </span>
+        <h2 class="text-lg font-bold text-foreground mt-0.5">
+          Payment Modes &amp; Digital Inflows Breakdown
+        </h2>
+      </div>
+      <div class="flex items-center gap-2 no-print">
+        <a
+          href="?tab=PAYMENT_MODES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs font-medium transition-colors"
+        >
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Refresh</span>
+        </a>
+        <a
+          href="?tab=PAYMENT_MODES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-medium transition-colors"
+        >
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span>Export Excel</span>
+        </a>
+        <a
+          href="?tab=PAYMENT_MODES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=pdf"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition-colors"
+        >
+          <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span>Export PDF</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Mode Summary Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      {% for m in payment_modes.modes %}
+        <div class="p-4 bg-card border rounded-xl shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-xs text-foreground uppercase">{{ m.label }}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">
+              {{ m.percentage }}%
+            </span>
+          </div>
+          <div class="text-xl font-black text-foreground mt-2">
+            ₹{{ m.amount|floatformat:0|intcomma }}
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-muted-foreground mt-2">
+            <span>{{ m.count }} confirmed receipts</span>
+          </div>
+          <div class="w-full bg-muted rounded-full h-1.5 mt-2 overflow-hidden">
+            <div class="bg-primary h-full rounded-full transition-all duration-300" style="width: {{ m.percentage }}%"></div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Channels Table -->
+    <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
+      <div class="py-3 px-4 border-b bg-muted/20">
+        <h3 class="text-sm font-bold flex items-center gap-2">
+          <i data-lucide="credit-card" class="w-4 h-4 text-primary"></i>
+          <span>Reconciled Payment Methods Register</span>
+        </h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
+              <th class="py-2.5 px-3 text-left font-semibold text-white">Payment Channel</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Total Realized (₹)</th>
+              <th class="py-2.5 px-3 text-center font-semibold text-white">Receipts Count</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Average Transaction</th>
+              <th class="py-2.5 px-3 text-center font-semibold text-white">Share of Total</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for m in payment_modes.modes %}
+              <tr class="hover:bg-muted/40 transition-colors">
+                <td class="py-2.5 px-3 font-bold text-xs text-foreground">{{ m.label }}</td>
+                <td class="py-2.5 px-3 text-right font-black text-xs text-emerald-700 dark:text-emerald-400">
+                  ₹{{ m.amount|floatformat:0|intcomma }}
+                </td>
+                <td class="py-2.5 px-3 text-center font-bold text-xs text-foreground">{{ m.count }}</td>
+                <td class="py-2.5 px-3 text-right text-xs font-mono text-foreground">
+                  {% if m.count > 0 %}₹{{ m.average|floatformat:0|intcomma }}{% else %}—{% endif %}
+                </td>
+                <td class="py-2.5 px-3 text-center">
+                  <span class="font-bold text-xs">{{ m.percentage }}%</span>
+                </td>
+              </tr>
+            {% endfor %}
+            <tr class="bg-muted/30 font-bold border-t-2">
+              <td class="py-2.5 px-3 text-xs uppercase text-foreground">Total Inflows</td>
+              <td class="py-2.5 px-3 text-right font-black text-sm text-emerald-700 dark:text-emerald-400">
+                ₹{{ payment_modes.totalCollected|floatformat:0|intcomma }}
+              </td>
+              <td class="py-2.5 px-3 text-center font-bold text-xs text-foreground">
+                {{ payment_modes.totalTransactions }}
+              </td>
+              <td class="py-2.5 px-3 text-right text-xs font-mono text-foreground">—</td>
+              <td class="py-2.5 px-3 text-center font-bold text-xs text-foreground">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ========================================================================= -->
+  <!-- TAB 3: EXPENSE CATEGORY ANALYSIS                                          -->
+  <!-- ========================================================================= -->
+  {% if active_tab == 'EXPENSE_CATEGORIES' %}
+  <div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-xl border">
+      <div>
+        <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+          Disbursements Analysis
+        </span>
+        <h2 class="text-lg font-bold text-foreground mt-0.5">
+          Operational Expenses &amp; Category Taxonomy
+        </h2>
+      </div>
+      <div class="flex items-center gap-2 no-print">
+        <a
+          href="?tab=EXPENSE_CATEGORIES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs font-medium transition-colors"
+        >
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Refresh</span>
+        </a>
+        <a
+          href="?tab=EXPENSE_CATEGORIES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-medium transition-colors"
+        >
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span>Export Excel</span>
+        </a>
+        <a
+          href="?tab=EXPENSE_CATEGORIES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=pdf"
+          class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition-colors"
+        >
+          <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span>Export PDF</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Categories Grid Table -->
+    <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
+      <div class="py-3 px-4 border-b bg-muted/20">
+        <h3 class="text-sm font-bold flex items-center gap-2">
+          <i data-lucide="pie-chart" class="w-4 h-4 text-primary"></i>
+          <span>Expense Category Distribution &amp; Budget Share</span>
+        </h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
+              <th class="py-2.5 px-3 text-left font-semibold text-white">Expense Category</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Total Disbursed (₹)</th>
+              <th class="py-2.5 px-3 text-center font-semibold text-white">Vouchers Count</th>
+              <th class="py-2.5 px-3 text-right font-semibold text-white">Average per Voucher</th>
+              <th class="py-2.5 px-3 text-center font-semibold text-white">Share of Expenses</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for c in expense_categories.categories %}
+              <tr class="hover:bg-muted/40 transition-colors">
+                <td class="py-2.5 px-3 font-bold text-xs text-foreground">{{ c.categoryName }}</td>
+                <td class="py-2.5 px-3 text-right font-bold text-xs text-rose-700 dark:text-rose-400">
+                  ₹{{ c.amount|floatformat:0|intcomma }}
+                </td>
+                <td class="py-2.5 px-3 text-center font-bold text-xs text-foreground">{{ c.count }}</td>
+                <td class="py-2.5 px-3 text-right text-xs font-mono text-foreground">
+                  {% if c.count > 0 %}₹{{ c.average|floatformat:0|intcomma }}{% else %}—{% endif %}
+                </td>
+                <td class="py-2.5 px-3 text-center">
+                  <span class="font-bold text-xs">{{ c.percentage }}%</span>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="text-center py-8 text-xs text-muted-foreground">
+                  No expense records found.
+                </td>
+              </tr>
+            {% endfor %}
+            <tr class="bg-muted/30 font-bold border-t-2">
+              <td class="py-2.5 px-3 text-xs uppercase text-foreground">Total Center Outflow</td>
+              <td class="py-2.5 px-3 text-right font-black text-sm text-rose-700 dark:text-rose-400">
+                ₹{{ expense_categories.totalExpenses|floatformat:0|intcomma }}
+              </td>
+              <td class="py-2.5 px-3 text-center font-bold text-xs text-foreground">
+                {{ expense_categories.totalVouchers }}
+              </td>
+              <td class="py-2.5 px-3 text-right text-xs font-mono text-foreground">—</td>
+              <td class="py-2.5 px-3 text-center font-bold text-xs text-foreground">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ========================================================================= -->
+  <!-- TAB 4: STATEMENTS & LEDGERS DIRECTORY                                      -->
+  <!-- ========================================================================= -->
+  {% if active_tab == 'STATEMENT_DIRECTORY' %}
+  <div class="space-y-6">
+    <!-- Featured Primary Statement Hub Card -->
+    <div class="border border-primary/40 bg-gradient-to-r from-primary/5 via-background to-primary/5 rounded-xl shadow-xs p-6">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div class="space-y-2 max-w-2xl">
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+            Recommended Unified Report
+          </span>
+          <h2 class="text-xl font-bold text-foreground">
+            All-in-One Financial Movement &amp; Audit Statement
+          </h2>
+          <p class="text-xs text-muted-foreground leading-relaxed">
+            Combines <strong>Total Collections</strong>, <strong>Total Expenses</strong>,
+            <strong>Net Profit/Loss</strong>, and <strong>Full Transaction Ledgers</strong> in one single report.
+            Quickly toggle between Daily, Monthly, or Custom Date filters with official A4 print and multi-sheet Excel (.xlsx) exports.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap sm:flex-nowrap gap-2.5">
+          <a
+            href="{% url 'daily_reports' %}?mode=DAILY"
+            class="inline-flex items-center gap-1.5 h-10 px-3.5 text-xs bg-background hover:bg-muted border rounded-md font-medium transition-colors"
+          >
+            <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i>
+            <span>Daily Report</span>
+          </a>
+          <a
+            href="{% url 'daily_reports' %}?mode=MONTHLY"
+            class="inline-flex items-center gap-1.5 h-10 px-3.5 text-xs bg-background hover:bg-muted border rounded-md font-medium transition-colors"
+          >
+            <i data-lucide="calendar-days" class="w-4 h-4 text-blue-600"></i>
+            <span>Monthly Report</span>
+          </a>
+          <a
+            href="{% url 'daily_reports' %}?mode=CUSTOM"
+            class="inline-flex items-center gap-1.5 h-10 px-4 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-md transition-colors"
+          >
+            <i data-lucide="calendar-range" class="w-4 h-4"></i>
+            <span>Custom Filter</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Directory Grid (9 Standard Financial Statements) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- 1 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>1. Daily Financial Statement</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Daily</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            All-in-one daily statement: fee collections, center expenses, net profit/loss, and transactions.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'daily_reports' %}?mode=DAILY"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>2. Month-wise Financial Report</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Monthly</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Complete monthly financial statement: month total collections, total expenses, and profit/loss.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'daily_reports' %}?mode=MONTHLY"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>3. Custom Date Range Audit</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Custom</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Customizable date filter statement combining collections and expenses across any selected dates.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'daily_reports' %}?mode=CUSTOM"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 4 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>4. Collections Register &amp; Inflows</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Register</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Itemized fee collections register with receipt search, payment mode filter, and Excel export.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'fee_collect' %}"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>5. Outstanding &amp; Overdue Student Fees</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Dues</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Aging register of unpaid student fee balances, installment status, and parent contact ledger.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'fees_dues' %}"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>6. Operational Expense Disbursements</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Outflows</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Center expenditures, payment mode breakdown, and dynamic expense categories.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'expenses_list' %}"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 7 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>7. Student Master Directory Report</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Directory</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Batch-wise and standard-wise directory of enrolled students with custom column PDF export.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'students_list' %}"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 8 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>8. Classes &amp; Courses Matrix</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Curriculum</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Active courses, standard-wise fee plans, installments structure, and student enrollments.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'courses_list' %}"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- 9 -->
+      <div class="bg-card border rounded-xl hover:border-primary/50 transition-colors shadow-xs flex flex-col justify-between p-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+              <span>9. Database Backup &amp; Audit Archive</span>
+            </h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">Backup</span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2 min-h-[36px]">
+            Create instant SQLite snapshots, download compressed JSON archives, and restore data safely.
+          </p>
+        </div>
+        <div class="pt-3 border-t mt-4">
+          <a
+            href="{% url 'backup_manage' %}"
+            class="inline-flex items-center justify-between w-full text-xs h-8 px-3 rounded-md border border-input bg-background hover:bg-primary hover:text-white font-medium transition-colors group"
+          >
+            <span>Open Report</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

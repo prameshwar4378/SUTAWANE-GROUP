@@ -1,0 +1,99 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Software Subscription Expired | {{ institute_name|default:"Sutawane Classes" }}</title>
+  <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/lucide.min.js' %}"></script>
+  <script src="{% static 'js/app.js' %}" defer></script>
+</head>
+<body class="h-full bg-background/95 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="w-full max-w-lg border border-amber-200 rounded-xl shadow-2xl overflow-hidden bg-card text-card-foreground animate-in fade-in zoom-in-95">
+    <div class="h-2 bg-amber-500 w-full"></div>
+
+    <div class="p-6 text-center pb-2 pt-6">
+      <div class="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3 shadow-md">
+        <i data-lucide="lock" class="w-8 h-8"></i>
+      </div>
+      <h1 class="text-xl font-bold text-foreground">
+        Software Subscription Plan Expired
+      </h1>
+      <p class="text-xs text-muted-foreground pt-1 leading-relaxed">
+        Your software subscription plan has expired. Please call the support team to renew your subscription plan.
+      </p>
+    </div>
+
+    <div class="p-6 pt-2 space-y-4">
+      <!-- Status info box -->
+      <div class="p-3.5 bg-muted/60 rounded-xl border text-xs space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-muted-foreground">Subscription Status:</span>
+          <span class="text-xs font-bold gap-1 bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-md inline-flex items-center">
+            <i data-lucide="clock-alert" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>Subscription Plan Expired</span>
+          </span>
+        </div>
+
+        {% if license.expiryDate %}
+        <div class="flex justify-between items-center">
+          <span class="text-muted-foreground">Plan Expiry Date:</span>
+          <span class="font-semibold text-foreground flex items-center gap-1 font-mono">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            {{ license.expiryDate|slice:":10" }}
+          </span>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Support Helpline Callout -->
+      <div class="p-4 bg-blue-50/70 border border-blue-200 rounded-xl text-xs space-y-2">
+        <div class="font-bold text-blue-900 flex items-center gap-1.5 text-sm">
+          <i data-lucide="phone-call" class="w-4 h-4 text-blue-600"></i>
+          <span>Call Support Team for Plan Renewal</span>
+        </div>
+        <p class="text-blue-800 font-medium leading-relaxed">
+          Your software subscription plan is expired. Please call the support team to renew your subscription plan and resume seamless operations.
+        </p>
+        <div class="p-2.5 bg-white/80 rounded-lg border border-blue-200/80 font-mono text-blue-900 font-semibold text-xs">
+          {{ license.developerNote|default:"Support Helpline: +91 7776824564 (Mr. Rameshwar Pawar)" }}
+        </div>
+      </div>
+
+      <p class="text-[11px] text-muted-foreground text-center">
+        Authorized support engineers and administrators can sign in below to update or renew the subscription plan.
+      </p>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row gap-2 pt-2">
+        <button
+          type="button"
+          onclick="location.reload()"
+          class="flex-1 inline-flex items-center justify-center gap-1.5 text-xs h-9 font-semibold border rounded-lg bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+        >
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Check Status</span>
+        </button>
+
+        <a
+          href="{% url 'login' %}?tab=developer"
+          class="flex-1 inline-flex items-center justify-center gap-1.5 text-xs h-9 font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
+        >
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+          <span>Support / Admin Login</span>
+        </a>
+
+        <a
+          href="{% url 'logout' %}"
+          class="inline-flex items-center justify-center gap-1.5 text-xs h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Sign Out</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

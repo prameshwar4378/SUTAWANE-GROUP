@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Institute Settings &amp; Master Branding — Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full">
+  <!-- Page Header -->
+  <div class="pb-2 border-b">
+    <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+      <i data-lucide="settings" class="w-6 h-6 text-primary"></i>
+      <span>Institute Settings &amp; Master Branding</span>
+    </h1>
+    <p class="text-sm text-muted-foreground mt-0.5">
+      Configure central coaching branding, default institute logo, receipt templates, and organization profile.
+    </p>
+  </div>
+
+  <!-- SECTION 1: Common Master Institute Logo -->
+  <div class="bg-card rounded-xl border shadow-xs overflow-hidden">
+    <div class="py-4 px-5 border-b bg-muted/20">
+      <h2 class="text-base font-semibold text-foreground flex items-center gap-2">
+        <i data-lucide="image" class="w-4 h-4 text-primary"></i>
+        <span>Common Master Institute Logo</span>
+      </h2>
+      <p class="text-xs text-muted-foreground mt-0.5">
+        This master logo will be used by default across all branches, fee receipts, identity cards, and application headers.
+      </p>
+    </div>
+
+    <div class="p-6">
+      <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+        <!-- Logo Display Box -->
+        <div class="relative group w-36 h-36 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+          {% if settings.logo_url %}
+            <img
+              src="{{ settings.logo_url }}"
+              alt="Institute Master Logo"
+              class="w-full h-full object-contain p-2"
+              id="masterLogoImg"
+            >
+          {% else %}
+            <div class="text-center p-3" id="noLogoPlaceholder">
+              <i data-lucide="building-2" class="w-10 h-10 text-muted-foreground/50 mx-auto mb-1"></i>
+              <span class="text-[11px] text-muted-foreground font-medium block">
+                No logo uploaded
+              </span>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Logo Actions and Instructions -->
+        <div class="space-y-3 flex-1 text-xs">
+          <div>
+            <h3 class="font-semibold text-foreground text-sm">Upload Central Brand Logo</h3>
+            <p class="text-muted-foreground mt-0.5 leading-relaxed">
+              Recommended dimensions: <strong>400 &times; 400 px or horizontal logo (PNG, JPG, SVG, WebP)</strong>. Transparent backgrounds work best on printed receipts. Maximum file size: 5 MB.
+            </p>
+          </div>
+
+          <div class="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-900 dark:text-blue-200 text-[11px] leading-relaxed">
+            <strong>Branch Override Support:</strong> If an individual coaching branch has its own different logo (e.g., Nagpur Center vs. Wardha Academy), you can upload a branch-specific logo in <strong>Branch Management</strong>. If no branch logo is set, this master logo will be automatically used.
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            <!-- Upload Logo Form -->
+            <form method="POST" action="{% url 'settings_manage' %}" enctype="multipart/form-data" id="logoUploadForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="upload_logo">
+              <input
+                type="file"
+                name="logo"
+                id="logoFileInput"
+                accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                class="hidden"
+                onchange="document.getElementById('logoUploadForm').submit()"
+              >
+              <button
+                type="button"
+                onclick="document.getElementById('logoFileInput').click()"
+                class="inline-flex items-center gap-1.5 text-xs h-8 px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                <span>{% if settings.logo_url %}Change Master Logo{% else %}Upload Logo{% endif %}</span>
+              </button>
+            </form>
+
+            {% if settings.logo_url %}
+              <!-- Remove Logo Form -->
+              <form method="POST" action="{% url 'settings_manage' %}" id="logoRemoveForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="remove_logo">
+                <button
+                  type="submit"
+                  class="inline-flex items-center gap-1.5 text-xs h-8 px-3 rounded-md border border-rose-200 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium transition-colors cursor-pointer"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <span>Remove Logo</span>
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: Institute Profile & Receipt Terms -->
+  <div class="bg-card rounded-xl border shadow-xs overflow-hidden">
+    <div class="py-4 px-5 border-b bg-muted/20">
+      <h2 class="text-base font-semibold text-foreground flex items-center gap-2">
+        <i data-lucide="building-2" class="w-4 h-4 text-primary"></i>
+        <span>Institute Profile &amp; Receipt Configuration</span>
+      </h2>
+      <p class="text-xs text-muted-foreground mt-0.5">
+        These parameters appear on official student fee receipts, reports, and tax declarations.
+      </p>
+    </div>
+
+    <div class="p-6">
+      <form method="POST" action="{% url 'settings_manage' %}" class="space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_profile">
+
+        <!-- Row 1: Name & Tagline -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground"></i>
+              <span>Institute Name (Printed on Receipts) *</span>
+            </label>
+            <input
+              type="text"
+              name="institute_name"
+              value="{{ settings.institute_name }}"
+              placeholder="e.g. Sutawane Classes"
+              required
+              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+            >
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-muted-foreground"></i>
+              <span>Tagline / Academic Subtitle</span>
+            </label>
+            <input
+              type="text"
+              name="tagline"
+              value="{{ settings.tagline }}"
+              placeholder="e.g. Excellence in Coaching &amp; Board Preparations"
+              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+            >
+          </div>
+        </div>
+
+        <!-- Row 2: Phone, Email, Website -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <i data-lucide="phone" class="w-3.5 h-3.5 text-muted-foreground"></i>
+              <span>Central Contact Phone</span>
+            </label>
+            <input
+              type="text"
+              name="phone"
+              value="{{ settings.phone }}"
+              placeholder="+91 98765 43210"
+              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+            >
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <i data-lucide="mail" class="w-3.5 h-3.5 text-muted-foreground"></i>
+              <span>Official Email Address</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value="{{ settings.email }}"
+              placeholder="contact@sutawaneclasses.com"
+              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+            >
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <i data-lucide="globe" class="w-3.5 h-3.5 text-muted-foreground"></i>
+              <span>Official Website / Portal</span>
+            </label>
+            <input
+              type="text"
+              name="website"
+              value="{{ settings.website }}"
+              placeholder="www.sutawaneclasses.com"
+              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+            >
+          </div>
+        </div>
+
+        <!-- Row 3: Address -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            <span>Central Head Office Address</span>
+          </label>
+          <input
+            type="text"
+            name="address"
+            value="{{ settings.address }}"
+            placeholder="Central Head Office, Station Road, Maharashtra"
+            class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+          >
+        </div>
+
+        <!-- Row 4: Receipt Footer Terms -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            <span>Receipt Footer Terms &amp; Conditions</span>
+          </label>
+          <input
+            type="text"
+            name="receipt_footer"
+            value="{{ settings.receipt_footer }}"
+            placeholder="e.g. Fees once paid are non-refundable. Receipts must be preserved."
+            class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+          >
+        </div>
+
+        <div class="pt-4 border-t flex justify-end">
+          <button
+            type="submit"
+            class="inline-flex items-center gap-2 text-xs h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+          >
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>Save Institute Settings</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,667 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% load static %}
+
+{% block title %}Daily Financial Statement &amp; Day Book — Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full">
+  <!-- Page Header -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 no-print">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="file-spreadsheet" class="w-6 h-6 text-primary"></i>
+        <span>Daily Financial Statement &amp; Day Book Register</span>
+      </h1>
+      <p class="text-sm text-muted-foreground mt-0.5">
+        Cash book reconciliation, real-time fee receipts, and center operational expenses.
+      </p>
+    </div>
+
+    <!-- Global Action Toolbar -->
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Return to Reports Hub -->
+      <a
+        href="{% url 'financial_reports' %}"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs font-medium transition-colors"
+      >
+        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+        <span>Reports Suite</span>
+      </a>
+
+      <!-- Official Print Modal Trigger -->
+      <button
+        type="button"
+        onclick="openOfficialPrintModal()"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs font-medium transition-colors cursor-pointer"
+        title="Open Printable Institutional Statement (Ctrl+P)"
+      >
+        <i data-lucide="printer" class="w-3.5 h-3.5 text-primary"></i>
+        <span>Print Statement</span>
+      </button>
+
+      <!-- Export to Excel -->
+      <a
+        href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-medium transition-colors"
+      >
+        <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+        <span>Export Excel</span>
+      </a>
+
+      <!-- Export to PDF -->
+      <a
+        href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=pdf"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition-colors"
+      >
+        <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
+        <span>Export PDF</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Ribbon & Scope Controls -->
+  <div class="bg-card border rounded-xl p-4 shadow-xs space-y-4 no-print">
+    <form method="GET" id="dailyReportFilterForm" class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <!-- Mode Switcher Tabs -->
+        <div class="flex items-center bg-muted/60 p-1 rounded-lg border gap-1">
+          <button
+            type="submit"
+            name="mode"
+            value="DAILY"
+            class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer {% if active_mode == 'DAILY' %}bg-background text-foreground shadow-xs{% else %}text-muted-foreground hover:text-foreground{% endif %}"
+          >
+            Daily Statement
+          </button>
+          <button
+            type="submit"
+            name="mode"
+            value="MONTHLY"
+            class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer {% if active_mode == 'MONTHLY' %}bg-background text-foreground shadow-xs{% else %}text-muted-foreground hover:text-foreground{% endif %}"
+          >
+            Monthly Statement
+          </button>
+          <button
+            type="submit"
+            name="mode"
+            value="CUSTOM"
+            class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer {% if active_mode == 'CUSTOM' %}bg-background text-foreground shadow-xs{% else %}text-muted-foreground hover:text-foreground{% endif %}"
+          >
+            Custom Range
+          </button>
+        </div>
+
+        <!-- Scope Selectors (Branch & Session) -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Branch Selector -->
+          <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
+            <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            <select
+              name="branch_id"
+              onchange="document.getElementById('dailyReportFilterForm').submit()"
+              class="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-foreground"
+            >
+              <option value="ALL" {% if selected_branch_id == 'ALL' %}selected{% endif %}>All Branches</option>
+              {% for b in branches %}
+                <option value="{{ b.id }}" {% if selected_branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Session Selector -->
+          <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
+            <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            <select
+              name="session_id"
+              onchange="document.getElementById('dailyReportFilterForm').submit()"
+              class="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-foreground"
+            >
+              <option value="ALL" {% if selected_session_id == 'ALL' %}selected{% endif %}>All Sessions</option>
+              {% for s in sessions %}
+                <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
+                  {{ s.name }}{% if s.is_current %} (Current){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode-Specific Input Selectors -->
+      <div class="flex flex-wrap items-center gap-3 pt-3 border-t">
+        <input type="hidden" name="mode" value="{{ active_mode }}">
+        <input type="hidden" name="table_tab" value="{{ table_tab }}">
+
+        {% if active_mode == 'DAILY' %}
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-muted-foreground uppercase">Target Date:</label>
+            <input
+              type="date"
+              name="date"
+              value="{{ daily_date }}"
+              onchange="document.getElementById('dailyReportFilterForm').submit()"
+              class="h-8 px-2.5 rounded-md border border-input bg-background text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none"
+            >
+          </div>
+          <button
+            type="button"
+            onclick="document.querySelector('input[name=date]').value='{{ today_str }}'; document.getElementById('dailyReportFilterForm').submit();"
+            class="text-xs font-semibold px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground transition-colors cursor-pointer"
+          >
+            Today
+          </button>
+        {% elif active_mode == 'MONTHLY' %}
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-muted-foreground uppercase">Month:</label>
+            <select
+              name="month"
+              onchange="document.getElementById('dailyReportFilterForm').submit()"
+              class="h-8 px-2.5 rounded-md border border-input bg-background text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
+            >
+              {% for m_idx, m_name in month_names %}
+                <option value="{{ m_idx }}" {% if selected_month == m_idx %}selected{% endif %}>{{ m_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-muted-foreground uppercase">Year:</label>
+            <select
+              name="year"
+              onchange="document.getElementById('dailyReportFilterForm').submit()"
+              class="h-8 px-2.5 rounded-md border border-input bg-background text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
+            >
+              {% for y in years %}
+                <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        {% else %}
+          <!-- CUSTOM -->
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-muted-foreground uppercase">From:</label>
+            <input
+              type="date"
+              name="start_date"
+              value="{{ custom_start_date }}"
+              class="h-8 px-2.5 rounded-md border border-input bg-background text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none"
+            >
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-muted-foreground uppercase">To:</label>
+            <input
+              type="date"
+              name="end_date"
+              value="{{ custom_end_date }}"
+              class="h-8 px-2.5 rounded-md border border-input bg-background text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none"
+            >
+          </div>
+          <button
+            type="submit"
+            class="h-8 px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Apply Filter
+          </button>
+        {% endif %}
+
+        <div class="ml-auto text-xs font-semibold text-primary">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>
+          <span>{{ period_label }}</span>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- 4 Executive Summary KPI Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <!-- Total Realized Collections -->
+    <div class="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-800 rounded-xl shadow-xs">
+      <div class="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+        <span>Fee Collections Realized</span>
+        <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i>
+      </div>
+      <div class="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-2">
+        ₹{{ summary.totalCollections|floatformat:0|intcomma }}
+      </div>
+      <p class="text-xs text-emerald-700/80 dark:text-emerald-400/80 mt-1 font-medium">
+        {{ summary.collectionsCount }} receipts issued
+      </p>
+    </div>
+
+    <!-- Total Center Expenses -->
+    <div class="p-4 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-800 rounded-xl shadow-xs">
+      <div class="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center justify-between">
+        <span>Center Expenditures</span>
+        <i data-lucide="trending-down" class="w-4 h-4 text-rose-600"></i>
+      </div>
+      <div class="text-2xl font-black text-rose-700 dark:text-rose-300 mt-2">
+        ₹{{ summary.totalExpenses|floatformat:0|intcomma }}
+      </div>
+      <p class="text-xs text-rose-700/80 dark:text-rose-400/80 mt-1 font-medium">
+        {{ summary.expensesCount }} vouchers approved
+      </p>
+    </div>
+
+    <!-- Net Cash Movement -->
+    <div class="p-4 border rounded-xl shadow-xs {% if summary.isProfit %}bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700{% else %}bg-rose-50 dark:bg-rose-950/30 border-rose-400 dark:border-rose-700{% endif %}">
+      <div class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+        <span>Net Operating Profit / Loss</span>
+        {% if summary.isProfit %}
+          <i data-lucide="arrow-up-right" class="w-4 h-4 text-emerald-600"></i>
+        {% else %}
+          <i data-lucide="arrow-down-right" class="w-4 h-4 text-rose-600"></i>
+        {% endif %}
+      </div>
+      <div class="text-2xl font-black mt-2 {% if summary.isProfit %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+        ₹{{ summary.netMovement|floatformat:0|intcomma }}
+      </div>
+      <p class="text-xs text-muted-foreground mt-1 font-medium">
+        {% if summary.isProfit %}Surplus inflow balance{% else %}Deficit outflow exceeded{% endif %}
+      </p>
+    </div>
+
+    <!-- Reconciled Cashbook Status -->
+    <div class="p-4 bg-card border rounded-xl shadow-xs">
+      <div class="text-xs font-bold text-muted-foreground flex items-center justify-between">
+        <span>Audit Status</span>
+        <i data-lucide="shield-check" class="w-4 h-4 text-blue-600"></i>
+      </div>
+      <div class="text-2xl font-black text-foreground mt-2">
+        RECONCILED
+      </div>
+      <p class="text-xs text-muted-foreground mt-1 font-medium">
+        Verified institutional audit trail
+      </p>
+    </div>
+  </div>
+
+  <!-- Dual Tables Views Navigation Tabs -->
+  <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-2 no-print">
+    <div class="flex items-center gap-2">
+      <a
+        href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&table_tab=ALL"
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors {% if table_tab == 'ALL' %}bg-primary text-primary-foreground shadow-xs{% else %}text-muted-foreground hover:bg-muted hover:text-foreground{% endif %}"
+      >
+        <span>All Ledgers (Dual View)</span>
+      </a>
+      <a
+        href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&table_tab=COLLECTIONS"
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors {% if table_tab == 'COLLECTIONS' %}bg-primary text-primary-foreground shadow-xs{% else %}text-muted-foreground hover:bg-muted hover:text-foreground{% endif %}"
+      >
+        <span>Fee Collections ({{ collections|length }})</span>
+      </a>
+      <a
+        href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&table_tab=EXPENSES"
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors {% if table_tab == 'EXPENSES' %}bg-primary text-primary-foreground shadow-xs{% else %}text-muted-foreground hover:bg-muted hover:text-foreground{% endif %}"
+      >
+        <span>Center Expenditures ({{ expenses|length }})</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- TABLE 1: FEE COLLECTIONS REGISTER -->
+  {% if table_tab == 'ALL' or table_tab == 'COLLECTIONS' %}
+  <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
+    <div class="py-3 px-4 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i>
+        <h3 class="text-sm font-bold text-foreground">Fee Collections Inflows Ledger</h3>
+        <span class="text-xs text-muted-foreground">({{ collections|length }} items)</span>
+      </div>
+
+      <!-- Live HTMX Search for Collections -->
+      <div class="relative w-full sm:w-64 no-print">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+        <input
+          type="text"
+          name="q_col"
+          value="{{ q_col }}"
+          placeholder="Search student, receipt, roll..."
+          hx-get="{% url 'daily_reports' %}?table=collections&mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
+          hx-target="#collectionsTableBody"
+          hx-trigger="keyup changed delay:300ms, search"
+          class="h-8 pl-8 pr-3 w-full rounded-md border border-input bg-background text-xs placeholder:text-muted-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+        >
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
+            <th class="py-2.5 px-3 text-center font-semibold text-white w-12">#</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Receipt Number</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Student Name</th>
+            <th class="py-2.5 px-3 text-center font-semibold text-white">Roll No</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Class / Course</th>
+            <th class="py-2.5 px-3 text-center font-semibold text-white">Mode</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Txn / Ref No</th>
+            <th class="py-2.5 px-3 text-center font-semibold text-white">Payment Date</th>
+            <th class="py-2.5 px-3 text-right font-semibold text-white">Amount (₹)</th>
+            <th class="py-2.5 px-3 text-center font-semibold text-white w-20 no-print">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="collectionsTableBody" class="divide-y divide-border">
+          {% include "includes/daily_collections_table_partial.html" %}
+        </tbody>
+        <tfoot>
+          <tr class="bg-muted/30 font-bold border-t-2">
+            <td colspan="8" class="py-2.5 px-3 text-xs uppercase text-foreground">Total Realized Inflows</td>
+            <td class="py-2.5 px-3 text-right font-black text-sm text-emerald-700 dark:text-emerald-400">
+              ₹{{ summary.totalCollections|floatformat:0|intcomma }}
+            </td>
+            <td class="no-print"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- TABLE 2: CENTER EXPENDITURES REGISTER -->
+  {% if table_tab == 'ALL' or table_tab == 'EXPENSES' %}
+  <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
+    <div class="py-3 px-4 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <i data-lucide="receipt" class="w-4 h-4 text-rose-600"></i>
+        <h3 class="text-sm font-bold text-foreground">Center Disbursements &amp; Expenses Ledger</h3>
+        <span class="text-xs text-muted-foreground">({{ expenses|length }} items)</span>
+      </div>
+
+      <!-- Live HTMX Search for Expenses -->
+      <div class="relative w-full sm:w-64 no-print">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+        <input
+          type="text"
+          name="q_exp"
+          value="{{ q_exp }}"
+          placeholder="Search voucher, vendor, category..."
+          hx-get="{% url 'daily_reports' %}?table=expenses&mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}"
+          hx-target="#expensesTableBody"
+          hx-trigger="keyup changed delay:300ms, search"
+          class="h-8 pl-8 pr-3 w-full rounded-md border border-input bg-background text-xs placeholder:text-muted-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+        >
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
+            <th class="py-2.5 px-3 text-center font-semibold text-white w-12">#</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Voucher / Ref No</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Expense Category</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Description / Purpose</th>
+            <th class="py-2.5 px-3 text-left font-semibold text-white">Paid To / Vendor</th>
+            <th class="py-2.5 px-3 text-center font-semibold text-white">Mode</th>
+            <th class="py-2.5 px-3 text-center font-semibold text-white">Disbursement Date</th>
+            <th class="py-2.5 px-3 text-right font-semibold text-white">Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody id="expensesTableBody" class="divide-y divide-border">
+          {% include "includes/daily_expenses_table_partial.html" %}
+        </tbody>
+        <tfoot>
+          <tr class="bg-muted/30 font-bold border-t-2">
+            <td colspan="7" class="py-2.5 px-3 text-xs uppercase text-foreground">Total Disbursed Outflows</td>
+            <td class="py-2.5 px-3 text-right font-black text-sm text-rose-700 dark:text-rose-400">
+              ₹{{ summary.totalExpenses|floatformat:0|intcomma }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal Container for Receipt Modal -->
+<div id="receiptModalContainer"></div>
+
+<!-- Official Institutional Report Print Modal (Matching React OfficialFinancialReportModal.tsx) -->
+<div id="officialPrintModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b bg-muted/20">
+      <div class="flex items-center gap-2">
+        <i data-lucide="printer" class="w-5 h-5 text-primary"></i>
+        <h2 class="text-base font-bold text-foreground">
+          Official Institutional Statement Preview
+        </h2>
+      </div>
+      <button
+        type="button"
+        onclick="closeOfficialPrintModal()"
+        class="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors cursor-pointer"
+      >
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Modal Body (Printable Statement Document) -->
+    <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-950">
+      <div class="bg-background border rounded-lg p-6 shadow-sm max-w-3xl mx-auto space-y-6">
+        <!-- Document Banner Header -->
+        <div class="border-b-2 border-[#28375C] pb-4">
+          <div class="flex justify-between items-start">
+            <div>
+              <h1 class="text-xl font-black text-[#28375C] uppercase tracking-wide">
+                {{ institute_name|default:"SUTAWANE CLASSES" }}
+              </h1>
+              <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                EXCELLENCE IN COACHING &amp; BOARD EXAM PREPARATIONS
+              </p>
+              <p class="text-[11px] text-muted-foreground mt-0.5">
+                Center Campus, Maharashtra • Helpline: +91 7776824564
+              </p>
+            </div>
+            <div class="text-right text-xs">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase">
+                Official Statement
+              </span>
+              <p class="font-bold text-foreground mt-1">Audit: AUD-{{ today_str|slugify }}</p>
+              <p class="text-muted-foreground text-[11px]">{{ period_label }}</p>
+              <p class="text-muted-foreground text-[10px]">Printed: {{ printed_date }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Metrics Summary Bar -->
+        <div class="grid grid-cols-3 gap-3 p-3 bg-muted/30 rounded-lg border text-center">
+          <div>
+            <div class="text-[10px] font-bold text-muted-foreground uppercase">Total Inflows</div>
+            <div class="text-lg font-black text-emerald-700 dark:text-emerald-400 mt-0.5">
+              ₹{{ summary.totalCollections|floatformat:0|intcomma }}
+            </div>
+            <div class="text-[10px] text-muted-foreground">{{ summary.collectionsCount }} receipts</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-muted-foreground uppercase">Total Outflows</div>
+            <div class="text-lg font-black text-rose-700 dark:text-rose-400 mt-0.5">
+              ₹{{ summary.totalExpenses|floatformat:0|intcomma }}
+            </div>
+            <div class="text-[10px] text-muted-foreground">{{ summary.expensesCount }} vouchers</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-muted-foreground uppercase">Net Operating Balance</div>
+            <div class="text-lg font-black {% if summary.isProfit %}text-emerald-700 dark:text-emerald-400{% else %}text-rose-700 dark:text-rose-400{% endif %} mt-0.5">
+              ₹{{ summary.netMovement|floatformat:0|intcomma }}
+            </div>
+            <div class="text-[10px] text-muted-foreground">{% if summary.isProfit %}Net Surplus{% else %}Net Deficit{% endif %}</div>
+          </div>
+        </div>
+
+        <!-- Statement Ledgers Summary -->
+        <div class="space-y-4 text-xs">
+          <div>
+            <h4 class="font-bold text-foreground mb-2 flex items-center justify-between">
+              <span>Fee Collections Realized</span>
+              <span class="text-muted-foreground">{{ collections|length }} items</span>
+            </h4>
+            <div class="border rounded-md overflow-hidden">
+              <table class="w-full text-[11px]">
+                <thead class="bg-muted text-muted-foreground font-semibold">
+                  <tr>
+                    <th class="py-1.5 px-2 text-left">#</th>
+                    <th class="py-1.5 px-2 text-left">Receipt No</th>
+                    <th class="py-1.5 px-2 text-left">Student Name</th>
+                    <th class="py-1.5 px-2 text-center">Mode</th>
+                    <th class="py-1.5 px-2 text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  {% for p in collections|slice:":10" %}
+                    <tr>
+                      <td class="py-1.5 px-2 text-muted-foreground">{{ forloop.counter }}</td>
+                      <td class="py-1.5 px-2 font-mono font-bold">{{ p.receipt_number }}</td>
+                      <td class="py-1.5 px-2">{{ p.student.full_name|default:"—" }}</td>
+                      <td class="py-1.5 px-2 text-center uppercase">{{ p.payment_mode }}</td>
+                      <td class="py-1.5 px-2 text-right font-bold">₹{{ p.total_amount|floatformat:0|intcomma }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="5" class="py-3 text-center text-muted-foreground">No fee receipts in this period.</td>
+                    </tr>
+                  {% endfor %}
+                  {% if collections|length > 10 %}
+                    <tr>
+                      <td colspan="5" class="py-1.5 px-2 text-center text-muted-foreground italic font-medium">
+                        + {{ collections|length|add:"-10" }} more receipts (see full download or export)
+                      </td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="font-bold text-foreground mb-2 flex items-center justify-between">
+              <span>Center Expenditures Incurred</span>
+              <span class="text-muted-foreground">{{ expenses|length }} items</span>
+            </h4>
+            <div class="border rounded-md overflow-hidden">
+              <table class="w-full text-[11px]">
+                <thead class="bg-muted text-muted-foreground font-semibold">
+                  <tr>
+                    <th class="py-1.5 px-2 text-left">#</th>
+                    <th class="py-1.5 px-2 text-left">Voucher No</th>
+                    <th class="py-1.5 px-2 text-left">Category</th>
+                    <th class="py-1.5 px-2 text-left">Purpose / Vendor</th>
+                    <th class="py-1.5 px-2 text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  {% for e in expenses|slice:":10" %}
+                    <tr>
+                      <td class="py-1.5 px-2 text-muted-foreground">{{ forloop.counter }}</td>
+                      <td class="py-1.5 px-2 font-mono font-bold">{{ e.reference_number|default:"EXP" }}</td>
+                      <td class="py-1.5 px-2">{{ e.category.name|default:"General" }}</td>
+                      <td class="py-1.5 px-2 truncate max-w-[200px]">{{ e.description|default:e.vendor|default:"—" }}</td>
+                      <td class="py-1.5 px-2 text-right font-bold text-rose-700 dark:text-rose-400">
+                        ₹{{ e.amount|floatformat:0|intcomma }}
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="5" class="py-3 text-center text-muted-foreground">No center expenditures in this period.</td>
+                    </tr>
+                  {% endfor %}
+                  {% if expenses|length > 10 %}
+                    <tr>
+                      <td colspan="5" class="py-1.5 px-2 text-center text-muted-foreground italic font-medium">
+                        + {{ expenses|length|add:"-10" }} more vouchers (see full download or export)
+                      </td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Official Signatures Strip -->
+        <div class="grid grid-cols-3 gap-6 pt-8 border-t text-[11px] text-muted-foreground text-center">
+          <div>
+            <div class="border-b border-dashed pb-6"></div>
+            <p class="font-bold text-foreground mt-1.5">Prepared By</p>
+            <p class="text-[10px]">Accounts Executive</p>
+          </div>
+          <div>
+            <div class="border-b border-dashed pb-6"></div>
+            <p class="font-bold text-foreground mt-1.5">Verified By</p>
+            <p class="text-[10px]">Center Manager</p>
+          </div>
+          <div>
+            <div class="border-b border-dashed pb-6"></div>
+            <p class="font-bold text-foreground mt-1.5">Approved &amp; Audited By</p>
+            <p class="text-[10px]">Director / Owner</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer Toolbar -->
+    <div class="flex items-center justify-between px-6 py-3.5 border-t bg-muted/20">
+      <button
+        type="button"
+        onclick="closeOfficialPrintModal()"
+        class="h-9 px-4 rounded-md border border-input bg-background hover:bg-muted text-xs font-semibold transition-colors cursor-pointer"
+      >
+        Close Preview
+      </button>
+
+      <div class="flex items-center gap-2">
+        <a
+          href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=pdf"
+          class="inline-flex items-center gap-1.5 h-9 px-4 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold transition-colors"
+        >
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Download PDF</span>
+        </a>
+
+        <button
+          type="button"
+          onclick="window.print()"
+          class="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors cursor-pointer"
+        >
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <span>Print Document</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openOfficialPrintModal() {
+    const modal = document.getElementById('officialPrintModal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function closeOfficialPrintModal() {
+    const modal = document.getElementById('officialPrintModal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  // Intercept Ctrl+P / Cmd+P to open the official modal
+  window.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      e.preventDefault();
+      openOfficialPrintModal();
+    }
+  });
+
+  // Re-initialize Lucide icons after HTMX swaps
+  document.body.addEventListener('htmx:afterSwap', function() {
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  });
+</script>
+{% endblock %}

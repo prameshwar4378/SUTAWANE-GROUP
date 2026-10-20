@@ -1,0 +1,295 @@
+<div id="promoteStudentModalBackdrop" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+    <div class="p-5 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
+      <h2 class="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
+        <i data-lucide="sparkles" class="w-5 h-5 text-amber-500"></i>
+        Promote Student to Next Academic Session
+      </h2>
+      <button type="button" onclick="closePromoteModal()" class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-accent transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    {% if success %}
+    <!-- Success Feedback View -->
+    <div class="p-6 space-y-4">
+      <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-lg space-y-2">
+        <div class="flex items-center gap-2 font-bold text-sm">
+          <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i>
+          Student Promoted Successfully!
+        </div>
+        <p class="text-xs">
+          <strong>{{ student.full_name }}</strong> has been enrolled in <strong>{{ new_admission.standard }}</strong> for academic session <strong>{{ new_admission.session.name }}</strong> with Roll No: <code class="font-mono font-bold">{{ new_admission.roll_number }}</code>.
+        </p>
+        {% if previous_due_recorded > 0 %}
+        <p class="text-xs text-rose-700 dark:text-rose-400 font-semibold pt-1">
+          Unpaid balance of ₹{{ previous_due_recorded|floatformat:0 }} successfully carried forward into Previous Session Dues ledger.
+        </p>
+        {% endif %}
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onclick="location.reload()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 cursor-pointer shadow-sm"
+        >
+          Done & Refresh
+        </button>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- Promotion Form -->
+    <form
+      hx-post="{% url 'promote_student' student.id %}"
+      hx-target="#promoteStudentModalContainer"
+      class="p-6 space-y-4"
+    >
+      {% csrf_token %}
+
+      {% if form_error %}
+      <div class="p-3 bg-destructive/10 text-destructive text-xs rounded-md flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
+        <span>{{ form_error }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Current Session Summary Card -->
+      <div class="bg-muted/40 border border-border rounded-lg p-3 space-y-2">
+        <div class="flex items-center justify-between font-semibold text-sm text-foreground">
+          <span class="flex items-center gap-2">
+            <i data-lucide="graduation-cap" class="w-4 h-4 text-primary"></i>
+            {{ student.full_name }}
+          </span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono font-medium border border-border bg-background">
+            Roll: {{ current_admission.roll_number|default:"—" }}
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-muted-foreground pt-1 border-t border-border/60 text-[11px]">
+          <div>
+            Current Session: <span class="font-semibold text-foreground">{{ current_admission.session.name|default:"—" }}</span>
+          </div>
+          <div>
+            Current Class: <span class="font-semibold text-foreground">{{ current_admission.standard|default:"—" }}</span>
+          </div>
+          <div>
+            Branch: <span class="font-semibold text-foreground">{{ current_admission.branch.name|default:"—" }}</span>
+          </div>
+          <div>
+            Current Dues:
+            <span class="font-semibold {% if current_pending_due > 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">
+              ₹{{ current_pending_due|floatformat:0 }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Target Session and Branch Selection -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-primary"></i>
+            Target Academic Session *
+          </label>
+          <select
+            name="target_session_id"
+            hx-get="{% url 'student_promotion_preview' student.id %}"
+            hx-target="#promoteStudentModalContainer"
+            hx-trigger="change"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            required
+          >
+            {% for s in sessions %}
+            <option value="{{ s.id }}" {% if target_session and s.id == target_session.id %}selected{% endif %}>
+              {{ s.display_name|default:s.name }} {% if s.is_current %}(Current){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
+            <i data-lucide="building-2" class="w-3.5 h-3.5 text-primary"></i>
+            Target Branch *
+          </label>
+          <select
+            name="target_branch_id"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            required
+          >
+            {% for b in branches %}
+            <option value="{{ b.id }}" {% if b.id == current_admission.branch.id %}selected{% endif %}>
+              {{ b.name }} ({{ b.code }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Warning if student is already admitted in the target session -->
+      {% if is_already_promoted %}
+      <div class="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-400 rounded-lg flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+        <div class="text-xs">
+          <p class="font-semibold">Student is already admitted in this academic session!</p>
+          <p class="text-[11px] mt-0.5">
+            {{ student.full_name }} already holds an active enrollment in {{ target_session.name }}. Please select another session.
+          </p>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Target Standard and New Roll Number -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground">
+            Promoted Standard / Class *
+          </label>
+          <select
+            name="target_standard"
+            id="targetStandardSelect"
+            onchange="onPromoteStandardChange(this)"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            required
+          >
+            {% for c in courses %}
+            <option
+              value="{{ c.name }}"
+              data-fee="{{ c.default_fee|default:30000 }}"
+              {% if c.name == suggested_standard %}selected{% endif %}
+            >
+              {{ c.name }} {% if c.code %}({{ c.code }}){% endif %} {% if c.default_fee %}· ₹{{ c.default_fee|floatformat:0 }}{% endif %}
+            </option>
+            {% endfor %}
+            {% if suggested_standard and not standard_in_courses %}
+            <option value="{{ suggested_standard }}" data-fee="30000" selected>
+              {{ suggested_standard }} (Suggested)
+            </option>
+            {% endif %}
+          </select>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground">
+            New Session Roll Number *
+          </label>
+          <input
+            type="text"
+            name="new_roll_number"
+            value="{{ suggested_roll }}"
+            placeholder="e.g. SC-101-N"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- New Session Agreed Total Fees -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="font-semibold text-xs text-foreground">Agreed Total Fees for New Session (₹) *</label>
+          <span class="text-[11px] text-emerald-600 font-medium">Flexible payment (any amount, anytime)</span>
+        </div>
+        <input
+          type="number"
+          name="new_total_fees"
+          id="newTotalFeesInput"
+          min="0"
+          step="500"
+          value="{{ suggested_fees|floatformat:0 }}"
+          placeholder="30000"
+          class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          required
+        />
+      </div>
+
+      <!-- Outstanding Balance Carry-Forward Section -->
+      {% if current_pending_due > 0 %}
+      <div class="p-3 border rounded-lg bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-semibold text-xs">
+            <i data-lucide="indian-rupee" class="w-4 h-4"></i>
+            <span>Unpaid Dues from Current Session: ₹{{ current_pending_due|floatformat:0 }}</span>
+          </div>
+          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white">
+            Pending Balance
+          </span>
+        </div>
+
+        <p class="text-[11px] text-muted-foreground">
+          By default, this unpaid balance is carried forward into a dedicated <span class="font-semibold text-foreground">PreviousSessionDue</span> record. It will not alter the new session's agreed fee structure.
+        </p>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input
+            type="checkbox"
+            name="carry_forward_due"
+            id="carryForwardDueCb"
+            value="true"
+            checked
+            onchange="toggleDueNotesInput(this)"
+            class="w-4 h-4 rounded text-primary border-gray-300 focus:ring-primary cursor-pointer"
+          />
+          <label for="carryForwardDueCb" class="font-medium text-xs text-foreground cursor-pointer select-none">
+            Carry forward unpaid dues (₹{{ current_pending_due|floatformat:0 }}) to next session
+          </label>
+        </div>
+
+        <div id="dueNotesContainer" class="pt-1.5">
+          <input
+            type="text"
+            name="due_notes"
+            value="Carried forward due from {{ current_admission.session.name|default:'previous session' }} ({{ current_admission.standard|default:'' }})"
+            placeholder="Due reference / description..."
+            class="w-full h-8 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+      {% else %}
+      <div class="p-3 border rounded-lg bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
+        <i data-lucide="check-circle-2" class="w-4 h-4 flex-shrink-0"></i>
+        <span>Zero pending dues! Student has cleared all previous fee obligations.</span>
+      </div>
+      {% endif %}
+
+      <!-- Footer Actions -->
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
+        <button
+          type="button"
+          onclick="closePromoteModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-9 px-4 transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          {% if is_already_promoted %}disabled{% endif %}
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white h-9 px-4 gap-2 transition-colors cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          Confirm Promotion
+        </button>
+      </div>
+    </form>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  function onPromoteStandardChange(select) {
+    const selectedOption = select.options[select.selectedIndex];
+    const fee = selectedOption.getAttribute('data-fee');
+    const feeInput = document.getElementById('newTotalFeesInput');
+    if (fee && feeInput) {
+      feeInput.value = fee;
+    }
+  }
+
+  function toggleDueNotesInput(cb) {
+    const container = document.getElementById('dueNotesContainer');
+    if (container) {
+      container.style.display = cb.checked ? 'block' : 'none';
+    }
+  }
+</script>

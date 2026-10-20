@@ -1,0 +1,766 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block title %}Student Fee Dues Register — Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- ========================================================= -->
+  <!-- PAGE HEADER & ACTION TOOLBAR                              -->
+  <!-- ========================================================= -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="clock-alert" class="w-6 h-6 text-rose-600"></i>
+        <span>Student Fee Dues Register</span>
+      </h1>
+      <p class="text-xs sm:text-sm text-muted-foreground mt-0.5">
+        Track student fee balances, identify overdue accounts, send WhatsApp reminders, and collect pending amounts.
+      </p>
+    </div>
+
+    <!-- Primary Action -->
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <!-- Collect Fees Now Button -->
+      <a
+        href="{% url 'fee_collect' %}"
+        class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 gap-2 transition-colors cursor-pointer shadow-sm"
+      >
+        <i data-lucide="credit-card" class="w-4 h-4"></i>
+        <span>Collect Fees Now</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 4 KPI METRIC CARDS                                        -->
+  <!-- ========================================================= -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- 1. Overdue Dues -->
+    <a
+      href="?status=OVERDUE"
+      class="rounded-xl border border-rose-200 bg-rose-50/40 p-4 shadow-sm transition-all hover:shadow-md hover:border-rose-400 cursor-pointer block {% if filters.status == 'OVERDUE' %}ring-2 ring-rose-500 bg-rose-50/80 shadow-md{% endif %}"
+    >
+      <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-rose-700">
+        <span>Overdue Dues</span>
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+      </div>
+      <div class="text-2xl font-black text-rose-600 mt-2">
+        ₹{{ kpis.total_overdue_amount|floatformat:0|intcomma }}
+      </div>
+      <p class="text-[11px] text-muted-foreground mt-0.5">
+        {{ kpis.overdue_count }} accounts overdue
+      </p>
+    </a>
+
+    <!-- 2. Due Today -->
+    <a
+      href="?status=DUE"
+      class="rounded-xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm transition-all hover:shadow-md hover:border-amber-400 cursor-pointer block {% if filters.status == 'DUE' %}ring-2 ring-amber-500 bg-amber-50/80 shadow-md{% endif %}"
+    >
+      <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-amber-700">
+        <span>Due Today</span>
+        <i data-lucide="calendar" class="w-4 h-4 text-amber-600"></i>
+      </div>
+      <div class="text-2xl font-black text-amber-600 mt-2">
+        ₹{{ kpis.total_due_today_amount|floatformat:0|intcomma }}
+      </div>
+      <p class="text-[11px] text-muted-foreground mt-0.5">
+        {{ kpis.due_today_count }} accounts due today
+      </p>
+    </a>
+
+    <!-- 3. Partially Settled -->
+    <a
+      href="?status=PARTIAL"
+      class="rounded-xl border border-blue-200 bg-blue-50/40 p-4 shadow-sm transition-all hover:shadow-md hover:border-blue-400 cursor-pointer block {% if filters.status == 'PARTIAL' %}ring-2 ring-blue-500 bg-blue-50/80 shadow-md{% endif %}"
+    >
+      <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-blue-700">
+        <span>Partially Settled</span>
+        <i data-lucide="trending-down" class="w-4 h-4 text-blue-600"></i>
+      </div>
+      <div class="text-2xl font-black text-blue-600 mt-2">
+        {{ kpis.partial_count }} Accounts
+      </div>
+      <p class="text-[11px] text-muted-foreground mt-0.5">
+        Partial payments received
+      </p>
+    </a>
+
+    <!-- 4. Total Outstanding -->
+    <a
+      href="?status=ALL"
+      class="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-slate-400 cursor-pointer block {% if filters.status == 'ALL' %}ring-2 ring-slate-800 shadow-md{% endif %}"
+    >
+      <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <span>Total Outstanding</span>
+        <i data-lucide="clock-alert" class="w-4 h-4 text-slate-500"></i>
+      </div>
+      <div class="text-2xl font-black text-foreground mt-2">
+        ₹{{ kpis.total_pending_amount|floatformat:0|intcomma }}
+      </div>
+      <p class="text-[11px] text-muted-foreground mt-0.5">
+        Across {{ kpis.total_accounts }} pending accounts
+      </p>
+    </a>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- QUICK STATUS FILTER TABS                                  -->
+  <!-- ========================================================= -->
+  <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-fit overflow-x-auto shadow-2xs">
+    <!-- All Pending -->
+    <a
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=ALL"
+      class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'ALL' %}bg-slate-900 text-white border-slate-900 shadow-sm{% else %}border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/80{% endif %}"
+    >
+      <i data-lucide="clock-alert" class="w-3.5 h-3.5 {% if filters.status == 'ALL' %}text-white{% else %}text-slate-500{% endif %}"></i>
+      <span>All Pending</span>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if filters.status == 'ALL' %}bg-white/20 text-white{% else %}bg-slate-200 text-slate-700{% endif %}">
+        {{ kpis.total_accounts }}
+      </span>
+    </a>
+
+    <!-- Overdue -->
+    <a
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=OVERDUE"
+      class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'OVERDUE' %}bg-rose-600 text-white border-rose-600 shadow-sm{% else %}border-transparent text-rose-700 hover:text-rose-800 hover:bg-rose-50{% endif %}"
+    >
+      <i data-lucide="alert-triangle" class="w-3.5 h-3.5 {% if filters.status == 'OVERDUE' %}text-white{% else %}text-rose-500{% endif %}"></i>
+      <span>Overdue</span>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if filters.status == 'OVERDUE' %}bg-white/25 text-white{% else %}bg-rose-100 text-rose-700{% endif %}">
+        {{ kpis.overdue_count }}
+      </span>
+    </a>
+
+    <!-- Due Today -->
+    <a
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=DUE"
+      class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'DUE' %}bg-amber-600 text-white border-amber-600 shadow-sm{% else %}border-transparent text-amber-700 hover:text-amber-800 hover:bg-amber-50{% endif %}"
+    >
+      <i data-lucide="calendar" class="w-3.5 h-3.5 {% if filters.status == 'DUE' %}text-white{% else %}text-amber-500{% endif %}"></i>
+      <span>Due Today</span>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if filters.status == 'DUE' %}bg-white/25 text-white{% else %}bg-amber-100 text-amber-800{% endif %}">
+        {{ kpis.due_today_count }}
+      </span>
+    </a>
+
+    <!-- Partially Paid -->
+    <a
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=PARTIAL"
+      class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'PARTIAL' %}bg-blue-600 text-white border-blue-600 shadow-sm{% else %}border-transparent text-blue-700 hover:text-blue-800 hover:bg-blue-50{% endif %}"
+    >
+      <i data-lucide="trending-down" class="w-3.5 h-3.5 {% if filters.status == 'PARTIAL' %}text-white{% else %}text-blue-500{% endif %}"></i>
+      <span>Partially Paid</span>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if filters.status == 'PARTIAL' %}bg-white/25 text-white{% else %}bg-blue-100 text-blue-700{% endif %}">
+        {{ kpis.partial_count }}
+      </span>
+    </a>
+
+    <!-- Upcoming Dues -->
+    <a
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=UPCOMING"
+      class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'UPCOMING' %}bg-emerald-600 text-white border-emerald-600 shadow-sm{% else %}border-transparent text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50{% endif %}"
+    >
+      <i data-lucide="calendar-days" class="w-3.5 h-3.5 {% if filters.status == 'UPCOMING' %}text-white{% else %}text-emerald-500{% endif %}"></i>
+      <span>Upcoming Dues</span>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if filters.status == 'UPCOMING' %}bg-white/25 text-white{% else %}bg-emerald-100 text-emerald-800{% endif %}">
+        {{ kpis.upcoming_count }}
+      </span>
+    </a>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- ADVANCED FILTER TOOLBAR                                   -->
+  <!-- ========================================================= -->
+  <div class="bg-card p-4 rounded-xl border border-border shadow-sm space-y-3">
+    <form method="GET" action="{% url 'fees_dues' %}" id="duesFilterForm">
+      <!-- Row 1: Search, Session, Branch, Standard -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <!-- Search Input -->
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground"></i>
+          <input
+            type="text"
+            name="q"
+            value="{{ filters.q }}"
+            placeholder="Search name, roll, phone, standard..."
+            class="pl-9 pr-8 h-9 text-xs w-full rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+          />
+          {% if filters.q %}
+          <a
+            href="?{% for k, v in filters.items %}{% if k != 'q' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}"
+            class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+            title="Clear search"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Academic Session Filter -->
+        <div class="flex items-center gap-1.5 bg-background border border-input rounded-md px-2.5 shadow-xs">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            name="session_id"
+            onchange="this.form.submit()"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.session_id == 'ALL' %}selected{% endif %}>All Academic Sessions</option>
+            {% for s in sessions %}
+            <option value="{{ s.id }}" {% if filters.session_id == s.id %}selected{% endif %}>{{ s.display_name|default:s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Branch Filter -->
+        <div class="flex items-center gap-1.5 bg-background border border-input rounded-md px-2.5 shadow-xs">
+          <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            name="branch_id"
+            onchange="this.form.submit()"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.branch_id == 'ALL' %}selected{% endif %}>All Branch Locations</option>
+            {% for b in branches %}
+            <option value="{{ b.id }}" {% if filters.branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Class / Standard Filter -->
+        <div class="flex items-center gap-1.5 bg-background border border-input rounded-md px-2.5 shadow-xs">
+          <i data-lucide="filter" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            name="standard"
+            onchange="this.form.submit()"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.standard == 'ALL' %}selected{% endif %}>All Classes / Standards</option>
+            {% for std in available_standards %}
+            <option value="{{ std }}" {% if filters.standard == std %}selected{% endif %}>{{ std }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Row 2: Status, Date Presets, Custom Range -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2.5">
+        <!-- Due Status Filter -->
+        <div class="flex items-center bg-background border border-input rounded-md px-2.5 shadow-xs">
+          <select
+            name="status"
+            onchange="this.form.submit()"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.status == 'ALL' %}selected{% endif %}>All Statuses (Consolidated)</option>
+            <option value="OVERDUE" {% if filters.status == 'OVERDUE' %}selected{% endif %}>Overdue Only</option>
+            <option value="DUE" {% if filters.status == 'DUE' %}selected{% endif %}>Due Today Only</option>
+            <option value="PARTIAL" {% if filters.status == 'PARTIAL' %}selected{% endif %}>Partially Settled</option>
+            <option value="UPCOMING" {% if filters.status == 'UPCOMING' %}selected{% endif %}>Upcoming Commitments</option>
+          </select>
+        </div>
+
+        <!-- Date Range Preset -->
+        <div class="flex items-center gap-1.5 bg-background border border-input rounded-md px-2.5 shadow-xs">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            name="date_preset"
+            id="datePresetSelect"
+            onchange="handleDatePresetChange(this)"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.date_preset == 'ALL' %}selected{% endif %}>All Due Dates</option>
+            <option value="OVERDUE" {% if filters.date_preset == 'OVERDUE' %}selected{% endif %}>Overdue (Past Due)</option>
+            <option value="TODAY" {% if filters.date_preset == 'TODAY' %}selected{% endif %}>Due Today</option>
+            <option value="THIS_WEEK" {% if filters.date_preset == 'THIS_WEEK' %}selected{% endif %}>Due This Week</option>
+            <option value="THIS_MONTH" {% if filters.date_preset == 'THIS_MONTH' %}selected{% endif %}>Due This Month</option>
+            <option value="CUSTOM" {% if filters.date_preset == 'CUSTOM' %}selected{% endif %}>Custom Date Range...</option>
+          </select>
+        </div>
+
+        <!-- Custom Date Range Inputs -->
+        <div id="customDateFromContainer" class="flex items-center gap-1.5 bg-background border border-input rounded-md px-2 shadow-xs {% if filters.date_preset != 'CUSTOM' %}hidden{% endif %}">
+          <span class="text-[11px] text-muted-foreground font-medium whitespace-nowrap">From:</span>
+          <input
+            type="date"
+            name="start_date"
+            value="{{ filters.start_date }}"
+            class="w-full h-9 bg-transparent text-xs focus:outline-none"
+          />
+        </div>
+
+        <div id="customDateToContainer" class="flex items-center gap-1.5 bg-background border border-input rounded-md px-2 shadow-xs {% if filters.date_preset != 'CUSTOM' %}hidden{% endif %}">
+          <span class="text-[11px] text-muted-foreground font-medium whitespace-nowrap">To:</span>
+          <input
+            type="date"
+            name="end_date"
+            value="{{ filters.end_date }}"
+            class="w-full h-9 bg-transparent text-xs focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <!-- Row 3: Page Size & Reset -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border mt-3 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="text-muted-foreground font-medium">Page Size:</span>
+          <select
+            name="page_size"
+            onchange="this.form.submit()"
+            class="h-7 bg-background border border-input rounded px-2 text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
+            <option value="25" {% if filters.page_size == 25 %}selected{% endif %}>25 per page</option>
+            <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
+            <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100 per page</option>
+            <option value="10000" {% if filters.page_size == 10000 %}selected{% endif %}>Show All</option>
+          </select>
+
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 transition-colors cursor-pointer"
+          >
+            Apply Filters
+          </button>
+        </div>
+
+        {% if has_active_filters %}
+        <a
+          href="{% url 'fees_dues' %}"
+          class="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-1 rounded hover:bg-rose-50 transition-colors"
+        >
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Reset All Filters</span>
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MAIN DUES MASTER TABLE CARD                               -->
+  <!-- ========================================================= -->
+  <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm overflow-hidden">
+    <div class="py-3 px-4 bg-muted/20 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="text-sm font-semibold flex items-center gap-2 text-foreground">
+        <span>Pending Student Dues</span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-normal border border-border bg-background">
+          Showing {{ dues|length }} of {{ total_filtered_count }} entries
+        </span>
+        <span class="hidden md:inline text-xs text-muted-foreground font-mono ml-2">
+          Active Session: {{ selected_session.name|default:"2026-27" }}
+        </span>
+      </div>
+
+      <!-- Corner Table Utility Toolbar -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Column Customization Modal Button -->
+        <button
+          type="button"
+          onclick="openColumnsModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-8 px-2.5 gap-1.5 transition-colors cursor-pointer shadow-xs text-foreground"
+          title="Customize visible columns"
+        >
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-muted-foreground"></i>
+          <span>Columns</span>
+        </button>
+
+        <!-- Export to Excel Button -->
+        <a
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=excel"
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold border border-emerald-500/40 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/50 h-8 px-2.5 gap-1.5 transition-colors shadow-xs"
+          title="Download Pending Dues spreadsheet (.xlsx)"
+        >
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span>Export Excel</span>
+        </a>
+
+        <!-- Export to PDF Button -->
+        <a
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=pdf"
+          target="_blank"
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold border border-rose-500/40 text-rose-700 bg-rose-50/50 hover:bg-rose-100/50 h-8 px-2.5 gap-1.5 transition-colors shadow-xs"
+          title="Generate Official Dues Register PDF (.pdf)"
+        >
+          <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span>Export PDF</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Table Partial Include -->
+    {% include 'includes/dues_table_partial.html' %}
+
+    <!-- Table Footer with Pagination Controls -->
+    <div class="p-3 bg-muted/20 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted-foreground">
+      <div>
+        Showing <strong class="text-foreground font-bold">{{ dues|length }}</strong> of
+        <strong class="text-foreground font-bold">{{ total_filtered_count }}</strong> filtered records
+      </div>
+
+      <div class="flex items-center gap-2">
+        {% if pagination.has_prev %}
+        <a
+          href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ pagination.prev_page }}"
+          class="inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium text-foreground transition-colors"
+        >
+          <i data-lucide="chevron-left" class="w-3.5 h-3.5 mr-1"></i>
+          <span>Previous</span>
+        </a>
+        {% else %}
+        <span class="inline-flex items-center justify-center rounded-md border border-input bg-background/50 h-7 px-2.5 text-xs font-medium text-muted-foreground opacity-50 cursor-not-allowed">
+          <i data-lucide="chevron-left" class="w-3.5 h-3.5 mr-1"></i>
+          <span>Previous</span>
+        </span>
+        {% endif %}
+
+        <span class="text-xs font-medium px-2">
+          Page {{ pagination.page }} of {{ pagination.total_pages }}
+        </span>
+
+        {% if pagination.has_next %}
+        <a
+          href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ pagination.next_page }}"
+          class="inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium text-foreground transition-colors"
+        >
+          <span>Next</span>
+          <i data-lucide="chevron-right" class="w-3.5 h-3.5 ml-1"></i>
+        </a>
+        {% else %}
+        <span class="inline-flex items-center justify-center rounded-md border border-input bg-background/50 h-7 px-2.5 text-xs font-medium text-muted-foreground opacity-50 cursor-not-allowed">
+          <span>Next</span>
+          <i data-lucide="chevron-right" class="w-3.5 h-3.5 ml-1"></i>
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL 1: QUICK EDIT DUE DATE DIALOG                       -->
+<!-- ========================================================= -->
+<div id="dueDateModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+    <div class="flex items-center justify-between pb-2 border-b border-border">
+      <div class="flex items-center gap-2">
+        <i data-lucide="calendar" class="w-5 h-5 text-primary"></i>
+        <h3 class="text-sm font-bold text-foreground">Change Fee Due Date</h3>
+      </div>
+      <button type="button" onclick="closeDueDateModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'fees_dues' %}" class="space-y-4 text-xs">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_due_date">
+      <input type="hidden" name="installment_id" id="modalInstallmentId">
+
+      <div class="p-3 rounded-lg bg-muted/40 border border-border space-y-1.5">
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">Student:</span>
+          <strong class="font-bold text-foreground" id="modalStudentName"></strong>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">Roll No / Class:</span>
+          <span class="font-medium text-foreground" id="modalRollStandard"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">Pending Balance:</span>
+          <span class="font-bold text-rose-600" id="modalBalance"></span>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-foreground block">
+          Select New Due Date *
+        </label>
+        <input
+          type="date"
+          name="due_date"
+          id="modalDueDateInput"
+          required
+          class="w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+        />
+      </div>
+
+      <!-- Quick Date Presets -->
+      <div class="space-y-1.5">
+        <span class="text-[11px] font-medium text-muted-foreground block">Quick Date Presets:</span>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onclick="setModalDateOffset(7)"
+            class="h-7 text-[11px] px-2.5 rounded border border-input bg-background hover:bg-accent font-medium cursor-pointer"
+          >
+            +7 Days
+          </button>
+          <button
+            type="button"
+            onclick="setModalDateOffset(15)"
+            class="h-7 text-[11px] px-2.5 rounded border border-input bg-background hover:bg-accent font-medium cursor-pointer"
+          >
+            +15 Days
+          </button>
+          <button
+            type="button"
+            onclick="setModalDateOffset(30)"
+            class="h-7 text-[11px] px-2.5 rounded border border-input bg-background hover:bg-accent font-medium cursor-pointer"
+          >
+            +30 Days
+          </button>
+          <button
+            type="button"
+            onclick="setModalDateEndOfMonth()"
+            class="h-7 text-[11px] px-2.5 rounded border border-input bg-background hover:bg-accent font-medium cursor-pointer"
+          >
+            End of Month
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-border">
+        <button
+          type="button"
+          onclick="closeDueDateModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-8 px-3 transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-4 gap-1.5 transition-colors cursor-pointer shadow-xs"
+        >
+          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+          <span>Update Due Date</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL 2: CUSTOMIZE TABLE COLUMNS DIALOG                   -->
+<!-- ========================================================= -->
+<div id="columnsModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+    <div class="flex items-center justify-between pb-2 border-b border-border">
+      <div class="flex items-center gap-2">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4 text-primary"></i>
+        <h3 class="text-sm font-bold text-foreground">Customize Table Columns</h3>
+      </div>
+      <button type="button" onclick="closeColumnsModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <div class="text-xs space-y-3">
+      <p class="text-muted-foreground">
+        Select which columns appear in your student fee dues table. Your column layout is automatically saved on this device.
+      </p>
+
+      <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto p-1.5 border border-border rounded-lg bg-muted/20" id="columnsCheckboxList">
+        <!-- Rendered via JS -->
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-border">
+        <button
+          type="button"
+          onclick="showAllColumns()"
+          class="text-xs font-semibold text-primary hover:underline cursor-pointer"
+        >
+          Show All
+        </button>
+        <button
+          type="button"
+          onclick="resetDefaultColumns()"
+          class="inline-flex items-center text-xs font-medium border border-input rounded px-3 py-1 bg-background hover:bg-accent cursor-pointer"
+        >
+          Reset Defaults
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function handleDatePresetChange(selectEl) {
+    const customFrom = document.getElementById('customDateFromContainer');
+    const customTo = document.getElementById('customDateToContainer');
+    if (selectEl.value === 'CUSTOM') {
+      if (customFrom) customFrom.classList.remove('hidden');
+      if (customTo) customTo.classList.remove('hidden');
+    } else {
+      if (customFrom) customFrom.classList.add('hidden');
+      if (customTo) customTo.classList.add('hidden');
+      selectEl.form.submit();
+    }
+  }
+
+  // Quick Due Date Modal Handling
+  function openDueDateModal(id, name, roll, standard, balance, currentDue) {
+    document.getElementById('modalInstallmentId').value = id;
+    document.getElementById('modalStudentName').textContent = name;
+    document.getElementById('modalRollStandard').textContent = (roll || '—') + ' • ' + (standard || '—');
+    document.getElementById('modalBalance').textContent = '₹' + Math.round(Number(balance)).toLocaleString('en-IN');
+    document.getElementById('modalDueDateInput').value = currentDue || '';
+    document.getElementById('dueDateModal').classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function closeDueDateModal() {
+    document.getElementById('dueDateModal').classList.add('hidden');
+  }
+
+  function setModalDateOffset(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const yr = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const dt = String(d.getDate()).padStart(2, '0');
+    document.getElementById('modalDueDateInput').value = `${yr}-${mo}-${dt}`;
+  }
+
+  function setModalDateEndOfMonth() {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const yr = lastDay.getFullYear();
+    const mo = String(lastDay.getMonth() + 1).padStart(2, '0');
+    const dt = String(lastDay.getDate()).padStart(2, '0');
+    document.getElementById('modalDueDateInput').value = `${yr}-${mo}-${dt}`;
+  }
+
+  // Columns Customization
+  const DUES_COLUMNS_SPEC = [
+    { id: 'srNo', label: '# / Sr No', always: false },
+    { id: 'studentName', label: 'Student Name', always: true },
+    { id: 'rollNo', label: 'Roll Number', always: false },
+    { id: 'standard', label: 'Class / Course', always: false },
+    { id: 'branch', label: 'Branch Location', always: false },
+    { id: 'session', label: 'Academic Session', always: false },
+    { id: 'dueDate', label: 'Due Date', always: false },
+    { id: 'parentPhone', label: 'Parent Mobile', always: false },
+    { id: 'amountDue', label: 'Fee Amount', always: false },
+    { id: 'amountPaid', label: 'Amount Paid', always: false },
+    { id: 'balanceRemaining', label: 'Remaining Balance', always: true },
+    { id: 'status', label: 'Due Status', always: false },
+    { id: 'actions', label: 'Actions Toolbar', always: true },
+  ];
+
+  function getSavedColumnConfig() {
+    const saved = localStorage.getItem('sutawane_dues_cols_v1');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    const def = {};
+    DUES_COLUMNS_SPEC.forEach(c => def[c.id] = true);
+    def['session'] = false; // default false
+    return def;
+  }
+
+  function applyColumnVisibility() {
+    const config = getSavedColumnConfig();
+    DUES_COLUMNS_SPEC.forEach(c => {
+      const isVisible = Boolean(config[c.id]);
+      const elements = document.querySelectorAll('.col-' + c.id);
+      elements.forEach(el => {
+        if (isVisible) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+    });
+  }
+
+  function openColumnsModal() {
+    const config = getSavedColumnConfig();
+    const list = document.getElementById('columnsCheckboxList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    DUES_COLUMNS_SPEC.forEach(c => {
+      const isChecked = Boolean(config[c.id]);
+      const label = document.createElement('label');
+      label.className = `flex items-center gap-2 p-2 rounded border text-xs cursor-pointer select-none transition-colors ${isChecked ? 'bg-card border-primary/40' : 'bg-muted/40 border-transparent text-muted-foreground'}`;
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = isChecked;
+      input.disabled = Boolean(c.always);
+      input.className = 'w-3.5 h-3.5 rounded text-primary focus:ring-primary cursor-pointer disabled:opacity-50';
+      input.onchange = function() {
+        config[c.id] = input.checked;
+        localStorage.setItem('sutawane_dues_cols_v1', JSON.stringify(config));
+        applyColumnVisibility();
+        openColumnsModal();
+      };
+
+      const span = document.createElement('span');
+      span.textContent = c.label;
+      if (isChecked) span.className = 'font-medium text-foreground';
+
+      label.appendChild(input);
+      label.appendChild(span);
+      list.appendChild(label);
+    });
+
+    document.getElementById('columnsModal').classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function closeColumnsModal() {
+    document.getElementById('columnsModal').classList.add('hidden');
+  }
+
+  function showAllColumns() {
+    const config = {};
+    DUES_COLUMNS_SPEC.forEach(c => config[c.id] = true);
+    localStorage.setItem('sutawane_dues_cols_v1', JSON.stringify(config));
+    applyColumnVisibility();
+    openColumnsModal();
+  }
+
+  function resetDefaultColumns() {
+    const config = {};
+    DUES_COLUMNS_SPEC.forEach(c => config[c.id] = (c.id !== 'session'));
+    localStorage.setItem('sutawane_dues_cols_v1', JSON.stringify(config));
+    applyColumnVisibility();
+    openColumnsModal();
+  }
+
+  function initDuesRowClick() {
+    const table = document.getElementById('duesMasterTable');
+    if (!table) return;
+
+    table.addEventListener('click', function(e) {
+      if (e.target.closest('button, a, input, select, textarea, form, label, .col-actions')) {
+        return;
+      }
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim().length > 0) return;
+
+      const row = e.target.closest('tr.dues-row');
+      if (row && row.dataset.url) {
+        if (e.ctrlKey || e.metaKey) {
+          window.open(row.dataset.url, '_blank');
+        } else {
+          window.location.href = row.dataset.url;
+        }
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    applyColumnVisibility();
+    initDuesRowClick();
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  });
+</script>
+{% endblock %}

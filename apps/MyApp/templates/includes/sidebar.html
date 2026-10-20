@@ -1,0 +1,344 @@
+{% load static %}
+<aside
+  id="app-sidebar"
+  class="border-r bg-card flex flex-col flex-shrink-0 h-screen sticky top-0 z-30 select-none transition-all duration-200 ease-in-out {% if is_sidebar_collapsed %}w-[72px] is-collapsed{% else %}w-64{% endif %}"
+>
+  <style>
+    /* Sidebar Navigation Sizing & Layout */
+    #app-sidebar {
+      transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #app-sidebar.is-collapsed nav {
+      padding-left: 0.5rem !important;
+      padding-right: 0.5rem !important;
+    }
+
+    /* Expanded Item Styling */
+    #app-sidebar:not(.is-collapsed) .sidebar-nav-item {
+      width: 100% !important;
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      gap: 0.75rem !important;
+      justify-content: flex-start !important;
+      align-items: center !important;
+      border-radius: 0.5rem !important;
+      margin: 0 !important;
+      aspect-ratio: auto !important;
+    }
+
+    #app-sidebar:not(.is-collapsed) .sidebar-nav-item i,
+    #app-sidebar:not(.is-collapsed) .sidebar-nav-item svg {
+      width: 16px !important;
+      height: 16px !important;
+      min-width: 16px !important;
+      min-height: 16px !important;
+      flex-shrink: 0 !important;
+      margin: 0 !important;
+    }
+
+    #app-sidebar:not(.is-collapsed) .sidebar-label {
+      display: inline-flex !important;
+    }
+    #app-sidebar:not(.is-collapsed) div.sidebar-label {
+      display: block !important;
+    }
+    #app-sidebar:not(.is-collapsed) span.sidebar-label.truncate {
+      display: block !important;
+    }
+    #app-sidebar:not(.is-collapsed) .sidebar-icon-only {
+      display: none !important;
+    }
+
+    /* Collapsed Item Styling: EXACT SQUARE (40px x 40px) */
+    #app-sidebar.is-collapsed .sidebar-nav-item {
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+      max-width: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      aspect-ratio: 1 / 1 !important;
+      padding: 0 !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 0 !important;
+      border-radius: 0.5rem !important;
+      box-sizing: border-box !important;
+    }
+
+    #app-sidebar.is-collapsed .sidebar-nav-item i,
+    #app-sidebar.is-collapsed .sidebar-nav-item svg {
+      width: 18px !important;
+      height: 18px !important;
+      min-width: 18px !important;
+      min-height: 18px !important;
+      max-width: 18px !important;
+      max-height: 18px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      flex-shrink: 0 !important;
+      display: block !important;
+    }
+
+    #app-sidebar.is-collapsed .sidebar-label {
+      display: none !important;
+    }
+
+    #app-sidebar.is-collapsed .sidebar-icon-only {
+      display: flex !important;
+    }
+
+    #app-sidebar.is-collapsed #sidebar-brand-header {
+      justify-content: center !important;
+      padding-left: 0.5rem !important;
+      padding-right: 0.5rem !important;
+    }
+  </style>
+
+  <!-- Brand Header -->
+  <div id="sidebar-brand-header" class="h-16 flex-shrink-0 border-b flex items-center bg-card transition-all {% if is_sidebar_collapsed %}justify-center px-2{% else %}justify-between px-4{% endif %}">
+    <a href="{% url 'dashboard' %}" class="flex items-center gap-3 min-w-0">
+      {% if active_logo_url %}
+        <div class="w-9 h-9 rounded-lg bg-background border flex items-center justify-center overflow-hidden p-0.5 shadow-xs flex-shrink-0">
+          <img src="{{ active_logo_url }}" alt="Logo" class="w-full h-full object-contain" onerror="this.onerror=null; this.src='/static/images/logo-master.png';" />
+        </div>
+      {% else %}
+        <div class="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
+          <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+        </div>
+      {% endif %}
+
+      <div class="sidebar-label min-w-0 {% if is_sidebar_collapsed %}hidden{% endif %}">
+        <h1 class="font-bold text-sm tracking-tight leading-none text-foreground truncate">
+          {{ institute_name|default:"SUTAWANE"|upper }}
+        </h1>
+        <p class="text-[11px] text-muted-foreground mt-0.5 font-medium truncate">
+          Classes Management
+        </p>
+      </div>
+    </a>
+
+    <!-- Collapse Toggle Button -->
+    <button
+      type="button"
+      onclick="toggleSidebar()"
+      class="sidebar-label p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0 {% if is_sidebar_collapsed %}hidden{% endif %}"
+      title="Collapse menu (Ctrl+B)"
+      aria-label="Collapse menu"
+    >
+      <i data-lucide="chevron-left" class="w-4 h-4"></i>
+    </button>
+  </div>
+
+  <!-- Nav List with Independent Scroll -->
+  <nav class="p-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
+    {% if is_developer %}
+    <a
+      href="{% url 'developer_portal' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'developer_portal' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Developer Portal"
+    >
+      <i data-lucide="shield-alert" class="w-4 h-4 flex-shrink-0 text-amber-500"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Developer Portal</span>
+      <span class="sidebar-label text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 font-bold {% if is_sidebar_collapsed %}hidden{% endif %}">DEV</span>
+    </a>
+    {% endif %}
+
+    <a
+      href="{% url 'dashboard' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'dashboard' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Dashboard"
+    >
+      <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Dashboard</span>
+    </a>
+
+    <a
+      href="{% url 'students_list' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'students' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Students"
+    >
+      <i data-lucide="users" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Students</span>
+    </a>
+
+    <a
+      href="{% url 'courses_list' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'courses' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Classes & Courses"
+    >
+      <i data-lucide="book-open" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Classes & Courses</span>
+    </a>
+
+    <a
+      href="{% url 'fee_collect' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'fee_collect' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Collect Fees"
+    >
+      <i data-lucide="credit-card" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Collect Fees</span>
+    </a>
+
+    <a
+      href="{% url 'fees_dues' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'fees_dues' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Pending Dues"
+    >
+      <i data-lucide="clock-alert" class="w-4 h-4 flex-shrink-0 text-amber-500"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Pending Dues</span>
+    </a>
+
+    <a
+      href="{% url 'expenses_list' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'expenses' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Expenses"
+    >
+      <i data-lucide="receipt" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Expenses</span>
+    </a>
+
+    <a
+      href="{% url 'financial_reports' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'reports' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Financial Reports"
+    >
+      <i data-lucide="bar-chart-3" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Financial Reports</span>
+    </a>
+
+    <a
+      href="{% url 'branches_list' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'branches' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Branches"
+    >
+      <i data-lucide="building-2" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Branches</span>
+    </a>
+
+    <a
+      href="{% url 'sessions_list' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'sessions' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Academic Sessions"
+    >
+      <i data-lucide="calendar-days" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Academic Sessions</span>
+    </a>
+
+    <a
+      href="{% url 'backup_manage' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'backup' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Backup & Restore"
+    >
+      <i data-lucide="database" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Backup & Restore</span>
+    </a>
+
+    <a
+      href="{% url 'settings_manage' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'settings' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Settings"
+    >
+      <i data-lucide="settings" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Settings</span>
+    </a>
+  </nav>
+
+  <!-- Fixed Bottom Footer with User Profile & Toggle Action -->
+  <div class="p-2.5 flex-shrink-0 border-t bg-muted/20 text-xs text-muted-foreground space-y-2">
+    <div class="sidebar-label {% if is_sidebar_collapsed %}hidden{% endif %}">
+      {% if current_user %}
+      <div class="p-2 bg-background border rounded-lg mb-2 shadow-xs flex items-center justify-between gap-2">
+        <div class="min-w-0 flex items-center gap-2">
+          <div class="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+            {{ current_user.name|slice:":1"|upper }}
+          </div>
+          <div class="min-w-0">
+            <p class="font-bold text-foreground text-xs truncate leading-tight">
+              {{ current_user.name }}
+            </p>
+            <div class="flex items-center gap-1 mt-0.5">
+              {% if is_developer %}
+                <span class="text-[9px] py-0 px-1 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                  Developer
+                </span>
+              {% else %}
+                <span class="text-[9px] py-0 px-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
+                  Class Owner
+                </span>
+              {% endif %}
+              <span class="text-[10px] font-mono text-muted-foreground truncate">
+                @{{ current_user.username }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <a
+          href="{% url 'logout' %}"
+          title="Sign Out"
+          class="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+        >
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+      {% endif %}
+
+      <div class="px-1">
+        <p class="font-semibold text-foreground truncate">
+          {{ institute_name }}
+        </p>
+        <p class="text-[11px] text-muted-foreground/80 mt-0.5">Django Management v1.0</p>
+      </div>
+
+      <button
+        type="button"
+        onclick="toggleSidebar()"
+        class="w-full mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        title="Collapse sidebar (Ctrl+B)"
+      >
+        <span class="text-[11px] font-medium flex items-center gap-1.5">
+          <i data-lucide="panel-left-close" class="w-3.5 h-3.5"></i>
+          <span>Collapse menu</span>
+        </span>
+        <kbd class="text-[10px] bg-background px-1.5 py-0.5 rounded border border-border/80 text-muted-foreground font-mono">
+          Ctrl+B
+        </kbd>
+      </button>
+    </div>
+
+    <!-- Collapsed View Only Trigger -->
+    <div class="sidebar-icon-only {% if not is_sidebar_collapsed %}hidden{% endif %} flex flex-col items-center gap-2">
+      {% if current_user %}
+      <a
+        href="{% url 'logout' %}"
+        class="w-8 h-8 rounded-full bg-background border flex items-center justify-center text-muted-foreground hover:text-red-600 hover:border-red-200 transition-colors shadow-xs"
+        title="Sign Out (@{{ current_user.username }})"
+      >
+        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+      </a>
+      {% endif %}
+
+      <button
+        type="button"
+        onclick="toggleSidebar()"
+        class="w-full flex flex-col items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+        title="Expand menu (Ctrl+B)"
+      >
+        <i data-lucide="panel-left-open" class="w-4 h-4"></i>
+        <span class="text-[9px] font-medium mt-1">Expand</span>
+      </button>
+    </div>
+  </div>
+</aside>

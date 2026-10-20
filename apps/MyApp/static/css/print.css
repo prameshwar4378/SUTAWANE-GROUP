@@ -1,0 +1,115 @@
+/* =========================================================
+   Universal A4 & Thermal Print Styles & Document Isolation
+   ========================================================= */
+
+@page {
+  size: A4 portrait;
+  margin: 8mm 10mm;
+}
+
+@page thermal {
+  size: 80mm auto;
+  margin: 2mm 3mm;
+}
+
+@media print {
+  /* Reset layout constraints so document prints full-length */
+  html,
+  body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Force background colors and crisp borders on all printers */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Hide app chrome, sidebars, buttons, toolbars, and navigation */
+  aside,
+  header,
+  nav,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Dual-Copy Fee Receipt print isolation */
+  body.printing-receipt {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.printing-receipt aside,
+  body.printing-receipt header,
+  body.printing-receipt nav,
+  body.printing-receipt .no-print {
+    display: none !important;
+  }
+
+  body.printing-receipt #printable-receipt-container {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 194mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Perforation cut line printing */
+  .receipt-cut-line {
+    border-top: 1.5px dashed #444 !important;
+    margin: 8px 0 !important;
+  }
+
+  /* Thermal Receipt Mode */
+  body.printing-thermal {
+    page: thermal;
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.printing-thermal #printable-thermal-receipt {
+    display: block !important;
+    width: 76mm !important;
+    margin: 0 auto !important;
+    font-size: 11px !important;
+  }
+
+  /* Official Financial Statement print isolation */
+  body.printing-report {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.printing-report #printable-financial-report {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 194mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

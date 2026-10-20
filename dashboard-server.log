@@ -1,0 +1,590 @@
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 20:59:58] "GET / HTTP/1.1" 500 106613
+Not Found: /favicon.ico
+[19/Oct/2026 20:59:58] "GET /favicon.ico HTTP/1.1" 404 14327
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:03] "GET / HTTP/1.1" 500 106607
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:03] "GET / HTTP/1.1" 500 106609
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:04] "GET / HTTP/1.1" 500 106609
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:04] "GET / HTTP/1.1" 500 106609
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:04] "GET / HTTP/1.1" 500 106609
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:06] "GET / HTTP/1.1" 500 106605
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:06] "GET / HTTP/1.1" 500 106609
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:06] "GET / HTTP/1.1" 500 106609
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:07] "GET / HTTP/1.1" 500 106609
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:07] "GET / HTTP/1.1" 500 106609
+[19/Oct/2026 21:02:41] "GET / HTTP/1.1" 302 0
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:02:41] "GET /login/?next=/ HTTP/1.1" 500 87540
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:46] "GET / HTTP/1.1" 500 106611
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:47] "GET / HTTP/1.1" 500 106611
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:47] "GET / HTTP/1.1" 500 106611
+Internal Server Error: /
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 695, in dashboard_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: dashboard.html
+[19/Oct/2026 21:02:47] "GET / HTTP/1.1" 500 106611
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:02:50] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:02:51] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:02:51] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:02:51] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:03:28] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:03:29] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:03:29] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:03:29] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:03:30] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:03:30] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:05:34] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:05:35] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:05:35] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:05:35] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:05:35] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:05:35] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:06:38] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:06:38] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:06:38] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:06:39] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:06:39] "GET /login/?next=/ HTTP/1.1" 500 87677
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:06:39] "GET /login/?next=/ HTTP/1.1" 500 87677
+[19/Oct/2026 21:09:28] "GET / HTTP/1.1" 302 0
+Internal Server Error: /login/
+Traceback (most recent call last):
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\core\handlers\base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Users\user\Desktop\PROJECTS\SUTAWANE CLASSES SOFTWARE\Django\apps\core\views.py", line 174, in login_view
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\user\AppData\Local\Programs\Python\Python314\Lib\site-packages\django\template\loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: login.html
+[19/Oct/2026 21:09:28] "GET /login/?next=/ HTTP/1.1" 500 85587
+[19/Oct/2026 21:09:28,890] - Broken pipe from ('127.0.0.1', 59437)

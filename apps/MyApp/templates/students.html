@@ -1,0 +1,1186 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Student Master Management - Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-full">
+
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="users" class="w-6 h-6 text-primary"></i>
+        <span>Student Master Management</span>
+      </h1>
+      <p class="text-xs sm:text-sm text-muted-foreground mt-0.5">
+        Manage student enrollments, photographs, multi-session fee commitments, and track overall outstanding balances.
+      </p>
+    </div>
+
+    <!-- Global Primary Action Button -->
+    <div class="flex items-center gap-2 shrink-0">
+      <button
+        type="button"
+        onclick="openAdmissionModal()"
+        class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 gap-2 transition-colors cursor-pointer shadow-xs"
+      >
+        <i data-lucide="user-plus" class="w-4 h-4"></i>
+        <span>New Admission</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="rounded-xl border border-border bg-card p-4 shadow-xs space-y-3">
+    <form
+      method="GET"
+      action="{% url 'students_list' %}"
+      hx-get="{% url 'students_list' %}"
+      hx-target="#studentsContentArea"
+      hx-select="#studentsContentArea"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-trigger="change, keyup changed delay:250ms from:input[name=q]"
+      class="space-y-3"
+    >
+      <!-- Row 1: Primary Search & Standard Filters -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <!-- Search Input -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground">Search Student / Roll / Phone</label>
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground pointer-events-none"></i>
+            <input
+              type="text"
+              name="q"
+              value="{{ filters.q }}"
+              placeholder="Search by name, roll, mobile, ID..."
+              class="pl-8 text-xs h-9 w-full rounded-md border border-input bg-background px-3 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+            />
+            {% if filters.q %}
+            <a
+              href="{% url 'students_list' %}"
+              class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground text-xs"
+              title="Clear search"
+            >
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Standard / Class Filter -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground">Class / Standard</label>
+          <select
+            name="standard"
+            class="text-xs h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            <option value="ALL" {% if filters.standard == 'ALL' %}selected{% endif %}>All Standards</option>
+            {% for c in courses %}
+            <option value="{{ c.name }}" {% if filters.standard == c.name %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Academic Session Filter -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground">Academic Session</label>
+          <select
+            name="session_id"
+            class="text-xs h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            <option value="ALL" {% if filters.session_id == 'ALL' %}selected{% endif %}>All Sessions</option>
+            {% for s in sessions %}
+            <option value="{{ s.id }}" {% if filters.session_id == s.id %}selected{% endif %}>{{ s.display_name|default:s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Fee Status Filter -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground">Fee Status</label>
+          <select
+            name="fee_status"
+            class="text-xs h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            <option value="ALL" {% if filters.fee_status == 'ALL' %}selected{% endif %}>All Statuses</option>
+            <option value="PAID" {% if filters.fee_status == 'PAID' %}selected{% endif %}>Fully Paid</option>
+            <option value="PARTIAL" {% if filters.fee_status == 'PARTIAL' %}selected{% endif %}>Partially Paid</option>
+            <option value="UNPAID" {% if filters.fee_status == 'UNPAID' %}selected{% endif %}>Zero Paid (Unpaid)</option>
+            <option value="HAS_DUES" {% if filters.fee_status == 'HAS_DUES' %}selected{% endif %}>Has Pending Dues</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Row 2: Secondary Controls & Action Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border text-xs">
+        <!-- Enrollment Status Selector -->
+        <div class="flex items-center gap-2">
+          <span class="text-muted-foreground font-medium">Enrollment Status:</span>
+          <select
+            name="status"
+            class="text-xs h-8 rounded-md border border-input bg-background px-2.5 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            <option value="true" {% if filters.status == 'true' %}selected{% endif %}>Active Students Only</option>
+            <option value="false" {% if filters.status == 'false' %}selected{% endif %}>Archived Records</option>
+            <option value="ALL" {% if filters.status == 'ALL' %}selected{% endif %}>All Records</option>
+          </select>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2">
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3.5 gap-1.5 transition-colors cursor-pointer shadow-2xs"
+          >
+            <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+            <span>Apply Filter</span>
+          </button>
+          <a
+            href="{% url 'students_list' %}"
+            hx-get="{% url 'students_list' %}"
+            hx-target="#studentsContentArea"
+            hx-select="#studentsContentArea"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent text-foreground h-8 px-2.5 gap-1 transition-colors"
+            title="Reset All Filters"
+          >
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            <span>Reset</span>
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div id="studentsContentArea" class="space-y-6">
+    <!-- Financial KPI Summary Cards Ribbon -->
+    <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <!-- Total Students Card -->
+      <div class="rounded-xl border border-border bg-card p-3.5 shadow-2xs">
+        <div class="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+          <span>Enrolled Students</span>
+          <i data-lucide="users" class="w-4 h-4 text-primary"></i>
+        </div>
+        <div class="text-xl font-bold text-foreground mt-1">{{ metrics.total_count }}</div>
+        <p class="text-[10px] text-muted-foreground mt-0.5">
+          {% if metrics.archived_count > 0 %}
+          <span class="text-amber-600 font-medium">
+            {{ metrics.active_count }} Active • {{ metrics.archived_count }} Archived
+          </span>
+          {% else %}
+          Matching active filters
+          {% endif %}
+        </p>
+      </div>
+
+      <!-- Selected Session Total Fees Card -->
+      <div class="rounded-xl border border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-900/40 p-3.5 shadow-2xs">
+        <div class="text-[11px] font-semibold text-blue-700 dark:text-blue-300 flex items-center justify-between">
+          <span>Session Total Fees</span>
+          <i data-lucide="indian-rupee" class="w-4 h-4 text-blue-600"></i>
+        </div>
+        <div class="text-xl font-bold text-blue-900 dark:text-blue-100 mt-1">
+          ₹{{ metrics.total_session_fees|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-muted-foreground mt-0.5">Committed tuition value</p>
+      </div>
+
+      <!-- Selected Session Paid Fees Card -->
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3.5 shadow-2xs">
+        <div class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+          <span>Session Paid Fees</span>
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+        </div>
+        <div class="text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1">
+          ₹{{ metrics.total_session_paid|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-muted-foreground mt-0.5">Confirmed inflows</p>
+      </div>
+
+      <!-- Selected Session Pending Fees Card -->
+      <div class="rounded-xl border border-rose-200 bg-rose-50/40 dark:bg-rose-950/20 dark:border-rose-900/40 p-3.5 shadow-2xs">
+        <div class="text-[11px] font-semibold text-rose-700 dark:text-rose-300 flex items-center justify-between">
+          <span>Session Pending Fees</span>
+          <i data-lucide="shield-alert" class="w-4 h-4 text-rose-600"></i>
+        </div>
+        <div class="text-xl font-bold text-rose-700 dark:text-rose-400 mt-1">
+          ₹{{ metrics.total_session_pending|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-muted-foreground mt-0.5">Current session dues</p>
+      </div>
+
+      <!-- Overall Pending Dues Card -->
+      <div class="col-span-2 sm:col-span-1 rounded-xl border border-amber-300 bg-amber-50/50 dark:bg-amber-950/30 dark:border-amber-800 p-3.5 shadow-2xs">
+        <div class="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
+          <span>Overall Pending Amount</span>
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-600"></i>
+        </div>
+        <div class="text-xl font-extrabold text-amber-800 dark:text-amber-200 mt-1">
+          ₹{{ metrics.total_overall_pending|floatformat:0|intcomma }}
+        </div>
+        <p class="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 font-medium">All sessions + prior dues</p>
+      </div>
+    </div>
+
+    <!-- Students Table Directory Card -->
+    <div class="rounded-xl border border-border bg-card text-card-foreground shadow-2xs overflow-hidden">
+      <!-- Table Header & Corner Action Buttons (Requested by user) -->
+      <div class="py-3 px-4 sm:px-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20">
+        <div class="flex items-center gap-2.5 text-foreground">
+          <i data-lucide="users" class="w-4 h-4 text-primary"></i>
+          <span class="text-sm font-semibold">Students Directory (<span id="visibleStudentsCount">{{ students_data|length }}</span>)</span>
+          <span class="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-background">
+            Showing all matching admissions
+          </span>
+        </div>
+
+        <!-- Corner Toolbar: Columns, Excel, PDF -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Column Visibility Toggle Button -->
+          <button
+            type="button"
+            onclick="openColumnModal()"
+            class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-2.5 gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Configure visible columns"
+          >
+            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            <span>Columns (<span id="colCountDisplay">14</span>/14)</span>
+          </button>
+
+          <!-- Export to Excel Button -->
+          <a
+            href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=excel"
+            class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-8 px-2.5 gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Export filtered records to formatted multi-sheet Excel (.xlsx)"
+          >
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Export Excel</span>
+          </a>
+
+          <!-- Export to PDF Button -->
+          <a
+            href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=pdf"
+            target="_blank"
+            class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-rose-500/40 text-rose-700 dark:text-rose-400 bg-background hover:bg-rose-50 dark:hover:bg-rose-950/30 h-8 px-2.5 gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Export Landscape A4 Official Directory PDF"
+          >
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
+            <span>Export PDF</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Batch Action Toolbar (Matches React StudentsPage) -->
+      <div id="batchActionBar" class="hidden p-3 bg-amber-500/10 border-b border-amber-500/20 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white font-bold text-xs" id="selectedCountBadge">0</span>
+          <span class="text-xs font-semibold text-foreground">students selected for batch promotion or bulk operations</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick="openBatchPromoteModal()"
+            class="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs h-8 px-3 rounded-md inline-flex items-center cursor-pointer transition-colors"
+          >
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            <span>Batch Promote (<span id="batchPromoteBtnCount">0</span>) to Next Session</span>
+          </button>
+          <button
+            type="button"
+            onclick="deselectAllStudents()"
+            class="text-xs h-8 px-3 border border-input rounded-md bg-background hover:bg-accent text-foreground cursor-pointer transition-colors"
+          >
+            Deselect All
+          </button>
+        </div>
+      </div>
+
+      <!-- Responsive Table Container -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left border-collapse" id="studentsMainTable">
+          <thead class="bg-[#28375C] text-white">
+            <tr class="border-b border-[#1b2640]">
+              <th class="w-10 text-center py-3.5 px-3 col-select">
+                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" class="rounded border-gray-300">
+              </th>
+              <th class="w-12 text-center py-3.5 px-3 text-white font-semibold col-photo">Photo</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-rollNo">Roll No.</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-fullName">Student Name</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-standard">Class / Course</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-branch">Branch</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-dueDate">Due Date</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-parentPhone">Parent Mobile</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-totalFees">Total Fees</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-paidFees">Paid Fees</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-pendingFees">Pending Fees</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-overallPending">Overall Dues</th>
+              <th class="whitespace-nowrap text-left text-white font-semibold py-3.5 px-4 col-status">Status</th>
+              <th class="whitespace-nowrap text-right text-white font-semibold py-3.5 px-4 pr-6 col-actions min-w-[210px]">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {% for item in students_data %}
+            <tr class="student-row hover:bg-muted/50 transition-colors cursor-pointer" data-id="{{ item.student.id }}" data-url="{% url 'student_detail' item.student.id %}" title="Click to view {{ item.student.full_name }}'s profile">
+              <!-- Select Checkbox -->
+              <td class="text-center py-3.5 px-3 col-select cursor-default">
+                <input type="checkbox" class="student-select-cb rounded border-gray-300" value="{{ item.student.id }}">
+              </td>
+
+              <!-- Photo Avatar -->
+              <td class="text-center py-3.5 px-3 col-photo">
+                {% if item.student.photo_url %}
+                <img src="{{ item.student.photo_url }}" alt="{{ item.student.full_name }}" class="w-8 h-8 rounded-full object-cover mx-auto border border-border">
+                {% else %}
+                <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs mx-auto">
+                  {{ item.student.full_name|slice:":1"|upper }}
+                </div>
+                {% endif %}
+              </td>
+
+              <!-- Roll Number -->
+              <td class="whitespace-nowrap font-mono text-xs font-semibold text-foreground py-3.5 px-4 col-rollNo">
+                {{ item.admission.roll_number }}
+              </td>
+
+              <!-- Student Name -->
+              <td class="whitespace-nowrap font-semibold text-foreground py-3.5 px-4 col-fullName">
+                <div class="flex items-center gap-2">
+                  <a href="{% url 'student_detail' item.student.id %}" class="hover:underline text-primary">
+                    {{ item.student.full_name }}
+                  </a>
+                  {% if not item.admission.is_active %}
+                  <span class="inline-flex items-center rounded-md border px-1.5 py-0 text-[10px] font-semibold text-muted-foreground border-border">
+                    Archived
+                  </span>
+                  {% endif %}
+                </div>
+                <div class="text-[11px] text-muted-foreground font-mono font-normal">
+                  {{ item.student.student_code }}
+                </div>
+              </td>
+
+              <!-- Class / Course -->
+              <td class="whitespace-nowrap py-3.5 px-4 col-standard">
+                <span class="font-medium text-foreground text-xs">{{ item.admission.standard }}</span>
+              </td>
+
+              <!-- Branch -->
+              <td class="whitespace-nowrap py-3.5 px-4 text-xs text-muted-foreground col-branch">
+                {{ item.admission.branch.name }}
+              </td>
+
+              <!-- Due Date & Status -->
+              <td class="whitespace-nowrap py-3.5 px-4 text-xs col-dueDate">
+                {% if item.pending_fees > 0 and item.next_due_date %}
+                <div>
+                  <span class="font-medium text-foreground">{{ item.next_due_date|date:"d M Y" }}</span>
+                  {% if item.due_status == 'OVERDUE' %}
+                  <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 ml-1">
+                    Overdue
+                  </span>
+                  {% elif item.due_status == 'DUE' %}
+                  <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 ml-1">
+                    Due Today
+                  </span>
+                  {% endif %}
+                </div>
+                {% else %}
+                <span class="text-muted-foreground">-</span>
+                {% endif %}
+              </td>
+
+              <!-- Parent Mobile -->
+              <td class="whitespace-nowrap font-mono text-xs text-foreground py-3.5 px-4 col-parentPhone leading-normal">
+                <a href="tel:{{ item.student.parent_phone }}" class="hover:underline">
+                  {{ item.student.parent_phone }}
+                </a>
+              </td>
+
+              <!-- Total Fees -->
+              <td class="whitespace-nowrap font-semibold text-foreground py-3.5 px-4 col-totalFees">
+                ₹{{ item.total_fees|floatformat:0|intcomma }}
+              </td>
+
+              <!-- Paid Fees -->
+              <td class="whitespace-nowrap font-semibold text-emerald-600 py-3.5 px-4 col-paidFees">
+                ₹{{ item.paid_fees|floatformat:0|intcomma }}
+              </td>
+
+              <!-- Pending Fees -->
+              <td class="whitespace-nowrap font-semibold text-rose-600 py-3.5 px-4 col-pendingFees">
+                ₹{{ item.pending_fees|floatformat:0|intcomma }}
+              </td>
+
+              <!-- Overall Dues -->
+              <td class="whitespace-nowrap font-bold text-amber-700 py-3.5 px-4 col-overallPending">
+                ₹{{ item.overall_pending|floatformat:0|intcomma }}
+              </td>
+
+              <!-- Fee Status Badge -->
+              <td class="whitespace-nowrap py-3.5 px-4 col-status">
+                {% if item.fee_status == 'PAID' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  Paid
+                </span>
+                {% elif item.fee_status == 'PARTIAL' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                  Partial
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                  Unpaid
+                </span>
+                {% endif %}
+              </td>
+
+              <!-- Actions Toolbar (Neatly aligned single row without clipping) -->
+              <td class="whitespace-nowrap text-right py-3.5 px-4 pr-6 col-actions min-w-[210px] cursor-default">
+                <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                  <!-- Promote Button -->
+                  <button
+                    type="button"
+                    onclick="openPromoteModal('{{ item.student.id }}')"
+                    class="inline-flex items-center justify-center rounded h-7 px-2 border border-amber-500/60 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs font-medium transition-colors cursor-pointer"
+                    title="Promote to Next Academic Session"
+                  >
+                    <i data-lucide="sparkles" class="w-3 h-3 mr-1 text-amber-500"></i>
+                    <span>Promote</span>
+                  </button>
+
+                  <!-- View Profile -->
+                  <a
+                    href="{% url 'student_detail' item.student.id %}"
+                    class="inline-flex items-center justify-center rounded h-7 px-2 border border-input text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    title="View Student Profile"
+                  >
+                    <i data-lucide="eye" class="w-3.5 h-3.5 mr-1 text-muted-foreground"></i>
+                    <span>View</span>
+                  </a>
+
+                  <!-- WhatsApp Fee Reminder -->
+                  <button
+                    type="button"
+                    onclick="sendWhatsAppReminder('{{ item.student.parent_phone }}', '{{ item.student.full_name|escapejs }}', '{{ item.student.student_code|escapejs }}', '{{ item.admission.roll_number|escapejs }}', '{{ item.admission.standard|escapejs }}', {{ item.pending_fees }}, {{ item.previous_dues }}, {{ item.overall_pending }}, '{{ item.admission.branch.name|escapejs }}', '{{ item.admission.session.name|escapejs }}')"
+                    class="inline-flex items-center justify-center rounded h-7 w-7 border border-emerald-300 text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                    title="Send WhatsApp Fee Reminder"
+                  >
+                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+                  </button>
+
+                  <!-- Toggle Archive Form -->
+                  <form method="POST" action="{% url 'students_list' %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_archive">
+                    <input type="hidden" name="student_id" value="{{ item.student.id }}">
+                    <button
+                      type="submit"
+                      class="inline-flex items-center justify-center rounded h-7 w-7 border border-input text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
+                      title="{% if item.admission.is_active %}Archive Student{% else %}Reactivate Student{% endif %}"
+                    >
+                      <i data-lucide="archive" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </form>
+
+                  <!-- Delete Student Button -->
+                  <button
+                    type="button"
+                    onclick="openDeleteStudentModal('{{ item.student.id }}', '{{ item.student.full_name|escapejs }}')"
+                    class="inline-flex items-center justify-center rounded h-7 w-7 border border-rose-200 text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Permanently Delete Student"
+                  >
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="14" class="text-center py-12 text-muted-foreground">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <i data-lucide="users" class="w-8 h-8 text-muted-foreground/50"></i>
+                  <p class="text-sm font-medium">No students found matching your criteria</p>
+                  <button type="button" onclick="openAdmissionModal()" class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-8 px-3 gap-1 mt-2">
+                    <i data-lucide="user-plus" class="w-4 h-4 mr-1"></i> Enroll New Student
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+</div>
+
+<!-- New Student Admission Modal -->
+<div id="admissionModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" style="max-width: 760px; width: 100%;">
+    <!-- Modal Header (Fixed) -->
+    <div class="px-6 py-4 border-b border-border flex items-center justify-between bg-card flex-shrink-0">
+      <h2 class="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
+        <i data-lucide="sparkles" class="w-5 h-5 text-primary"></i>
+        <span>New Student Admission Form</span>
+      </h2>
+      <button type="button" onclick="closeAdmissionModal()" class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors cursor-pointer" title="Close (Esc)">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Admission Form with Scrollable Body & Pinned Footer -->
+    <form method="POST" action="{% url 'students_list' %}" enctype="multipart/form-data" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create">
+
+      <!-- Scrollable Form Body -->
+      <div class="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+        <!-- Row 1: Name and Roll Number -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">Full Student Name *</label>
+            <input
+              type="text"
+              name="full_name"
+              placeholder="e.g. Rahul Sharma"
+              required
+              class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-foreground">Roll Number *</label>
+              <span class="text-[10px] text-muted-foreground">Unique within branch</span>
+            </div>
+            <input
+              type="text"
+              name="roll_number"
+              value="{{ suggested_roll }}"
+              required
+              class="w-full text-xs font-mono font-semibold rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            />
+          </div>
+        </div>
+
+        <!-- Row 2: Standard, Branch, and Session in a Single Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;">
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">Class / Standard *</label>
+            <select
+              name="standard"
+              id="admStandardSelect"
+              onchange="onStandardChange(this)"
+              class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
+            >
+              {% for c in courses %}
+              <option value="{{ c.name }}" data-fee="{{ c.default_fee|default:25000 }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">Branch Location *</label>
+            <select
+              name="branch_id"
+              class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
+            >
+              {% for b in branches %}
+              <option value="{{ b.id }}" {% if selected_branch.id == b.id %}selected{% endif %}>{{ b.name }} ({{ b.code }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">Academic Session *</label>
+            <select
+              name="session_id"
+              class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
+            >
+              {% for s in sessions %}
+              <option value="{{ s.id }}" {% if selected_session.id == s.id or s.is_current %}selected{% endif %}>{{ s.display_name|default:s.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 3: Parent Phone and Student Phone -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-foreground">Parent Mobile Number *</label>
+              <span class="text-[10px] text-muted-foreground">WhatsApp receipts & alerts</span>
+            </div>
+            <input
+              type="tel"
+              name="parent_phone"
+              placeholder="10-digit mobile number"
+              pattern="[0-9]{10}"
+              required
+              class="w-full text-xs font-mono rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">Student Mobile (Optional)</label>
+            <input
+              type="tel"
+              name="student_phone"
+              placeholder="10-digit mobile number"
+              pattern="[0-9]{10}"
+              class="w-full text-xs font-mono rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            />
+          </div>
+        </div>
+
+        <!-- Row 4: Total Fees & Due Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">Agreed Session Fee (₹) *</label>
+            <input
+              type="number"
+              name="total_fees"
+              id="admTotalFeesInput"
+              value="25000"
+              min="0"
+              step="500"
+              required
+              class="w-full text-xs font-semibold rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">First Installment Due Date</label>
+            <input
+              type="date"
+              name="due_date"
+              id="admDueDateInput"
+              class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            />
+          </div>
+        </div>
+
+        <!-- Row 5: Residential Address & Student Photograph (Side-by-side in 2 columns) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-xs font-semibold text-foreground">Residential Address</label>
+            <textarea
+              name="address"
+              rows="2"
+              placeholder="House/Street, Landmark, City/Town..."
+              class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs resize-none"
+            ></textarea>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-foreground">Student Photograph (Optional)</label>
+              <span class="text-[10px] text-muted-foreground">JPG, PNG, WEBP</span>
+            </div>
+            <input
+              type="file"
+              name="photo"
+              accept="image/*"
+              class="w-full text-xs rounded-md border border-input bg-background p-2 focus:outline-none shadow-xs file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer (Fixed/Pinned) -->
+      <div class="px-6 py-3.5 bg-muted/20 border-t border-border flex items-center justify-end gap-2.5 flex-shrink-0">
+        <button
+          type="button"
+          onclick="closeAdmissionModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-5 gap-1.5 transition-colors cursor-pointer shadow-sm"
+        >
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          <span>Confirm Admission</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Column Visibility Modal -->
+<div id="columnModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200" style="max-width: 480px;">
+    <!-- Modal Header -->
+    <div class="px-5 py-4 border-b border-border flex items-center justify-between bg-card">
+      <div class="flex items-center gap-2">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4 text-primary"></i>
+        <h3 class="text-sm font-bold text-foreground">Customize Table Columns</h3>
+      </div>
+      <button type="button" onclick="closeColumnModal()" class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors cursor-pointer" title="Close (Esc)">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="p-4 sm:p-5 space-y-3 text-xs">
+      <p class="text-xs text-muted-foreground">
+        Select which columns to display in your student directory. Layout is saved automatically on this device.
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[55vh] overflow-y-auto p-1.5 border border-border rounded-lg bg-muted/20" id="columnCheckboxesContainer">
+        <!-- Dynamically rendered column cards via renderColumnCheckboxes() -->
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-5 py-3 border-t border-border flex items-center justify-between bg-muted/20">
+      <div class="flex items-center gap-2.5">
+        <button
+          type="button"
+          onclick="selectAllColumns(true)"
+          class="text-xs font-semibold text-primary hover:underline cursor-pointer"
+        >
+          Select All
+        </button>
+        <span class="text-muted-foreground text-xs">•</span>
+        <button
+          type="button"
+          onclick="resetDefaultColumns()"
+          class="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+        >
+          Reset Default
+        </button>
+      </div>
+      <button
+        type="button"
+        onclick="closeColumnModal()"
+        class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-4 transition-colors cursor-pointer shadow-xs"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteStudentModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-[460px] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div class="p-6 border-b border-border flex items-center justify-between">
+      <h2 class="text-base font-bold flex items-center gap-2 text-rose-600">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600"></i>
+        Permanent Deletion Warning
+      </h2>
+      <button type="button" onclick="closeDeleteStudentModal()" class="text-muted-foreground hover:text-foreground text-sm font-semibold">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'students_list' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="student_id" id="deleteStudentIdInput" value="">
+
+      <div class="text-xs space-y-2 text-foreground">
+        <p>Are you sure you want to permanently delete <strong id="deleteStudentNameSpan" class="text-rose-600 font-bold"></strong>?</p>
+        <div class="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-md space-y-1 text-[11px]">
+          <p class="font-bold">⚠️ Irreversible Action:</p>
+          <p>This will erase all historical admissions, fee schedules, installment allocations, and physical photograph files permanently.</p>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end gap-2 border-t border-border">
+        <button
+          type="button"
+          onclick="closeDeleteStudentModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-9 px-4 transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
+        >
+          Confirm Delete
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const COLUMNS_CONFIG = [
+    { id: 'select', label: 'Select Checkbox', defaultVisible: true },
+    { id: 'photo', label: 'Photo Avatar', defaultVisible: true },
+    { id: 'rollNo', label: 'Roll Number', defaultVisible: true },
+    { id: 'fullName', label: 'Student Name', defaultVisible: true },
+    { id: 'standard', label: 'Class / Course', defaultVisible: true },
+    { id: 'branch', label: 'Branch Location', defaultVisible: true },
+    { id: 'dueDate', label: 'Fee Due Date', defaultVisible: true },
+    { id: 'parentPhone', label: 'Parent Mobile', defaultVisible: true },
+    { id: 'totalFees', label: 'Session Total Fees', defaultVisible: true },
+    { id: 'paidFees', label: 'Session Paid Fees', defaultVisible: true },
+    { id: 'pendingFees', label: 'Session Pending Fees', defaultVisible: true },
+    { id: 'overallPending', label: 'Overall Pending Dues', defaultVisible: true },
+    { id: 'status', label: 'Fee Status', defaultVisible: true },
+    { id: 'actions', label: 'Actions Toolbar', defaultVisible: true }
+  ];
+
+  let currentVisibleCols = {};
+
+  function initColumns() {
+    const saved = localStorage.getItem('sutawane_student_columns_v2');
+    if (saved) {
+      try { currentVisibleCols = JSON.parse(saved); } catch (e) {}
+    }
+    COLUMNS_CONFIG.forEach(col => {
+      if (currentVisibleCols[col.id] === undefined) {
+        currentVisibleCols[col.id] = col.defaultVisible;
+      }
+    });
+    applyColumnVisibility();
+    renderColumnCheckboxes();
+  }
+
+  function applyColumnVisibility() {
+    let visibleCount = 0;
+    COLUMNS_CONFIG.forEach(col => {
+      const isVis = currentVisibleCols[col.id] !== false;
+      if (isVis) visibleCount++;
+      const cells = document.querySelectorAll('.col-' + col.id);
+      cells.forEach(el => {
+        el.style.display = isVis ? '' : 'none';
+      });
+    });
+    const badge = document.getElementById('colCountDisplay');
+    if (badge) badge.innerText = visibleCount;
+  }
+
+  function renderColumnCheckboxes() {
+    const container = document.getElementById('columnCheckboxesContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    COLUMNS_CONFIG.forEach(col => {
+      const isChecked = currentVisibleCols[col.id] !== false;
+      const isRequired = (col.id === 'fullName' || col.id === 'actions');
+
+      const label = document.createElement('label');
+      label.className = `flex items-center gap-2.5 p-2 rounded-lg border text-xs cursor-pointer select-none transition-all ${
+        isChecked
+          ? 'bg-card border-primary/40 text-foreground font-semibold shadow-2xs ring-1 ring-primary/20'
+          : 'bg-background/80 border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+      } ${isRequired ? 'opacity-85 cursor-not-allowed' : ''}`;
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = isChecked;
+      input.disabled = isRequired;
+      input.className = 'w-3.5 h-3.5 rounded text-primary focus:ring-primary cursor-pointer disabled:opacity-50';
+      input.onchange = function() {
+        toggleCol(col.id, input.checked);
+        renderColumnCheckboxes();
+      };
+
+      const span = document.createElement('span');
+      span.textContent = col.label;
+      span.className = 'flex-1 text-[11px] leading-tight';
+
+      label.appendChild(input);
+      label.appendChild(span);
+
+      if (isRequired) {
+        const badge = document.createElement('span');
+        badge.className = 'text-[9px] px-1 py-0.2 rounded bg-muted text-muted-foreground uppercase font-mono font-bold';
+        badge.textContent = 'Req';
+        label.appendChild(badge);
+      }
+
+      container.appendChild(label);
+    });
+  }
+
+  function toggleCol(id, visible) {
+    currentVisibleCols[id] = visible;
+    localStorage.setItem('sutawane_student_columns_v2', JSON.stringify(currentVisibleCols));
+    applyColumnVisibility();
+  }
+
+  function selectAllColumns(val) {
+    COLUMNS_CONFIG.forEach(col => {
+      currentVisibleCols[col.id] = val;
+    });
+    localStorage.setItem('sutawane_student_columns_v2', JSON.stringify(currentVisibleCols));
+    applyColumnVisibility();
+    renderColumnCheckboxes();
+  }
+
+  function resetDefaultColumns() {
+    COLUMNS_CONFIG.forEach(col => {
+      currentVisibleCols[col.id] = col.defaultVisible;
+    });
+    localStorage.setItem('sutawane_student_columns_v2', JSON.stringify(currentVisibleCols));
+    applyColumnVisibility();
+    renderColumnCheckboxes();
+  }
+
+  function openColumnModal() {
+    renderColumnCheckboxes();
+    document.getElementById('columnModal').classList.remove('hidden');
+    if (window.lucide) { lucide.createIcons(); }
+  }
+
+  function closeColumnModal() {
+    document.getElementById('columnModal').classList.add('hidden');
+  }
+
+  function openAdmissionModal() {
+    // Set default due date +30 days
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    const dateStr = d.toISOString().split('T')[0];
+    const dueInput = document.getElementById('admDueDateInput');
+    if (dueInput && !dueInput.value) { dueInput.value = dateStr; }
+
+    document.getElementById('admissionModal').classList.remove('hidden');
+    if (window.lucide) { lucide.createIcons(); }
+  }
+
+  function closeAdmissionModal() {
+    document.getElementById('admissionModal').classList.add('hidden');
+  }
+
+  function onStandardChange(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    const fee = opt.getAttribute('data-fee');
+    if (fee) {
+      document.getElementById('admTotalFeesInput').value = parseFloat(fee);
+    }
+  }
+
+  function openDeleteStudentModal(id, name) {
+    document.getElementById('deleteStudentIdInput').value = id;
+    document.getElementById('deleteStudentNameSpan').innerText = name;
+    document.getElementById('deleteStudentModal').classList.remove('hidden');
+    if (window.lucide) { lucide.createIcons(); }
+  }
+
+  function closeDeleteStudentModal() {
+    document.getElementById('deleteStudentModal').classList.add('hidden');
+  }
+
+  function toggleSelectAll(masterCb) {
+    const checkboxes = document.querySelectorAll('.student-select-cb');
+    checkboxes.forEach(cb => { cb.checked = masterCb.checked; });
+  }
+
+  function sendWhatsAppReminder(phone, name, code, roll, standard, pending, priorDues, totalDue, branch, session) {
+    if (!phone) {
+      alert("Parent mobile number is not registered for this student.");
+      return;
+    }
+    const cleanPhone = phone.replace(/\D/g, '');
+    const intlPhone = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+
+    let msg = `🏛️ *SUTAWANE CLASSES*\n`;
+    if (branch) msg += `📍 *Branch:* ${branch}\n`;
+    msg += `────────────────────────\n`;
+
+    if (totalDue <= 0) {
+      msg += `🎉 *FEE CLEARED — APPRECIATION NOTE*\n\n`;
+      msg += `Dear Parent, Greetings! 🙏\n\n`;
+      msg += `We are pleased to inform you that all academic fee commitments for *${name}* are **100% CLEARED (NIL)** across all academic sessions! ✅\n\n`;
+      msg += `📋 *Student Profile:*\n• 🎓 *Student:* *${name}*\n• 🆔 *Student ID:* *${code}*\n• 🏷️ *Roll No:* *${roll}*\n• 📚 *Class:* *${standard}*\n\n`;
+      msg += `Thank you sincerely for your timely partnership in your child's education!\n\nWarm Regards,\n*Sutawane Classes Management*`;
+    } else {
+      msg += `📢 *OFFICIAL FEE PAYMENT REMINDER*\n\n`;
+      msg += `Dear Parent, Greetings! 🙏\nThis is a gentle reminder regarding the outstanding academic fee for:\n\n`;
+      msg += `🎓 *Student Name:* *${name}*\n🆔 *Student ID:* *${code}*\n📋 *Roll Number:* *${roll}*\n📚 *Class / Course:* *${standard}*\n`;
+      if (session) msg += `📅 *Session:* *${session}*\n`;
+      msg += `\n💰 *FEE BALANCE BREAKDOWN:*\n`;
+      msg += `• 📚 Current Session Pending: *₹${Math.round(pending).toLocaleString('en-IN')}*\n`;
+      if (priorDues > 0) {
+        msg += `• ⏳ Prior Session Dues: *₹${Math.round(priorDues).toLocaleString('en-IN')}*\n`;
+      }
+      msg += `• 🧾 *TOTAL AMOUNT DUE: ₹${Math.round(totalDue).toLocaleString('en-IN')}*\n\n`;
+      msg += `Kindly arrange to clear the pending installments at your earliest convenience.\n\nWarm Regards,\n*Sutawane Classes Accounts*`;
+    }
+
+    const url = `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function exportStudentsToExcel() {
+    const table = document.getElementById('studentsMainTable');
+    if (!table) return;
+
+    // Build CSV content
+    const rows = table.querySelectorAll('tr');
+    let csv = [];
+    rows.forEach(row => {
+      const cols = row.querySelectorAll('th, td');
+      let rowData = [];
+      cols.forEach((col, idx) => {
+        // Skip checkbox and actions columns
+        if (col.classList.contains('col-select') || col.classList.contains('col-actions')) return;
+        let text = col.innerText.replace(/"/g, '""').trim();
+        rowData.push(`"${text}"`);
+      });
+      if (rowData.length > 0) {
+        csv.push(rowData.join(','));
+      }
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csv.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Students_Directory_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Batch selection handling
+  function updateBatchSelection() {
+    const checkboxes = document.querySelectorAll('.student-select-cb:checked');
+    const count = checkboxes.length;
+    const bar = document.getElementById('batchActionBar');
+    const badge = document.getElementById('selectedCountBadge');
+    const btnCount = document.getElementById('batchPromoteBtnCount');
+    const selectAllCb = document.getElementById('selectAllCheckbox');
+
+    if (badge) badge.innerText = count;
+    if (btnCount) btnCount.innerText = count;
+    if (bar) {
+      if (count > 0) {
+        bar.classList.remove('hidden');
+      } else {
+        bar.classList.add('hidden');
+      }
+    }
+    const allCbs = document.querySelectorAll('.student-select-cb');
+    if (selectAllCb && allCbs.length > 0) {
+      selectAllCb.checked = (count === allCbs.length);
+    }
+  }
+
+  function toggleSelectAll(masterCb) {
+    const cbs = document.querySelectorAll('.student-select-cb');
+    cbs.forEach(cb => cb.checked = masterCb.checked);
+    updateBatchSelection();
+  }
+
+  function deselectAllStudents() {
+    const cbs = document.querySelectorAll('.student-select-cb');
+    cbs.forEach(cb => cb.checked = false);
+    const master = document.getElementById('selectAllCheckbox');
+    if (master) master.checked = false;
+    updateBatchSelection();
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList.contains('student-select-cb')) {
+      updateBatchSelection();
+    }
+  });
+
+  // HTMX Promotion Modal Triggers
+  function openPromoteModal(studentId) {
+    htmx.ajax('GET', `/students/${studentId}/promote-preview/`, {
+      target: '#promoteStudentModalContainer',
+      swap: 'innerHTML'
+    });
+  }
+
+  function closePromoteModal() {
+    const container = document.getElementById('promoteStudentModalContainer');
+    if (container) container.innerHTML = '';
+  }
+
+  function openBatchPromoteModal() {
+    const checked = document.querySelectorAll('.student-select-cb:checked');
+    if (checked.length === 0) {
+      alert('Please select at least one student for batch promotion.');
+      return;
+    }
+    const ids = Array.from(checked).map(cb => cb.value);
+    htmx.ajax('POST', '{% url "batch_promote_modal" %}', {
+      target: '#batchPromoteModalContainer',
+      swap: 'innerHTML',
+      values: { student_ids: ids }
+    });
+  }
+
+  function closeBatchPromoteModal() {
+    const container = document.getElementById('batchPromoteModalContainer');
+    if (container) container.innerHTML = '';
+  }
+
+  function openCollectFeeModal(studentId, admissionId, previousDueId, amount) {
+    let url = `/fees/collect-modal/${studentId}/?`;
+    if (admissionId) url += `&admission_id=${admissionId}`;
+    if (previousDueId) url += `&previous_due_id=${previousDueId}`;
+    if (amount) url += `&amount=${amount}`;
+    htmx.ajax('GET', url, {
+      target: '#collectFeeModalContainer',
+      swap: 'innerHTML'
+    });
+  }
+
+  function closeCollectFeeModal() {
+    const container = document.getElementById('collectFeeModalContainer');
+    if (container) container.innerHTML = '';
+  }
+
+  function initRowClick() {
+    const table = document.getElementById('studentsMainTable');
+    if (!table) return;
+
+    table.addEventListener('click', function(e) {
+      // Ignore clicks on buttons, links, inputs, selects, form elements, labels, or within the actions column / checkbox column
+      if (e.target.closest('button, a, input, select, textarea, form, label, .col-actions, .col-select')) {
+        return;
+      }
+
+      // Check if user is highlighting/selecting text (e.g. copying roll number or name)
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim().length > 0) {
+        return;
+      }
+
+      const row = e.target.closest('tr.student-row');
+      if (row && row.dataset.url) {
+        if (e.ctrlKey || e.metaKey) {
+          window.open(row.dataset.url, '_blank');
+        } else {
+          window.location.href = row.dataset.url;
+        }
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    initColumns();
+    initRowClick();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeAdmissionModal();
+      closeColumnModal();
+      closeDeleteStudentModal();
+      closePromoteModal();
+      closeBatchPromoteModal();
+      closeCollectFeeModal();
+    }
+  });
+</script>
+
+<!-- HTMX Modal Host Containers -->
+<div id="promoteStudentModalContainer"></div>
+<div id="batchPromoteModalContainer"></div>
+<div id="collectFeeModalContainer"></div>
+{% endblock %}

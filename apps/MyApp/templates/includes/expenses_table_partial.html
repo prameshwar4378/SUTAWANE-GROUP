@@ -1,0 +1,274 @@
+{% load static %}
+<div class="overflow-x-auto">
+  <table class="w-full text-left border-collapse text-xs sm:text-sm" id="expensesMasterTable">
+    <thead class="bg-[#28375C] text-white">
+      <tr class="border-b border-[#1b2640]">
+        <!-- Sr No -->
+        <th class="py-3 px-3 text-center text-xs font-semibold w-12 col-srNo">#</th>
+
+        <!-- Date -->
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-expenseDate">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=expenseDate&direction={% if filters.sort == 'expenseDate' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Date</span>
+            {% if filters.sort == 'expenseDate' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Category -->
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-category">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=category&direction={% if filters.sort == 'category' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Category</span>
+            {% if filters.sort == 'category' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Description -->
+        <th class="py-3 px-3 text-left text-xs font-semibold min-w-[200px] col-description">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=description&direction={% if filters.sort == 'description' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Description</span>
+            {% if filters.sort == 'description' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Branch -->
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-branch">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=branch&direction={% if filters.sort == 'branch' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Branch</span>
+            {% if filters.sort == 'branch' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Vendor / Payee -->
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-vendor">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=vendor&direction={% if filters.sort == 'vendor' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Vendor / Payee</span>
+            {% if filters.sort == 'vendor' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Payment Mode -->
+        <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-paymentMode">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=paymentMode&direction={% if filters.sort == 'paymentMode' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Mode</span>
+            {% if filters.sort == 'paymentMode' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Reference / Bill No -->
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-referenceNumber">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=referenceNumber&direction={% if filters.sort == 'referenceNumber' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Ref / UTR</span>
+            {% if filters.sort == 'referenceNumber' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Bill Scan Document -->
+        <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-attachment">Bill Scan</th>
+
+        <!-- Amount -->
+        <th class="py-3 px-3 text-right text-xs font-semibold whitespace-nowrap col-amount">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=amount&direction={% if filters.sort == 'amount' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-end gap-1 hover:text-amber-300 transition-colors">
+            <span>Amount (₹)</span>
+            {% if filters.sort == 'amount' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+
+        <!-- Actions -->
+        <th class="py-3 px-4 text-right text-xs font-semibold whitespace-nowrap pr-4 col-actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-border">
+      {% for exp in page_obj %}
+      <tr class="hover:bg-muted/40 transition-colors">
+        <!-- Sr No -->
+        <td class="py-3 px-3 text-center font-mono text-xs text-muted-foreground col-srNo">
+          {{ forloop.counter0|add:page_obj.start_index }}
+        </td>
+
+        <!-- Date -->
+        <td class="py-3 px-3 text-xs whitespace-nowrap font-medium text-foreground col-expenseDate">
+          {{ exp.expense_date_formatted }}
+        </td>
+
+        <!-- Category -->
+        <td class="py-3 px-3 whitespace-nowrap col-category">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border bg-muted/50 text-foreground">
+            {{ exp.category_name }}
+          </span>
+        </td>
+
+        <!-- Description -->
+        <td class="py-3 px-3 font-semibold text-foreground col-description">
+          <div>{{ exp.description }}</div>
+          {% if exp.vendor %}
+          <div class="text-[10px] text-muted-foreground font-normal">
+            Paid to: {{ exp.vendor }}
+          </div>
+          {% endif %}
+        </td>
+
+        <!-- Branch -->
+        <td class="py-3 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap col-branch">
+          {{ exp.branch_name }}
+        </td>
+
+        <!-- Vendor / Payee -->
+        <td class="py-3 px-3 text-xs whitespace-nowrap col-vendor">
+          {{ exp.vendor|default:"—" }}
+        </td>
+
+        <!-- Payment Mode -->
+        <td class="py-3 px-3 text-center whitespace-nowrap col-paymentMode">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs {% if exp.payment_mode == 'UPI' %}bg-blue-50 text-blue-700 border-blue-200{% elif exp.payment_mode == 'CASH' %}bg-emerald-50 text-emerald-700 border-emerald-200{% elif exp.payment_mode == 'BANK_TRANSFER' %}bg-purple-50 text-purple-700 border-purple-200{% elif exp.payment_mode == 'CHEQUE' %}bg-amber-50 text-amber-700 border-amber-200{% else %}bg-slate-50 text-slate-700 border-slate-200{% endif %}">
+            {{ exp.payment_mode }}
+          </span>
+        </td>
+
+        <!-- Reference / Bill No -->
+        <td class="py-3 px-3 font-mono text-xs text-muted-foreground whitespace-nowrap col-referenceNumber">
+          {{ exp.reference_number|default:"—" }}
+        </td>
+
+        <!-- Bill Scan Document -->
+        <td class="py-3 px-3 text-center whitespace-nowrap col-attachment">
+          {% if exp.has_attachment %}
+            <button
+              type="button"
+              onclick="openAttachmentModal('{{ exp.attachment_file_name|escapejs }}', '{{ exp.attachment_file_path|escapejs }}', '{{ exp.attachment_mime_type|escapejs }}')"
+              class="inline-flex items-center gap-1 h-7 px-2 text-primary border border-primary/30 hover:bg-primary/10 rounded-md text-xs font-medium cursor-pointer transition-colors"
+              title="View uploaded receipt / bill scan"
+            >
+              <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>
+              <span>Bill Scan</span>
+            </button>
+          {% else %}
+            <span class="text-muted-foreground text-xs">—</span>
+          {% endif %}
+        </td>
+
+        <!-- Amount -->
+        <td class="py-3 px-3 text-right text-xs font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap col-amount">
+          ₹{{ exp.amount|floatformat:0 }}
+        </td>
+
+        <!-- Actions Toolbar -->
+        <td class="py-3 px-4 text-right whitespace-nowrap pr-4 col-actions">
+          <div class="flex items-center justify-end gap-1">
+            <button
+              type="button"
+              onclick="openEditExpenseModal('{{ exp.id }}', '{{ exp.description|escapejs }}', '{{ exp.amount }}', '{{ exp.category_id }}', '{{ exp.category_name|escapejs }}', '{{ exp.branch_id }}', '{{ exp.payment_mode|escapejs }}', '{{ exp.vendor|escapejs }}', '{{ exp.reference_number|escapejs }}', '{{ exp.expense_date_iso }}')"
+              class="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+              title="Edit Expense Voucher"
+            >
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <button
+              type="button"
+              onclick="openDeleteExpenseModal('{{ exp.id }}', '{{ exp.description|escapejs }}', '{{ exp.amount }}')"
+              class="h-7 w-7 inline-flex items-center justify-center rounded-md text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+              title="Delete Expense Voucher"
+            >
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="11" class="py-16 text-center text-muted-foreground">
+          <div class="max-w-md mx-auto space-y-3">
+            <div class="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+              <i data-lucide="receipt" class="w-6 h-6"></i>
+            </div>
+            <p class="text-base font-semibold text-foreground">No matching expense vouchers found</p>
+            <p class="text-xs text-muted-foreground">
+              No expense records match your active search and filter combinations. Click "Add Expense Voucher" to record center overheads.
+            </p>
+            {% if has_active_filters %}
+            <a href="{% url 'expenses_list' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border hover:bg-muted transition-colors">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+              Clear Filters
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Table Footer with Pagination Controls -->
+<div class="p-3 bg-muted/20 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted-foreground">
+  <div>
+    Showing <strong class="text-foreground">{{ page_obj|length }}</strong> of <strong class="text-foreground">{{ total_filtered }}</strong> filtered vouchers
+  </div>
+
+  <div class="flex items-center gap-2">
+    {% if page_obj.has_previous %}
+      <a
+        href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+        class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
+      >
+        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+        <span>Previous</span>
+      </a>
+    {% else %}
+      <span class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border opacity-50 cursor-not-allowed">
+        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+        <span>Previous</span>
+      </span>
+    {% endif %}
+
+    <span class="text-xs font-medium px-2">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages|default:1 }}
+    </span>
+
+    {% if page_obj.has_next %}
+      <a
+        href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+        class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
+      >
+        <span>Next</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+      </a>
+    {% else %}
+      <span class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border opacity-50 cursor-not-allowed">
+        <span>Next</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+      </span>
+    {% endif %}
+  </div>
+</div>

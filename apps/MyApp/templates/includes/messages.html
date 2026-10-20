@@ -1,0 +1,32 @@
+{% if messages %}
+<div class="px-6 pt-4 space-y-2">
+  {% for message in messages %}
+    <div
+      class="p-3.5 rounded-lg border flex items-center justify-between text-xs font-medium shadow-xs transition-all animate-in fade-in
+        {% if message.tags == 'success' %}
+          bg-emerald-50 text-emerald-800 border-emerald-200
+        {% elif message.tags == 'error' %}
+          bg-rose-50 text-rose-800 border-rose-200
+        {% elif message.tags == 'warning' %}
+          bg-amber-50 text-amber-800 border-amber-200
+        {% else %}
+          bg-blue-50 text-blue-800 border-blue-200
+        {% endif %}"
+    >
+      <div class="flex items-center gap-2">
+        {% if message.tags == 'success' %}
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+        {% elif message.tags == 'error' %}
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+        {% else %}
+          <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
+        {% endif %}
+        <span>{{ message }}</span>
+      </div>
+      <button type="button" onclick="this.parentElement.remove()" class="opacity-70 hover:opacity-100">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}

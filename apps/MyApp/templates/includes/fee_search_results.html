@@ -1,0 +1,48 @@
+{% if results %}
+<div class="py-1 divide-y divide-border text-xs">
+  {% for r in results %}
+  <a
+    href="{% url 'fee_collect' %}?tab=collect&student_id={{ r.student_id }}"
+    class="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors cursor-pointer group"
+  >
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+        {{ r.full_name|slice:":1"|upper }}
+      </div>
+      <div>
+        <div class="font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+          <span>{{ r.full_name }}</span>
+          <span class="text-[10px] text-muted-foreground font-mono font-normal">({{ r.student_code }})</span>
+        </div>
+        <div class="text-[11px] text-muted-foreground flex items-center gap-2">
+          <span>Roll: <strong class="text-foreground font-mono">{{ r.roll_number }}</strong></span>
+          <span>•</span>
+          <span>{{ r.standard }}</span>
+          <span>•</span>
+          <span>{{ r.branch_name }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="text-right">
+      {% if r.pending_fees > 0 %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+        Due: ₹{{ r.pending_fees|floatformat:0 }}
+      </span>
+      {% else %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+        All Paid
+      </span>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="p-4 text-center text-xs text-muted-foreground">
+  {% if q %}
+  No students found matching "{{ q }}". Try searching by name, roll number, or phone.
+  {% else %}
+  Type a student name, roll number, or phone number above to select a student.
+  {% endif %}
+</div>
+{% endif %}

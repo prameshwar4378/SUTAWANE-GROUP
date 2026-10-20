@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Developer Management Portal | {{ institute_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full">
+  <!-- Portal Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b">
+    <div class="space-y-1">
+      <div class="flex items-center gap-2">
+        <h1 class="text-2xl font-bold tracking-tight text-foreground">Developer Portal</h1>
+        <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+          DEVELOPER ACCESS
+        </span>
+      </div>
+      <p class="text-xs text-muted-foreground font-medium">
+        Super-administrative controls for software licensing, security overrides, and system health
+      </p>
+    </div>
+
+    <div>
+      {% if license.isActive and not license.isExpired %}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span>License Active ({{ license.daysRemaining }} Days Remaining)</span>
+        </span>
+      {% else %}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span>Subscription Plan Expired</span>
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- SECTION 1: Software Licensing & Subscription Management -->
+  <div class="p-6 rounded-xl border bg-card text-card-foreground shadow-2xs space-y-5">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
+          <i data-lucide="key-round" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h2 class="text-sm font-bold text-foreground">Software License &amp; Validity Management</h2>
+          <p class="text-[11px] text-muted-foreground">Configure client subscription period, status, and renewal notes</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="POST" action="{% url 'developer_portal' %}" class="space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_license">
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- License Active Toggle -->
+        <div class="p-3.5 rounded-lg border bg-muted/30 space-y-1.5">
+          <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+            <span>License Operational Status</span>
+            <span class="text-[10px] text-muted-foreground">Hard Lock</span>
+          </label>
+          <select
+            name="is_active"
+            class="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 font-semibold focus:outline-none"
+          >
+            <option value="true" {% if license.isActive %}selected{% endif %}>🟢 Active &amp; Operational</option>
+            <option value="false" {% if not license.isActive %}selected{% endif %}>🔴 Inactive (Force Lock Screen)</option>
+          </select>
+        </div>
+
+        <!-- Expiry Date -->
+        <div class="p-3.5 rounded-lg border bg-muted/30 space-y-1.5">
+          <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+            <span>Expiry Date</span>
+            <span class="text-[10px] font-mono text-muted-foreground">{{ license.daysRemaining }} days left</span>
+          </label>
+          <input
+            type="date"
+            name="expiry_date"
+            value="{{ license.expiryDate|slice:':10' }}"
+            class="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 font-mono focus:outline-none"
+          />
+        </div>
+
+        <!-- Quick Extend Buttons -->
+        <div class="p-3.5 rounded-lg border bg-muted/30 space-y-1.5 flex flex-col justify-between">
+          <span class="text-xs font-semibold text-foreground">Quick Extend Validity</span>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button
+              type="submit"
+              name="extend_days"
+              value="30"
+              class="h-7 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+            >
+              +30 Days
+            </button>
+            <button
+              type="submit"
+              name="extend_days"
+              value="365"
+              class="h-7 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+            >
+              +1 Year
+            </button>
+            <button
+              type="submit"
+              name="extend_days"
+              value="3650"
+              class="h-7 text-[10px] font-bold rounded border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+            >
+              +10 Yrs
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Developer Support Note -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+          <span>Developer Support Helpline Notice</span>
+          <span class="text-[10px] text-muted-foreground">Displayed on lock screen when expired</span>
+        </label>
+        <input
+          type="text"
+          name="developer_note"
+          value="{{ license.developerNote }}"
+          class="w-full h-9 text-xs rounded-lg border border-input bg-background px-3 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="Support Helpline: +91 7776824564 (Mr. Rameshwar Pawar)"
+        />
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button
+          type="submit"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+        >
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Save License Configuration</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- SECTION 2: User Security & Account Management -->
+  <div class="p-6 rounded-xl border bg-card text-card-foreground shadow-2xs space-y-4">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+        <i data-lucide="shield-check" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <h2 class="text-sm font-bold text-foreground">User Accounts &amp; Password Overrides</h2>
+        <p class="text-[11px] text-muted-foreground">Manage administrator and developer accounts directly</p>
+      </div>
+    </div>
+
+    <div class="border rounded-lg overflow-hidden">
+      <table class="w-full text-xs text-left">
+        <thead class="bg-muted/50 border-b font-semibold text-muted-foreground">
+          <tr>
+            <th class="p-3">User</th>
+            <th class="p-3">Role</th>
+            <th class="p-3">Status</th>
+            <th class="p-3">Created</th>
+            <th class="p-3 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          {% for u in users %}
+          <tr class="hover:bg-muted/30">
+            <td class="p-3">
+              <div class="font-bold text-foreground">{{ u.name }}</div>
+              <div class="font-mono text-[10px] text-muted-foreground">@{{ u.username }}</div>
+            </td>
+            <td class="p-3">
+              {% if u.role == 'DEVELOPER' %}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  DEVELOPER
+                </span>
+              {% else %}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  CLASS OWNER
+                </span>
+              {% endif %}
+            </td>
+            <td class="p-3">
+              {% if u.is_active %}
+                <span class="text-emerald-600 font-semibold flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                </span>
+              {% else %}
+                <span class="text-rose-600 font-semibold flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Disabled
+                </span>
+              {% endif %}
+            </td>
+            <td class="p-3 text-muted-foreground font-mono text-[11px]">
+              {{ u.created_at|date:"d M Y" }}
+            </td>
+            <td class="p-3 text-right">
+              <button
+                type="button"
+                onclick="openResetPasswordModal('{{ u.id }}', '{{ u.username }}')"
+                class="px-2.5 py-1 text-[11px] font-semibold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+              >
+                Reset Password
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECTION 3: System Health & Database Diagnostics -->
+  <div class="p-6 rounded-xl border bg-card text-card-foreground shadow-2xs space-y-4">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
+        <i data-lucide="activity" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <h2 class="text-sm font-bold text-foreground">Database Diagnostics &amp; Operational Metrics</h2>
+        <p class="text-[11px] text-muted-foreground">Live SQLite database record metrics</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+      <div class="p-3 rounded-lg border bg-muted/20">
+        <div class="text-lg font-bold text-foreground">{{ stats.students_count|default:0 }}</div>
+        <div class="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Students</div>
+      </div>
+      <div class="p-3 rounded-lg border bg-muted/20">
+        <div class="text-lg font-bold text-foreground">{{ stats.admissions_count|default:0 }}</div>
+        <div class="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Admissions</div>
+      </div>
+      <div class="p-3 rounded-lg border bg-muted/20">
+        <div class="text-lg font-bold text-foreground">{{ stats.payments_count|default:0 }}</div>
+        <div class="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Receipts</div>
+      </div>
+      <div class="p-3 rounded-lg border bg-muted/20">
+        <div class="text-lg font-bold text-foreground">{{ stats.expenses_count|default:0 }}</div>
+        <div class="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Expenses</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reset Password -->
+<div id="reset-password-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h3 class="text-sm font-bold flex items-center gap-1.5">
+        <i data-lucide="lock" class="w-4 h-4 text-primary"></i>
+        <span>Reset User Password</span>
+      </h3>
+      <button type="button" onclick="closeModal('reset-password-modal')" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'developer_portal' %}" class="p-4 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reset_password">
+      <input type="hidden" id="reset-user-id-input" name="user_id" value="">
+
+      <div class="space-y-1">
+        <span class="text-xs text-muted-foreground">User:</span>
+        <div id="reset-user-display" class="font-bold text-sm font-mono text-foreground"></div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-foreground">New Password</label>
+        <input
+          type="password"
+          name="new_password"
+          required
+          minlength="6"
+          placeholder="Enter new password"
+          class="w-full h-8 text-xs rounded-lg border border-input bg-background px-3 focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onclick="closeModal('reset-password-modal')"
+          class="px-3 py-1.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="px-3 py-1.5 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+        >
+          Update Password
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openResetPasswordModal(userId, username) {
+    document.getElementById('reset-user-id-input').value = userId;
+    document.getElementById('reset-user-display').textContent = '@' + username;
+    openModal('reset-password-modal');
+  }
+</script>
+{% endblock %}

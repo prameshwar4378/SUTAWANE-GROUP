@@ -1,0 +1,881 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Branch Expense & Overheads Management — Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Page Header -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="receipt" class="w-6 h-6 text-primary"></i>
+        <span>Branch Expense & Overheads Management</span>
+      </h1>
+      <p class="text-sm text-muted-foreground mt-0.5">
+        Log overheads (Rent, Salaries, Electricity, Internet, Maintenance, Marketing) with bill scans.
+      </p>
+    </div>
+
+    <!-- Global Action Toolbar -->
+    <div class="flex items-center gap-2">
+      <!-- Add Expense Voucher Button -->
+      <button
+        type="button"
+        onclick="openCreateExpenseModal()"
+        class="inline-flex items-center gap-2 text-xs h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+      >
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span>Add Expense Voucher</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Financial KPI Summary Cards Ribbon -->
+  <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    <!-- Total Vouchers Card -->
+    <div class="p-3 bg-card rounded-xl border shadow-sm">
+      <div class="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+        <span>Recorded Vouchers</span>
+        <i data-lucide="receipt" class="w-3.5 h-3.5 text-primary"></i>
+      </div>
+      <div class="text-xl font-bold text-foreground mt-1">{{ kpis.total_count }}</div>
+      <p class="text-[10px] text-muted-foreground mt-0.5">Matching active filters</p>
+    </div>
+
+    <!-- Filtered Total Outflow Card -->
+    <div class="p-3 bg-rose-50/50 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-900/40 shadow-sm">
+      <div class="text-[11px] font-semibold text-rose-700 dark:text-rose-300 flex items-center justify-between">
+        <span>Filtered Expenses</span>
+        <i data-lucide="trending-down" class="w-3.5 h-3.5 text-rose-600"></i>
+      </div>
+      <div class="text-xl font-bold text-rose-600 dark:text-rose-400 mt-1">
+        ₹{{ kpis.total_amount|floatformat:0 }}
+      </div>
+      <p class="text-[10px] text-muted-foreground mt-0.5">Total center overheads</p>
+    </div>
+
+    <!-- Top Category Spending Card -->
+    <div class="p-3 bg-card rounded-xl border shadow-sm">
+      <div class="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+        <span>Top Category</span>
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+      </div>
+      <div class="text-xl font-bold text-foreground mt-1 truncate">
+        {{ kpis.top_category.name|default:"—" }}
+      </div>
+      <p class="text-[10px] text-muted-foreground mt-0.5">
+        {% if kpis.top_category %}₹{{ kpis.top_category.total|floatformat:0 }}{% else %}No expenses recorded{% endif %}
+      </p>
+    </div>
+
+    <!-- UPI & Digital Card -->
+    <div class="p-3 bg-blue-50/40 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 shadow-sm">
+      <div class="text-[11px] font-semibold text-blue-700 dark:text-blue-300 flex items-center justify-between">
+        <span>UPI & Online</span>
+        <i data-lucide="smartphone" class="w-3.5 h-3.5 text-blue-600"></i>
+      </div>
+      <div class="text-xl font-bold text-blue-900 dark:text-blue-100 mt-1">
+        ₹{{ kpis.upi_total|floatformat:0 }}
+      </div>
+      <p class="text-[10px] text-muted-foreground mt-0.5">Instant digital settlements</p>
+    </div>
+
+    <!-- Cash & Bank Outflow Card -->
+    <div class="col-span-2 sm:col-span-1 p-3 bg-emerald-50/40 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-900/40 shadow-sm">
+      <div class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+        <span>Cash & Bank Wire</span>
+        <i data-lucide="building-2" class="w-3.5 h-3.5 text-emerald-600"></i>
+      </div>
+      <div class="text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1">
+        ₹{{ kpis.cash_bank_total|floatformat:0 }}
+      </div>
+      <p class="text-[10px] text-muted-foreground mt-0.5">Physical cash & transfers</p>
+    </div>
+  </div>
+
+  <!-- Category Pills Strip -->
+  {% if category_breakdown %}
+  <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+    <a
+      href="?{% for k, v in filters.items %}{% if k != 'category_id' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}category_id=ALL"
+      class="px-3 py-1.5 rounded-lg border font-medium transition-all whitespace-nowrap flex items-center gap-1.5 {% if filters.category_id == 'ALL' or not filters.category_id %}bg-primary text-primary-foreground border-primary shadow-sm{% else %}bg-card hover:bg-muted text-muted-foreground{% endif %}"
+    >
+      <span>All Categories</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded font-mono {% if filters.category_id == 'ALL' or not filters.category_id %}bg-primary-foreground/20 text-white{% else %}bg-muted text-foreground{% endif %}">
+        ₹{{ kpis.total_amount|floatformat:0 }}
+      </span>
+    </a>
+
+    {% for cat in category_breakdown %}
+      <a
+        href="?{% for k, v in filters.items %}{% if k != 'category_id' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}category_id={{ cat.id }}"
+        class="px-3 py-1.5 rounded-lg border font-medium transition-all whitespace-nowrap flex items-center gap-1.5 {% if filters.category_id == cat.id %}bg-primary text-primary-foreground border-primary shadow-sm{% else %}bg-card hover:bg-muted text-foreground{% endif %}"
+      >
+        <span>{{ cat.name }}</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded font-mono {% if filters.category_id == cat.id %}bg-primary-foreground/20 text-white{% else %}bg-muted text-muted-foreground{% endif %}">
+          ₹{{ cat.total|floatformat:0 }}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Advanced Filter Toolbar -->
+  <div class="bg-card p-3.5 rounded-xl border shadow-sm space-y-3">
+    <form
+      id="expensesFilterForm"
+      method="GET"
+      action="{% url 'expenses_list' %}"
+      hx-get="{% url 'expenses_list' %}"
+      hx-target="#expensesTableContainer"
+      hx-trigger="change, keyup delay:400ms from:#expenseSearchInput"
+      hx-push-url="true"
+    >
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <!-- Search Input with Clear Button -->
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground pointer-events-none"></i>
+          <input
+            type="text"
+            id="expenseSearchInput"
+            name="q"
+            value="{{ filters.q }}"
+            placeholder="Search description, vendor, ref no..."
+            class="w-full pl-9 pr-8 h-9 text-xs bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          {% if filters.q %}
+            <a
+              href="?{% for k, v in filters.items %}{% if k != 'q' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}"
+              class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+              title="Clear search"
+            >
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </a>
+          {% endif %}
+        </div>
+
+        <!-- Category Dropdown Filter -->
+        <div class="flex items-center gap-1.5 bg-background border rounded-md px-2.5">
+          <i data-lucide="filter" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            name="category_id"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.category_id == 'ALL' or not filters.category_id %}selected{% endif %}>All Categories</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}" {% if filters.category_id == c.id %}selected{% endif %}>
+                {{ c.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Payment Mode Filter -->
+        <div class="flex items-center gap-1.5 bg-background border rounded-md px-2.5">
+          <i data-lucide="credit-card" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            name="payment_mode"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.payment_mode == 'ALL' or not filters.payment_mode %}selected{% endif %}>All Payment Modes</option>
+            <option value="UPI" {% if filters.payment_mode == 'UPI' %}selected{% endif %}>UPI (GPay/PhonePe)</option>
+            <option value="CASH" {% if filters.payment_mode == 'CASH' %}selected{% endif %}>Cash in Hand</option>
+            <option value="BANK_TRANSFER" {% if filters.payment_mode == 'BANK_TRANSFER' %}selected{% endif %}>Bank Transfer (NEFT/RTGS)</option>
+            <option value="CHEQUE" {% if filters.payment_mode == 'CHEQUE' %}selected{% endif %}>Cheque</option>
+          </select>
+        </div>
+
+        <!-- Branch Location Filter -->
+        <div class="flex items-center gap-1.5 bg-background border rounded-md px-2.5">
+          <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            name="branch_id"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.branch_id == 'ALL' or not filters.branch_id %}selected{% endif %}>All Branch Locations</option>
+            {% for b in branches %}
+              <option value="{{ b.id }}" {% if filters.branch_id == b.id %}selected{% endif %}>
+                {{ b.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Secondary Date Range Controls -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2">
+        <!-- Date Range Preset Selector -->
+        <div class="flex items-center gap-1.5 bg-background border rounded-md px-2.5">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"></i>
+          <select
+            id="datePresetSelect"
+            name="date_preset"
+            onchange="toggleCustomDates(this.value)"
+            class="w-full h-9 bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="ALL" {% if filters.date_preset == 'ALL' or not filters.date_preset %}selected{% endif %}>All Voucher Dates</option>
+            <option value="TODAY" {% if filters.date_preset == 'TODAY' %}selected{% endif %}>Recorded Today</option>
+            <option value="YESTERDAY" {% if filters.date_preset == 'YESTERDAY' %}selected{% endif %}>Recorded Yesterday</option>
+            <option value="THIS_WEEK" {% if filters.date_preset == 'THIS_WEEK' %}selected{% endif %}>This Week</option>
+            <option value="THIS_MONTH" {% if filters.date_preset == 'THIS_MONTH' %}selected{% endif %}>This Month</option>
+            <option value="LAST_MONTH" {% if filters.date_preset == 'LAST_MONTH' %}selected{% endif %}>Last Month</option>
+            <option value="THIS_YEAR" {% if filters.date_preset == 'THIS_YEAR' %}selected{% endif %}>This Fiscal Year</option>
+            <option value="CUSTOM" {% if filters.date_preset == 'CUSTOM' %}selected{% endif %}>Custom Date Range...</option>
+          </select>
+        </div>
+
+        <!-- Custom Date Pickers -->
+        <div id="customDateRangeInputs" class="{% if filters.date_preset != 'CUSTOM' %}hidden{% endif %} contents">
+          <div class="flex items-center gap-1.5 bg-background border rounded-md px-2">
+            <span class="text-[11px] text-muted-foreground font-medium whitespace-nowrap">From:</span>
+            <input
+              type="date"
+              name="start_date"
+              value="{{ filters.start_date }}"
+              class="w-full h-9 bg-transparent text-xs focus:outline-none"
+            />
+          </div>
+          <div class="flex items-center gap-1.5 bg-background border rounded-md px-2">
+            <span class="text-[11px] text-muted-foreground font-medium whitespace-nowrap">To:</span>
+            <input
+              type="date"
+              name="end_date"
+              value="{{ filters.end_date }}"
+              class="w-full h-9 bg-transparent text-xs focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div class="{% if filters.date_preset == 'CUSTOM' %}hidden{% else %}hidden lg:block lg:col-span-2{% endif %}"></div>
+      </div>
+
+      <!-- Hidden sort inputs to preserve sorting -->
+      <input type="hidden" name="sort" value="{{ filters.sort|default:'expenseDate' }}">
+      <input type="hidden" name="direction" value="{{ filters.direction|default:'desc' }}">
+
+      <!-- Tertiary Filter & Reset Controls -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t text-xs">
+        <div class="flex items-center gap-2">
+          <span class="text-muted-foreground font-medium">Page Size:</span>
+          <select
+            name="page_size"
+            class="h-7 bg-background border rounded px-2 text-xs font-medium focus:outline-none cursor-pointer"
+          >
+            <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
+            <option value="25" {% if filters.page_size == 25 or not filters.page_size %}selected{% endif %}>25 per page</option>
+            <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
+          </select>
+        </div>
+
+        {% if has_active_filters %}
+        <a
+          href="{% url 'expenses_list' %}"
+          class="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 font-medium hover:underline cursor-pointer"
+        >
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Reset All Filters</span>
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Main Expenses Table Card -->
+  <div class="bg-card rounded-xl border shadow-sm overflow-hidden">
+    <div class="py-3 px-4 sm:px-6 bg-muted/20 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <span class="text-sm font-semibold text-foreground">Recorded Expense Vouchers</span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-normal border border-border bg-background text-muted-foreground">
+          Showing {{ page_obj|length }} of {{ total_filtered }} entries
+        </span>
+      </div>
+
+      <!-- Corner Table Action Toolbar -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Column Visibility Toggle Button -->
+        <button
+          type="button"
+          onclick="openColumnModal()"
+          class="inline-flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-md border border-input bg-background hover:bg-accent font-medium transition-colors cursor-pointer shadow-2xs"
+        >
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-muted-foreground"></i>
+          <span>Columns (<span id="visibleColCount">11</span>/11)</span>
+        </button>
+
+        <!-- Export to Excel Button -->
+        <a
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=excel"
+          class="inline-flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-medium transition-colors shadow-2xs"
+        >
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span>Export Excel</span>
+        </a>
+
+        <!-- Export to PDF Button -->
+        <a
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=pdf"
+          class="inline-flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 bg-background hover:bg-rose-50 dark:hover:bg-rose-950/30 font-medium transition-colors shadow-2xs"
+        >
+          <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span>Export PDF</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- HTMX Swappable Table Container -->
+    <div id="expensesTableContainer">
+      {% include "includes/expenses_table_partial.html" %}
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODALS SECTION                                                            -->
+<!-- ========================================================================= -->
+
+<!-- 1. Add / Edit Expense Voucher Modal -->
+<div id="expenseModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+  <div class="bg-background border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <form method="POST" action="{% url 'expenses_list' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="expenseFormAction" value="create">
+      <input type="hidden" name="expense_id" id="expenseFormId" value="">
+
+      <!-- Modal Header -->
+      <div class="py-3.5 px-4 bg-muted/30 border-b flex items-center justify-between">
+        <h3 class="text-base font-bold text-foreground flex items-center gap-2" id="expenseModalTitle">
+          <i data-lucide="receipt" class="w-4 h-4 text-primary"></i>
+          <span>Record Center Overhead / Expense</span>
+        </h3>
+        <button type="button" onclick="closeExpenseModal()" class="text-muted-foreground hover:text-foreground">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 space-y-3.5 text-xs">
+        <!-- Description -->
+        <div class="space-y-1">
+          <label class="font-semibold text-foreground">Expense Description *</label>
+          <input
+            type="text"
+            name="description"
+            id="expenseDescriptionInput"
+            placeholder="e.g. October Electricity Bill / Xerox paper bundle"
+            required
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <!-- Amount & Category -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-semibold text-foreground">Amount (₹) *</label>
+            <input
+              type="number"
+              step="any"
+              min="1"
+              name="amount"
+              id="expenseAmountInput"
+              placeholder="e.g. 4500"
+              required
+              class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary font-semibold text-rose-600"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label class="font-semibold text-foreground">Category *</label>
+            </div>
+            <!-- Category Selector with New Category Typing support -->
+            <select
+              name="category_id"
+              id="expenseCategorySelect"
+              onchange="handleCategorySelectChange(this.value)"
+              class="w-full h-9 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none"
+              required
+            >
+              {% for c in categories %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+              <option value="__NEW__">+ Type New Category...</option>
+            </select>
+            <!-- Hidden input for typing new category -->
+            <input
+              type="text"
+              name="new_category_name"
+              id="newCategoryInput"
+              placeholder="Type new category name..."
+              class="w-full h-8 mt-1 rounded border border-primary/50 bg-background px-2 text-xs hidden"
+            />
+          </div>
+        </div>
+
+        <!-- Branch & Expense Date -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-semibold text-foreground">Branch Location *</label>
+            <select
+              name="branch_id"
+              id="expenseBranchSelect"
+              class="w-full h-9 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none"
+              required
+            >
+              {% for b in branches %}
+                <option value="{{ b.id }}" {% if selected_branch and selected_branch.id == b.id %}selected{% endif %}>
+                  {{ b.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label class="font-semibold text-foreground">Expense Date *</label>
+              <button
+                type="button"
+                onclick="setExpenseDateToday()"
+                class="text-[10px] text-primary hover:underline font-medium inline-flex items-center gap-0.5 cursor-pointer"
+              >
+                <i data-lucide="calendar" class="w-3 h-3"></i>
+                Today
+              </button>
+            </div>
+            <input
+              type="date"
+              name="expense_date"
+              id="expenseDateInput"
+              required
+              class="w-full h-9 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <!-- Vendor & Payment Mode -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-semibold text-foreground">Vendor / Recipient</label>
+            <input
+              type="text"
+              name="vendor"
+              id="expenseVendorInput"
+              placeholder="e.g. Landlord / MSEB"
+              class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-semibold text-foreground">Payment Mode</label>
+            <select
+              name="payment_mode"
+              id="expensePaymentModeSelect"
+              class="w-full h-9 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none"
+            >
+              <option value="UPI">UPI (GPay/PhonePe)</option>
+              <option value="CASH">Cash in Hand</option>
+              <option value="BANK_TRANSFER">Bank Transfer (NEFT)</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Reference / Bill No -->
+        <div class="space-y-1">
+          <label class="font-semibold text-foreground">Reference / UTR / Bill No.</label>
+          <input
+            type="text"
+            name="reference_number"
+            id="expenseRefInput"
+            placeholder="e.g. Bill # 49201 / UTR Ref"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none"
+          />
+        </div>
+
+        <!-- File Attachment Upload -->
+        <div class="space-y-1 pt-1 border-t">
+          <label class="font-semibold text-foreground flex items-center justify-between">
+            <span>Attach Bill Scan / Photo (Optional)</span>
+            <span class="text-[10px] text-muted-foreground font-normal">PNG, JPG, PDF</span>
+          </label>
+          <input
+            type="file"
+            name="attachment"
+            id="expenseAttachmentInput"
+            accept="image/*,application/pdf"
+            class="w-full text-xs text-muted-foreground file:mr-2 file:py-1 file:px-2.5 file:rounded file:border file:text-xs file:bg-muted file:hover:bg-muted/80 file:cursor-pointer"
+          />
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 bg-muted/20 border-t flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onclick="closeExpenseModal()"
+          class="h-8 px-3 rounded-md border bg-background hover:bg-muted text-xs font-medium cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          id="expenseSubmitBtn"
+          class="h-8 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs cursor-pointer"
+        >
+          Save Expense
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 2. Bill Attachment Viewer Modal -->
+<div id="attachmentViewerModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+  <div class="bg-background border rounded-xl shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="py-3 px-4 bg-muted/30 border-b flex items-center justify-between">
+      <h3 class="text-sm font-bold text-foreground flex items-center gap-2">
+        <i data-lucide="paperclip" class="w-4 h-4 text-primary"></i>
+        <span>Attached Bill Document: <span id="attachmentViewerFileName" class="font-mono text-muted-foreground"></span></span>
+      </h3>
+      <button type="button" onclick="closeAttachmentModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <div class="p-4 bg-muted/20 border-b flex items-center justify-center max-h-[70vh] overflow-auto" id="attachmentContentArea">
+      <!-- Injected dynamically via JS: <img> or PDF view button -->
+    </div>
+
+    <div class="p-3 bg-muted/20 flex items-center justify-end gap-2">
+      <a
+        id="attachmentOpenNewTabBtn"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+      >
+        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        <span>Open in New Tab</span>
+      </a>
+      <button
+        type="button"
+        onclick="closeAttachmentModal()"
+        class="h-8 px-3 rounded-md border bg-background hover:bg-muted text-xs font-medium cursor-pointer"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Delete Expense Confirmation Modal -->
+<div id="deleteExpenseModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+  <div class="bg-background border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <form method="POST" action="{% url 'expenses_list' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="expense_id" id="deleteExpenseId" value="">
+
+      <div class="p-5 text-center space-y-3">
+        <div class="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center mx-auto">
+          <i data-lucide="trash-2" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-base font-bold text-foreground">Delete Expense Voucher?</h3>
+        <p class="text-xs text-muted-foreground max-w-xs mx-auto">
+          Are you sure you want to permanently delete the voucher for <strong id="deleteExpenseDesc" class="text-foreground"></strong> of <strong id="deleteExpenseAmt" class="text-rose-600"></strong>? Any linked bill attachments will also be permanently removed.
+        </p>
+      </div>
+
+      <div class="p-3 bg-muted/20 border-t flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onclick="closeDeleteExpenseModal()"
+          class="h-8 px-3 rounded-md border bg-background hover:bg-muted text-xs font-medium cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="h-8 px-4 rounded-md bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-semibold shadow-xs cursor-pointer"
+        >
+          Confirm Delete
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 4. Column Visibility Customization Dialog -->
+<div id="columnModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+  <div class="bg-background border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="py-3 px-4 bg-muted/30 border-b flex items-center justify-between">
+      <h3 class="text-sm font-bold text-foreground flex items-center gap-2">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4 text-primary"></i>
+        <span>Customize Table Columns</span>
+      </h3>
+      <button type="button" onclick="closeColumnModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <div class="p-4 space-y-3 text-xs">
+      <p class="text-muted-foreground">
+        Select which columns appear in your expense management ledger. Layout preferences are saved automatically on this device.
+      </p>
+
+      <div class="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-1 border rounded-lg bg-muted/20" id="columnCheckboxesContainer">
+        <!-- Rendered by JS -->
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t">
+        <button type="button" onclick="showAllExpenseColumns()" class="text-xs text-primary hover:underline font-medium">
+          Show All
+        </button>
+        <button type="button" onclick="resetDefaultExpenseColumns()" class="text-xs text-muted-foreground hover:text-foreground font-medium">
+          Reset Defaults
+        </button>
+      </div>
+    </div>
+
+    <div class="p-3 bg-muted/20 border-t flex justify-end">
+      <button
+        type="button"
+        onclick="closeColumnModal()"
+        class="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Client-side script for Modals, Column Visibility & Date Presets -->
+<script>
+  const EXPENSE_COLUMNS = [
+    { id: 'srNo', label: '# / Sr No', defaultVisible: true },
+    { id: 'expenseDate', label: 'Voucher Date', defaultVisible: true },
+    { id: 'category', label: 'Category', defaultVisible: true },
+    { id: 'description', label: 'Description', alwaysVisible: true, defaultVisible: true },
+    { id: 'branch', label: 'Branch Location', defaultVisible: true },
+    { id: 'vendor', label: 'Vendor / Payee', defaultVisible: true },
+    { id: 'paymentMode', label: 'Payment Mode', defaultVisible: true },
+    { id: 'referenceNumber', label: 'Reference / Bill No', defaultVisible: true },
+    { id: 'attachment', label: 'Bill Scan Document', defaultVisible: true },
+    { id: 'amount', label: 'Expense Amount (₹)', alwaysVisible: true, defaultVisible: true },
+    { id: 'actions', label: 'Actions Toolbar', alwaysVisible: true, defaultVisible: true },
+  ];
+
+  function getTodayString() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function setExpenseDateToday() {
+    document.getElementById('expenseDateInput').value = getTodayString();
+  }
+
+  function toggleCustomDates(preset) {
+    const customDiv = document.getElementById('customDateRangeInputs');
+    if (preset === 'CUSTOM') {
+      customDiv.classList.remove('hidden');
+    } else {
+      customDiv.classList.add('hidden');
+    }
+  }
+
+  function handleCategorySelectChange(val) {
+    const newCatInput = document.getElementById('newCategoryInput');
+    if (val === '__NEW__') {
+      newCatInput.classList.remove('hidden');
+      newCatInput.required = true;
+      newCatInput.focus();
+    } else {
+      newCatInput.classList.add('hidden');
+      newCatInput.required = false;
+      newCatInput.value = '';
+    }
+  }
+
+  // --- Add / Edit Modal Functions ---
+  function openCreateExpenseModal() {
+    document.getElementById('expenseModalTitle').innerHTML = '<i data-lucide="receipt" class="w-4 h-4 text-primary mr-1 inline"></i><span>Record Center Overhead / Expense</span>';
+    document.getElementById('expenseFormAction').value = 'create';
+    document.getElementById('expenseFormId').value = '';
+    document.getElementById('expenseDescriptionInput').value = '';
+    document.getElementById('expenseAmountInput').value = '';
+    document.getElementById('expenseVendorInput').value = '';
+    document.getElementById('expenseRefInput').value = '';
+    document.getElementById('expensePaymentModeSelect').value = 'UPI';
+    document.getElementById('expenseDateInput').value = getTodayString();
+    document.getElementById('newCategoryInput').classList.add('hidden');
+    document.getElementById('newCategoryInput').value = '';
+    document.getElementById('expenseAttachmentInput').value = '';
+    document.getElementById('expenseSubmitBtn').textContent = 'Save Expense';
+    document.getElementById('expenseModal').classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function openEditExpenseModal(id, desc, amount, categoryId, categoryName, branchId, mode, vendor, refNo, dateIso) {
+    document.getElementById('expenseModalTitle').innerHTML = '<i data-lucide="edit-2" class="w-4 h-4 text-primary mr-1 inline"></i><span>Edit Expense Voucher</span>';
+    document.getElementById('expenseFormAction').value = 'update';
+    document.getElementById('expenseFormId').value = id;
+    document.getElementById('expenseDescriptionInput').value = desc;
+    document.getElementById('expenseAmountInput').value = amount;
+    document.getElementById('expenseVendorInput').value = vendor || '';
+    document.getElementById('expenseRefInput').value = refNo || '';
+    document.getElementById('expensePaymentModeSelect').value = mode || 'UPI';
+    if (branchId) document.getElementById('expenseBranchSelect').value = branchId;
+    if (categoryId) document.getElementById('expenseCategorySelect').value = categoryId;
+    document.getElementById('newCategoryInput').classList.add('hidden');
+    document.getElementById('expenseDateInput').value = dateIso || getTodayString();
+    document.getElementById('expenseAttachmentInput').value = '';
+    document.getElementById('expenseSubmitBtn').textContent = 'Update Voucher';
+    document.getElementById('expenseModal').classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function closeExpenseModal() {
+    document.getElementById('expenseModal').classList.add('hidden');
+  }
+
+  // --- Delete Modal Functions ---
+  function openDeleteExpenseModal(id, desc, amount) {
+    document.getElementById('deleteExpenseId').value = id;
+    document.getElementById('deleteExpenseDesc').textContent = `"${desc}"`;
+    document.getElementById('deleteExpenseAmt').textContent = `₹${parseFloat(amount || 0).toLocaleString('en-IN')}`;
+    document.getElementById('deleteExpenseModal').classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function closeDeleteExpenseModal() {
+    document.getElementById('deleteExpenseModal').classList.add('hidden');
+  }
+
+  // --- Attachment Viewer Modal Functions ---
+  function openAttachmentModal(fileName, filePath, mimeType) {
+    document.getElementById('attachmentViewerFileName').textContent = fileName;
+    document.getElementById('attachmentOpenNewTabBtn').href = filePath;
+    const container = document.getElementById('attachmentContentArea');
+    container.innerHTML = '';
+
+    if (mimeType && mimeType.includes('pdf')) {
+      container.innerHTML = `
+        <div class="text-center space-y-3 py-6">
+          <i data-lucide="file-text" class="w-16 h-16 text-rose-600 mx-auto"></i>
+          <p class="text-xs font-semibold text-foreground">PDF Document: ${fileName}</p>
+          <a href="${filePath}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+            <span>Open PDF in New Window</span>
+          </a>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <img src="${filePath}" alt="Bill scan" class="max-w-full max-h-[60vh] rounded shadow-sm object-contain" />
+      `;
+    }
+
+    document.getElementById('attachmentViewerModal').classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function closeAttachmentModal() {
+    document.getElementById('attachmentViewerModal').classList.add('hidden');
+  }
+
+  // --- Column Visibility Customization ---
+  const COL_STORAGE_KEY = 'sutawane_expenses_columns_v1';
+
+  function getStoredColumnConfig() {
+    try {
+      const saved = localStorage.getItem(COL_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    const defaults = {};
+    EXPENSE_COLUMNS.forEach(c => { defaults[c.id] = c.defaultVisible; });
+    return defaults;
+  }
+
+  function applyColumnVisibility() {
+    const cfg = getStoredColumnConfig();
+    let visibleCount = 0;
+    EXPENSE_COLUMNS.forEach(col => {
+      const isVisible = cfg[col.id] !== false;
+      if (isVisible) visibleCount++;
+      const cells = document.querySelectorAll(`.col-${col.id}`);
+      cells.forEach(el => {
+        if (isVisible) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+    });
+    const countSpan = document.getElementById('visibleColCount');
+    if (countSpan) countSpan.textContent = visibleCount;
+  }
+
+  function openColumnModal() {
+    const cfg = getStoredColumnConfig();
+    const container = document.getElementById('columnCheckboxesContainer');
+    container.innerHTML = '';
+    EXPENSE_COLUMNS.forEach(col => {
+      const isChecked = cfg[col.id] !== false;
+      const isAlways = Boolean(col.alwaysVisible);
+      const label = document.createElement('label');
+      label.className = `flex items-center gap-2 p-2 rounded border text-xs cursor-pointer select-none transition-colors ${isChecked ? 'bg-card border-primary/40' : 'bg-muted/40 border-transparent text-muted-foreground'}`;
+      label.innerHTML = `
+        <input type="checkbox" ${isChecked ? 'checked' : ''} ${isAlways ? 'disabled' : ''} onchange="toggleExpenseCol('${col.id}', this.checked)" class="w-3.5 h-3.5 rounded text-primary focus:ring-primary cursor-pointer disabled:opacity-50" />
+        <span class="${isChecked ? 'font-medium text-foreground' : ''}">${col.label}</span>
+      `;
+      container.appendChild(label);
+    });
+    document.getElementById('columnModal').classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function closeColumnModal() {
+    document.getElementById('columnModal').classList.add('hidden');
+  }
+
+  function toggleExpenseCol(id, visible) {
+    const cfg = getStoredColumnConfig();
+    cfg[id] = visible;
+    localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(cfg));
+    applyColumnVisibility();
+  }
+
+  function showAllExpenseColumns() {
+    const cfg = {};
+    EXPENSE_COLUMNS.forEach(c => { cfg[c.id] = true; });
+    localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(cfg));
+    applyColumnVisibility();
+    openColumnModal();
+  }
+
+  function resetDefaultExpenseColumns() {
+    const cfg = {};
+    EXPENSE_COLUMNS.forEach(c => { cfg[c.id] = c.defaultVisible; });
+    localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(cfg));
+    applyColumnVisibility();
+    openColumnModal();
+  }
+
+  // Hook into initial page load and HTMX swaps
+  document.addEventListener('DOMContentLoaded', () => {
+    applyColumnVisibility();
+    lucide.createIcons();
+  });
+
+  document.body.addEventListener('htmx:afterSwap', (evt) => {
+    if (evt.detail.target.id === 'expensesTableContainer') {
+      applyColumnVisibility();
+      lucide.createIcons();
+    }
+  });
+</script>
+{% endblock %}

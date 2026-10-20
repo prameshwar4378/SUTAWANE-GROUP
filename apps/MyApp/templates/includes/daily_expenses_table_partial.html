@@ -1,0 +1,36 @@
+{% load humanize %}
+
+{% for e in expenses %}
+  <tr class="hover:bg-muted/40 transition-colors">
+    <td class="py-2.5 px-3 text-center font-mono text-muted-foreground">{{ forloop.counter }}</td>
+    <td class="py-2.5 px-3 font-mono font-bold text-foreground">
+      {{ e.reference_number|default:"EXP-0000" }}
+    </td>
+    <td class="py-2.5 px-3 font-semibold text-foreground">
+      {{ e.category.name|default:"General Expense" }}
+    </td>
+    <td class="py-2.5 px-3 text-xs text-foreground max-w-xs truncate" title="{{ e.description }}">
+      {{ e.description|default:"—" }}
+    </td>
+    <td class="py-2.5 px-3 text-xs text-muted-foreground">
+      {{ e.vendor|default:"—" }}
+    </td>
+    <td class="py-2.5 px-3 text-center">
+      <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
+        {{ e.payment_mode }}
+      </span>
+    </td>
+    <td class="py-2.5 px-3 text-center text-xs text-muted-foreground">
+      {{ e.expense_date|date:"d M Y" }}
+    </td>
+    <td class="py-2.5 px-3 text-right font-black text-rose-700 dark:text-rose-400">
+      ₹{{ e.amount|floatformat:0|intcomma }}
+    </td>
+  </tr>
+{% empty %}
+  <tr>
+    <td colspan="8" class="text-center py-8 text-xs text-muted-foreground">
+      No center expenditures found for this period or search criteria.
+    </td>
+  </tr>
+{% endfor %}

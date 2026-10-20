@@ -1,0 +1,227 @@
+{% load static humanize %}
+<div class="overflow-x-auto">
+  <table class="w-full text-left border-collapse text-xs sm:text-sm" id="duesMasterTable">
+    <thead class="bg-[#28375C] text-white">
+      <tr class="border-b border-[#1b2640]">
+        <th class="py-3 px-3 text-center text-xs font-semibold w-12 col-srNo">#</th>
+        <th class="py-3 px-3 text-left text-xs font-semibold min-w-[160px] col-studentName">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=studentName&direction={% if filters.sort == 'studentName' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Student Name</span>
+            {% if filters.sort == 'studentName' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-rollNo">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=rollNo&direction={% if filters.sort == 'rollNo' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Roll No</span>
+            {% if filters.sort == 'rollNo' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-standard">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=standard&direction={% if filters.sort == 'standard' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Class / Course</span>
+            {% if filters.sort == 'standard' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-branch">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=branch&direction={% if filters.sort == 'branch' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Branch</span>
+            {% if filters.sort == 'branch' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-session hidden md:table-cell">Session</th>
+        <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-dueDate">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=dueDate&direction={% if filters.sort == 'dueDate' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Due Date</span>
+            {% if filters.sort == 'dueDate' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-parentPhone">Parent Mobile</th>
+        <th class="py-3 px-3 text-right text-xs font-semibold whitespace-nowrap col-amountDue">Fee (₹)</th>
+        <th class="py-3 px-3 text-right text-xs font-semibold whitespace-nowrap col-amountPaid">Paid (₹)</th>
+        <th class="py-3 px-3 text-right text-xs font-semibold whitespace-nowrap col-balanceRemaining">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=balanceRemaining&direction={% if filters.sort == 'balanceRemaining' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-end gap-1 hover:text-amber-300 transition-colors">
+            <span>Balance (₹)</span>
+            {% if filters.sort == 'balanceRemaining' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-status">Status</th>
+        <th class="py-3 px-4 text-right text-xs font-semibold whitespace-nowrap pr-4 col-actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-border">
+      {% for d in dues %}
+      <tr class="dues-row hover:bg-muted/50 transition-colors cursor-pointer" data-url="{% url 'student_detail' d.student_id %}" title="Click to view {{ d.student_name }}'s profile">
+        <!-- # -->
+        <td class="py-3 px-3 text-center font-mono text-xs text-muted-foreground col-srNo">
+          {{ forloop.counter }}
+        </td>
+
+        <!-- Student Name -->
+        <td class="py-3 px-3 font-semibold text-foreground col-studentName">
+          <a href="{% url 'student_detail' d.student_id %}" class="hover:underline text-primary">
+            {{ d.student_name }}
+          </a>
+          {% if d.student_code %}
+          <div class="text-[10px] text-muted-foreground font-mono">
+            {{ d.student_code }}
+          </div>
+          {% endif %}
+        </td>
+
+        <!-- Roll No -->
+        <td class="py-3 px-3 font-mono text-xs font-semibold text-center whitespace-nowrap col-rollNo">
+          {{ d.roll_number }}
+        </td>
+
+        <!-- Standard -->
+        <td class="py-3 px-3 text-xs whitespace-nowrap font-medium col-standard">
+          {{ d.standard }}
+        </td>
+
+        <!-- Branch -->
+        <td class="py-3 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap col-branch">
+          {{ d.branch_name }}
+        </td>
+
+        <!-- Session -->
+        <td class="py-3 px-3 text-xs text-muted-foreground whitespace-nowrap font-mono text-center col-session hidden md:table-cell">
+          {{ d.session_name }}
+        </td>
+
+        <!-- Due Date -->
+        <td class="py-3 px-3 text-xs text-muted-foreground whitespace-nowrap text-center col-dueDate">
+          {% if d.due_date %}
+            <span class="font-medium {% if d.status == 'OVERDUE' %}text-rose-600 font-bold{% elif d.status == 'DUE' %}text-amber-600 font-bold{% endif %}">
+              {{ d.due_date_formatted }}
+            </span>
+            {% if d.label %}
+            <span class="block text-[10px] text-muted-foreground font-mono">{{ d.label }}</span>
+            {% endif %}
+            {% if d.status == 'OVERDUE' and d.days_overdue > 0 %}
+            <span class="block text-[10px] text-rose-500 font-mono font-bold">({{ d.days_overdue }}d overdue)</span>
+            {% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+
+        <!-- Parent Phone -->
+        <td class="py-3 px-3 font-mono text-xs text-center whitespace-nowrap col-parentPhone">
+          {{ d.parent_phone }}
+        </td>
+
+        <!-- Amount Due -->
+        <td class="py-3 px-3 text-xs font-medium text-right whitespace-nowrap col-amountDue">
+          ₹{{ d.amount_due|floatformat:0|intcomma }}
+        </td>
+
+        <!-- Amount Paid -->
+        <td class="py-3 px-3 text-xs text-emerald-600 font-semibold text-right whitespace-nowrap col-amountPaid">
+          ₹{{ d.amount_paid|floatformat:0|intcomma }}
+        </td>
+
+        <!-- Remaining Balance -->
+        <td class="py-3 px-3 text-xs font-bold text-rose-600 text-right whitespace-nowrap bg-rose-50/20 col-balanceRemaining">
+          ₹{{ d.balance_remaining|floatformat:0|intcomma }}
+        </td>
+
+        <!-- Status Badge -->
+        <td class="py-3 px-3 text-center whitespace-nowrap col-status">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs {% if d.status == 'OVERDUE' %}bg-rose-50 text-rose-700 border-rose-200{% elif d.status == 'DUE' %}bg-amber-50 text-amber-800 border-amber-200{% elif d.status == 'PARTIAL' %}bg-blue-50 text-blue-700 border-blue-200{% else %}bg-emerald-50 text-emerald-700 border-emerald-200{% endif %}">
+            {% if d.status == 'OVERDUE' %}<i data-lucide="alert-triangle" class="w-3 h-3 text-rose-600"></i>{% endif %}
+            {% if d.status == 'DUE' %}<i data-lucide="calendar" class="w-3 h-3 text-amber-600"></i>{% endif %}
+            {% if d.status == 'PARTIAL' %}<i data-lucide="trending-down" class="w-3 h-3 text-blue-600"></i>{% endif %}
+            {% if d.status == 'UPCOMING' %}<i data-lucide="calendar-days" class="w-3 h-3 text-emerald-600"></i>{% endif %}
+            <span>{{ d.status }}</span>
+          </span>
+        </td>
+
+        <!-- Actions Toolbar -->
+        <td class="py-3 px-4 text-right whitespace-nowrap pr-4 col-actions cursor-default">
+          <div class="flex items-center justify-end gap-1.5">
+            <!-- Edit Due Date Button -->
+            <button
+              type="button"
+              onclick="openDueDateModal('{{ d.installment_id }}', '{{ d.student_name|escapejs }}', '{{ d.roll_number|escapejs }}', '{{ d.standard|escapejs }}', '{{ d.balance_remaining }}', '{{ d.due_date_str }}')"
+              title="Change Fee Due Date"
+              class="inline-flex items-center justify-center rounded-md text-xs font-medium h-7 px-2 border border-primary/30 text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+            >
+              <i data-lucide="calendar" class="w-3.5 h-3.5 mr-1"></i>
+              <span class="hidden md:inline">Due Date</span>
+            </button>
+
+            <!-- WhatsApp Fee Reminder Button -->
+            {% if d.whatsapp_url %}
+            <a
+              href="{{ d.whatsapp_url }}"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Send Fee Reminder via WhatsApp"
+              class="inline-flex items-center justify-center rounded-md text-xs font-medium h-7 px-2 border border-emerald-500/40 text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+            >
+              <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 text-[#25D366] fill-current mr-1"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
+              <span class="hidden md:inline">WhatsApp</span>
+            </a>
+            {% endif %}
+
+            <!-- Collect Fees Direct Action -->
+            <a
+              href="{% url 'fee_collect' %}?tab=collect&student_id={{ d.student_id }}&admission_id={{ d.admission_id }}&amount={{ d.balance_remaining|floatformat:0 }}"
+              title="Collect Fee for {{ d.student_name }}"
+              class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-2.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <i data-lucide="credit-card" class="w-3.5 h-3.5 mr-1"></i>
+              <span>Collect</span>
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="13" class="py-16 text-center">
+          <div class="max-w-sm mx-auto space-y-2">
+            <i data-lucide="check-circle-2" class="w-12 h-12 text-emerald-600 mx-auto opacity-50"></i>
+            <p class="text-sm font-semibold text-emerald-600">No student dues pending in this filter view!</p>
+            <p class="text-xs text-muted-foreground">
+              {% if has_active_filters %}
+                No dues records match your active search and filter combinations.
+              {% else %}
+                All student fee commitments in this session and branch have been cleared.
+              {% endif %}
+            </p>
+            {% if has_active_filters %}
+            <a href="{% url 'fees_dues' %}" class="inline-flex items-center text-xs text-primary hover:underline mt-2">
+              Clear All Filters
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,234 @@
+<div id="batchPromoteModalBackdrop" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+    <div class="p-5 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
+      <h2 class="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
+        <i data-lucide="sparkles" class="w-5 h-5 text-amber-500"></i>
+        Batch Promote Students ({% if selected_students %}{{ selected_students|length }}{% else %}0{% endif %} Selected)
+      </h2>
+      <button type="button" onclick="closeBatchPromoteModal()" class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-accent transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    {% if result_summary %}
+    <!-- Batch Execution Summary View -->
+    <div class="p-6 space-y-4">
+      <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-lg space-y-2">
+        <div class="flex items-center gap-2 font-bold text-sm">
+          <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i>
+          Batch Promotion Completed!
+        </div>
+        <p class="text-xs">
+          Successfully promoted <strong>{{ result_summary.promoted_count }}</strong> out of <strong>{{ result_summary.total_requested }}</strong> students to <strong>{{ result_summary.target_standard }}</strong> (Session: {{ result_summary.session_name }}).
+        </p>
+        {% if result_summary.skipped_count > 0 %}
+        <div class="text-[11px] text-amber-700 dark:text-amber-400 mt-1 border-t border-amber-500/20 pt-1">
+          Skipped {{ result_summary.skipped_count }} student(s):
+          <ul class="list-disc list-inside mt-0.5 space-y-0.5">
+            {% for s in result_summary.skipped_list %}
+            <li>{{ s.name }}: {{ s.reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onclick="location.reload()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 cursor-pointer shadow-sm w-full"
+        >
+          Done & Refresh Directory
+        </button>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- Batch Promotion Form -->
+    <form
+      hx-post="{% url 'batch_promote' %}"
+      hx-target="#batchPromoteModalContainer"
+      class="p-6 space-y-4"
+    >
+      {% csrf_token %}
+
+      {% for s in selected_students %}
+      <input type="hidden" name="student_ids" value="{{ s.id }}">
+      {% endfor %}
+
+      {% if form_error %}
+      <div class="p-3 bg-destructive/10 text-destructive text-xs rounded-md flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
+        <span>{{ form_error }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Target Session and Branch -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-primary"></i>
+            Target Academic Session *
+          </label>
+          <select
+            name="target_session_id"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            required
+          >
+            {% for s in sessions %}
+            <option value="{{ s.id }}" {% if target_session and s.id == target_session.id %}selected{% endif %}>
+              {{ s.display_name|default:s.name }} {% if s.is_current %}(Current){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
+            <i data-lucide="building-2" class="w-3.5 h-3.5 text-primary"></i>
+            Target Branch
+          </label>
+          <select
+            name="target_branch_id"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="KEEP">Keep Respective Student Branches</option>
+            {% for b in branches %}
+            <option value="{{ b.id }}">Transfer All to {{ b.name }} ({{ b.code }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Promoted Standard and Default Total Fees -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
+            <i data-lucide="graduation-cap" class="w-3.5 h-3.5 text-primary"></i>
+            Promoted Standard / Class *
+          </label>
+          <select
+            name="target_standard"
+            id="batchTargetStandardSelect"
+            onchange="onBatchStandardChange(this)"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            required
+          >
+            <option value="">-- Select Class / Course --</option>
+            {% for c in courses %}
+            <option value="{{ c.name }}" data-fee="{{ c.default_fee|default:30000 }}" {% if forloop.first %}selected{% endif %}>
+              {{ c.name }} {% if c.code %}({{ c.code }}){% endif %} {% if c.default_fee %}· ₹{{ c.default_fee|floatformat:0 }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground">
+            Default Total Fees for New Session (₹) *
+          </label>
+          <input
+            type="number"
+            name="default_total_fees"
+            id="batchDefaultFeesInput"
+            min="0"
+            step="500"
+            value="{{ default_fees|default:30000|floatformat:0 }}"
+            placeholder="30000"
+            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- Carry Forward Unpaid Balances Option -->
+      <div class="p-3 border rounded-lg bg-muted/40 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-semibold text-xs text-foreground">Unpaid Balances Carry Forward</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {% if total_dues_across_selected > 0 %}bg-amber-500/10 text-amber-700 border border-amber-500/20{% else %}bg-emerald-500/10 text-emerald-700 border border-emerald-500/20{% endif %}">
+            Total Dues: ₹{{ total_dues_across_selected|floatformat:0 }}
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="carry_forward_dues"
+            id="batchCarryForwardCb"
+            value="true"
+            checked
+            class="w-4 h-4 rounded text-primary border-gray-300 focus:ring-primary cursor-pointer"
+          />
+          <label for="batchCarryForwardCb" class="font-medium text-xs text-foreground cursor-pointer select-none">
+            Automatically record previous session outstanding dues in PreviousSessionDue ledger
+          </label>
+        </div>
+      </div>
+
+      <!-- Selected Students Preview Table -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+          <span>Students Included in Batch ({{ selected_students|length }})</span>
+          <span class="text-[11px] font-normal">Unique roll numbers will be preserved / auto-sequenced</span>
+        </div>
+        <div class="max-h-44 overflow-y-auto border border-border rounded-md divide-y divide-border bg-background">
+          {% for s in selected_students %}
+          <div class="p-2.5 flex items-center justify-between text-xs hover:bg-muted/30 transition-colors">
+            <div>
+              <span class="font-semibold text-foreground">{{ s.full_name }}</span>
+              <span class="text-muted-foreground font-mono ml-2">({{ s.roll_number }})</span>
+              <span class="text-muted-foreground ml-2">| {{ s.standard }}</span>
+              {% if s.branch_name %}
+              <span class="text-muted-foreground text-[11px] ml-1">({{ s.branch_name }})</span>
+              {% endif %}
+            </div>
+            <div>
+              {% if s.pending_fees > 0 %}
+              <span class="text-rose-600 font-semibold text-xs">Due: ₹{{ s.pending_fees|floatformat:0 }}</span>
+              {% else %}
+              <span class="text-emerald-600 font-semibold text-xs">Clear</span>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="p-4 text-center text-xs text-muted-foreground">
+            No students selected. Please select students from the table first.
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
+        <button
+          type="button"
+          onclick="closeBatchPromoteModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-9 px-4 transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          {% if not selected_students %}disabled{% endif %}
+          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white h-9 px-4 gap-2 transition-colors cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          Promote {{ selected_students|length }} Students
+        </button>
+      </div>
+    </form>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  function onBatchStandardChange(select) {
+    const selectedOption = select.options[select.selectedIndex];
+    const fee = selectedOption.getAttribute('data-fee');
+    const feeInput = document.getElementById('batchDefaultFeesInput');
+    if (fee && feeInput) {
+      feeInput.value = fee;
+    }
+  }
+</script>

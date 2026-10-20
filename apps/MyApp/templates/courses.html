@@ -1,0 +1,549 @@
+{% extends 'base.html' %}
+
+{% block title %}Classes & Courses Management - Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Top Header -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="book-open" class="w-6 h-6 text-primary"></i>
+        Classes & Courses Management
+      </h1>
+      <p class="text-xs text-muted-foreground mt-0.5">
+        Configure dynamic standards, coaching programs, fee schedules, and view enrolled students.
+      </p>
+    </div>
+    <div class="flex items-center gap-2 w-full sm:w-auto">
+      <a href="{% url 'courses_list' %}" class="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 gap-1.5 transition-colors">
+        <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+        Refresh
+      </a>
+      <button type="button" onclick="openCreateModal()" class="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 gap-1.5 transition-colors shadow-sm cursor-pointer">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        Add New Course
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary KPI Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <!-- Total Courses -->
+    <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+      <div class="p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-muted-foreground">Total Courses</p>
+          <p class="text-2xl font-bold text-foreground mt-0.5">{{ total_courses }}</p>
+        </div>
+        <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Offerings -->
+    <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+      <div class="p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-muted-foreground">Active Offerings</p>
+          <p class="text-2xl font-bold text-emerald-600 mt-0.5">{{ active_count }}</p>
+        </div>
+        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inactive / Archived -->
+    <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+      <div class="p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-muted-foreground">Inactive / Archived</p>
+          <p class="text-2xl font-bold text-muted-foreground mt-0.5">{{ inactive_count }}</p>
+        </div>
+        <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+          <i data-lucide="x-circle" class="w-4 h-4"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enrolled Students -->
+    <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+      <div class="p-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-muted-foreground">Enrolled Students</p>
+          <p class="text-2xl font-bold text-primary mt-0.5">{{ total_enrolled }}</p>
+        </div>
+        <div class="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center">
+          <i data-lucide="users" class="w-4 h-4"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Course Directory Table Card -->
+  <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm overflow-hidden">
+    <div class="py-4 px-6 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div class="text-base font-semibold flex items-center gap-2 text-foreground">
+        <i data-lucide="graduation-cap" class="w-4 h-4 text-primary"></i>
+        All Standard Classes & Courses (<span id="visibleCount">{{ courses_data|length }}</span>)
+      </div>
+      <div class="relative w-full sm:w-64">
+        <i data-lucide="search" class="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground"></i>
+        <input
+          id="courseSearch"
+          type="text"
+          placeholder="Search classes or code..."
+          value="{{ search_q }}"
+          class="pl-8 text-xs h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          oninput="filterCoursesTable()"
+        />
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left border-collapse" id="coursesTable">
+        <thead class="bg-[#28375C] text-white">
+          <tr class="border-b border-[#1b2640]">
+            <th class="w-16 text-center text-white font-semibold py-3 px-4">Order</th>
+            <th class="text-left text-white font-semibold py-3 px-4">Class / Course Name</th>
+            <th class="text-left text-white font-semibold py-3 px-4">Code</th>
+            <th class="text-left text-white font-semibold py-3 px-4">Default Fee</th>
+            <th class="text-left text-white font-semibold py-3 px-4">Enrolled</th>
+            <th class="text-left text-white font-semibold py-3 px-4">Status</th>
+            <th class="text-left text-white font-semibold py-3 px-4">Description</th>
+            <th class="text-right text-white font-semibold py-3 px-4 pr-6">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          {% for item in courses_data %}
+          <tr class="course-row hover:bg-muted/40 transition-colors"
+              data-name="{{ item.course.name|lower }}"
+              data-code="{{ item.course.code|default:''|lower }}"
+              data-desc="{{ item.course.description|default:''|lower }}">
+            <td class="text-center font-mono text-xs text-muted-foreground py-3 px-4">
+              {{ item.course.sort_order }}
+            </td>
+            <td class="font-semibold text-foreground py-3 px-4">
+              <div class="flex items-center gap-2">
+                <span>{{ item.course.name }}</span>
+                {% if not item.course.is_active %}
+                <span class="inline-flex items-center rounded-md border px-1.5 py-0 text-[10px] font-semibold text-muted-foreground border-border">
+                  Archived
+                </span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              {% if item.course.code %}
+              <span class="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-[11px] font-mono font-medium text-secondary-foreground">
+                {{ item.course.code }}
+              </span>
+              {% else %}
+              <span class="text-muted-foreground text-xs">-</span>
+              {% endif %}
+            </td>
+            <td class="font-semibold text-foreground py-3 px-4">
+              {% if item.course.default_fee is not None %}
+              <span>₹{{ item.course.default_fee|floatformat:0 }}</span>
+              {% else %}
+              <span class="text-muted-foreground text-xs font-normal">Custom</span>
+              {% endif %}
+            </td>
+            <td class="py-3 px-4">
+              <span class="inline-flex items-center rounded-md border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-xs font-medium text-primary gap-1">
+                <i data-lucide="users" class="w-3 h-3"></i>
+                {{ item.enrolled_count }}
+              </span>
+            </td>
+            <td class="py-3 px-4">
+              {% if item.course.is_active %}
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Active
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/10 text-gray-500 border border-gray-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                Inactive
+              </span>
+              {% endif %}
+            </td>
+            <td class="max-w-[220px] truncate text-xs text-muted-foreground py-3 px-4" title="{{ item.course.description|default:'' }}">
+              {{ item.course.description|default:"-" }}
+            </td>
+            <td class="text-right py-3 px-4 pr-6">
+              <div class="flex items-center justify-end gap-1">
+                <button
+                  type="button"
+                  onclick="openEditModal('{{ item.course.id }}', '{{ item.course.name|escapejs }}', '{{ item.course.code|default:''|escapejs }}', '{{ item.course.default_fee|default:'' }}', '{{ item.course.sort_order }}', {{ item.course.is_active|yesno:'true,false' }}, '{{ item.course.description|default:''|escapejs }}')"
+                  class="inline-flex items-center justify-center rounded-md text-xs font-medium h-8 px-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
+                  title="Edit course details"
+                >
+                  <i data-lucide="edit-2" class="w-3.5 h-3.5 mr-1"></i>
+                  Edit
+                </button>
+
+                <form method="POST" action="{% url 'courses_list' %}" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="toggle_status">
+                  <input type="hidden" name="course_id" value="{{ item.course.id }}">
+                  <button
+                    type="submit"
+                    class="inline-flex items-center justify-center rounded-md text-xs font-medium h-8 px-2 hover:bg-accent transition-colors cursor-pointer"
+                    title="{% if item.course.is_active %}Deactivate course{% else %}Activate course{% endif %}"
+                  >
+                    {% if item.course.is_active %}
+                    <span class="text-amber-600 flex items-center gap-1">
+                      <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+                      Deactivate
+                    </span>
+                    {% else %}
+                    <span class="text-emerald-600 flex items-center gap-1">
+                      <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                      Activate
+                    </span>
+                    {% endif %}
+                  </button>
+                </form>
+
+                <button
+                  type="button"
+                  onclick="openDeleteModal('{{ item.course.id }}', '{{ item.course.name|escapejs }}', {{ item.enrolled_count }})"
+                  class="inline-flex items-center justify-center rounded-md text-xs font-medium h-8 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                  title="Delete course"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr id="emptyRow">
+            <td colspan="8" class="text-center py-10 text-muted-foreground">
+              <div class="flex flex-col items-center justify-center gap-2">
+                <i data-lucide="book-open" class="w-8 h-8 text-muted-foreground/50"></i>
+                <p class="text-sm font-medium">No courses found matching your criteria</p>
+                <button type="button" onclick="openCreateModal()" class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 gap-1 mt-2">
+                  <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Add Your First Course
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          <tr id="noResultsRow" class="hidden">
+            <td colspan="8" class="text-center py-10 text-muted-foreground">
+              <div class="flex flex-col items-center justify-center gap-2">
+                <i data-lucide="book-open" class="w-8 h-8 text-muted-foreground/50"></i>
+                <p class="text-sm font-medium">No courses found matching your search</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Add / Edit Course Modal -->
+<div id="courseModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-[500px] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div class="p-6 border-b border-border flex items-center justify-between">
+      <h2 id="modalTitle" class="text-lg font-bold flex items-center gap-2 text-foreground">
+        <i data-lucide="sparkles" class="w-5 h-5 text-primary"></i>
+        Create New Class / Course
+      </h2>
+      <button type="button" onclick="closeCourseModal()" class="text-muted-foreground hover:text-foreground text-sm font-semibold">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'courses_list' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="formAction" value="create">
+      <input type="hidden" name="course_id" id="formCourseId" value="">
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-foreground">Class / Course Name *</label>
+        <input
+          type="text"
+          name="name"
+          id="courseNameInput"
+          placeholder="e.g. Class 10, Class 11 Science, MHT-CET Foundation"
+          required
+          class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <p class="text-[11px] text-muted-foreground">
+          This exact name will appear in admission forms, filters, and fee receipts.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground">Course Code</label>
+          <input
+            type="text"
+            name="code"
+            id="courseCodeInput"
+            placeholder="e.g. C10, C11-SCI"
+            class="w-full text-xs font-mono uppercase rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground">Default Session Fee (₹)</label>
+          <input
+            type="number"
+            name="default_fee"
+            id="courseFeeInput"
+            placeholder="e.g. 25000"
+            min="0"
+            step="500"
+            class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground">Sort Order</label>
+          <input
+            type="number"
+            name="sort_order"
+            id="courseSortOrderInput"
+            placeholder="e.g. 1, 2, 3..."
+            value="10"
+            class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <p class="text-[11px] text-muted-foreground">Controls order in dropdowns.</p>
+        </div>
+
+        <div class="space-y-1.5 flex flex-col justify-end">
+          <label class="flex items-center gap-2 cursor-pointer pt-2">
+            <input
+              type="checkbox"
+              name="is_active"
+              id="courseIsActiveInput"
+              checked
+              class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span class="text-xs font-semibold text-foreground">Active & Available for Admissions</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-foreground">Description & Notes</label>
+        <textarea
+          name="description"
+          id="courseDescInput"
+          placeholder="Optional course details, syllabus overview, or batch timings..."
+          rows="3"
+          class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary"
+        ></textarea>
+      </div>
+
+      <div class="pt-2 flex justify-end gap-2 border-t border-border mt-4">
+        <button
+          type="button"
+          onclick="closeCourseModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          id="modalSubmitBtn"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 transition-colors cursor-pointer shadow-sm font-semibold"
+        >
+          Create Course
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete / Deactivate Warning Modal -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-[460px] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div class="p-6 border-b border-border flex items-center justify-between">
+      <h2 class="text-base font-bold flex items-center gap-2 text-rose-600">
+        <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600"></i>
+        Delete Course: <span id="delModalCourseName"></span>
+      </h2>
+      <button type="button" onclick="closeDeleteModal()" class="text-muted-foreground hover:text-foreground text-sm font-semibold">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div class="p-6 space-y-4">
+      <!-- Enrolled warning message (shown if enrolled > 0) -->
+      <div id="enrolledWarningBox" class="hidden p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-xs space-y-2">
+        <p class="font-semibold text-amber-900">
+          Cannot delete this course because <span id="delEnrolledCount" class="font-bold underline"></span> student admission(s) are currently enrolled in it.
+        </p>
+        <p>
+          To protect historical admission records and financial ledgers, courses with active or past enrollments cannot be deleted.
+        </p>
+        <p class="font-medium text-amber-950">
+          Recommendation: Deactivate this course instead so that it will be hidden from new admission forms.
+        </p>
+      </div>
+
+      <!-- Safe delete confirmation message (shown if enrolled == 0) -->
+      <div id="safeDeleteBox" class="hidden text-xs text-muted-foreground space-y-1">
+        <p>
+          Are you sure you want to delete <strong class="text-foreground" id="delSafeCourseName"></strong>? This action cannot be undone.
+        </p>
+      </div>
+
+      <!-- Footer action buttons -->
+      <div class="pt-2 flex justify-end gap-2 border-t border-border">
+        <button
+          type="button"
+          onclick="closeDeleteModal()"
+          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 transition-colors cursor-pointer"
+        >
+          Close
+        </button>
+
+        <!-- Form for Deactivate (if enrolled > 0) -->
+        <form id="deactivateCourseForm" method="POST" action="{% url 'courses_list' %}" class="hidden">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="toggle_status">
+          <input type="hidden" name="course_id" id="deactivateCourseId" value="">
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
+          >
+            Deactivate Course Instead
+          </button>
+        </form>
+
+        <!-- Form for Delete (if enrolled == 0) -->
+        <form id="deleteCourseForm" method="POST" action="{% url 'courses_list' %}" class="hidden">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="course_id" id="deleteCourseId" value="">
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
+          >
+            Confirm Delete
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openCreateModal() {
+    document.getElementById('modalTitle').innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 text-primary"></i> Create New Class / Course';
+    document.getElementById('formAction').value = 'create';
+    document.getElementById('formCourseId').value = '';
+    document.getElementById('courseNameInput').value = '';
+    document.getElementById('courseCodeInput').value = '';
+    document.getElementById('courseFeeInput').value = '';
+    document.getElementById('courseSortOrderInput').value = '{{ courses_data|length|add:1 }}0';
+    document.getElementById('courseIsActiveInput').checked = true;
+    document.getElementById('courseDescInput').value = '';
+    document.getElementById('modalSubmitBtn').innerText = 'Create Course';
+    document.getElementById('courseModal').classList.remove('hidden');
+    if (window.lucide) { lucide.createIcons(); }
+  }
+
+  function openEditModal(id, name, code, fee, sortOrder, isActive, desc) {
+    document.getElementById('modalTitle').innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 text-primary"></i> Edit Class / Course';
+    document.getElementById('formAction').value = 'update';
+    document.getElementById('formCourseId').value = id;
+    document.getElementById('courseNameInput').value = name;
+    document.getElementById('courseCodeInput').value = code;
+    document.getElementById('courseFeeInput').value = fee ? parseFloat(fee) : '';
+    document.getElementById('courseSortOrderInput').value = sortOrder || '0';
+    document.getElementById('courseIsActiveInput').checked = (isActive === true || isActive === 'true');
+    document.getElementById('courseDescInput').value = desc || '';
+    document.getElementById('modalSubmitBtn').innerText = 'Update Course';
+    document.getElementById('courseModal').classList.remove('hidden');
+    if (window.lucide) { lucide.createIcons(); }
+  }
+
+  function closeCourseModal() {
+    document.getElementById('courseModal').classList.add('hidden');
+  }
+
+  function openDeleteModal(id, name, enrolledCount) {
+    document.getElementById('delModalCourseName').innerText = name;
+    document.getElementById('delSafeCourseName').innerText = name;
+    document.getElementById('delEnrolledCount').innerText = enrolledCount;
+
+    const warnBox = document.getElementById('enrolledWarningBox');
+    const safeBox = document.getElementById('safeDeleteBox');
+    const deactForm = document.getElementById('deactivateCourseForm');
+    const delForm = document.getElementById('deleteCourseForm');
+
+    if (enrolledCount > 0) {
+      warnBox.classList.remove('hidden');
+      safeBox.classList.add('hidden');
+      deactForm.classList.remove('hidden');
+      delForm.classList.add('hidden');
+      document.getElementById('deactivateCourseId').value = id;
+    } else {
+      warnBox.classList.add('hidden');
+      safeBox.classList.remove('hidden');
+      deactForm.classList.add('hidden');
+      delForm.classList.remove('hidden');
+      document.getElementById('deleteCourseId').value = id;
+    }
+
+    document.getElementById('deleteModal').classList.remove('hidden');
+    if (window.lucide) { lucide.createIcons(); }
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+  }
+
+  function filterCoursesTable() {
+    const q = document.getElementById('courseSearch').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('.course-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const name = row.getAttribute('data-name') || '';
+      const code = row.getAttribute('data-code') || '';
+      const desc = row.getAttribute('data-desc') || '';
+
+      if (!q || name.includes(q) || code.includes(q) || desc.includes(q)) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    const countSpan = document.getElementById('visibleCount');
+    if (countSpan) countSpan.innerText = visibleCount;
+
+    const noResults = document.getElementById('noResultsRow');
+    if (noResults) {
+      if (visibleCount === 0 && rows.length > 0) {
+        noResults.classList.remove('hidden');
+      } else {
+        noResults.classList.add('hidden');
+      }
+    }
+  }
+
+  // Close modals on Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeCourseModal();
+      closeDeleteModal();
+    }
+  });
+</script>
+{% endblock %}

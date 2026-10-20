@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | {{ institute_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full">
+  <div class="p-8 rounded-xl border bg-card text-card-foreground shadow-2xs text-center space-y-4">
+    <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+      <i data-lucide="layers" class="w-6 h-6"></i>
+    </div>
+    <div class="space-y-1">
+      <h1 class="text-xl font-bold tracking-tight text-foreground">{{ title }}</h1>
+      <p class="text-xs text-muted-foreground max-w-md mx-auto">
+        This module is scheduled for implementation in the next step of the migration roadmap.
+      </p>
+    </div>
+    <div>
+      <a
+        href="{% url 'dashboard' %}"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow-xs hover:bg-primary/90 transition-colors"
+      >
+        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

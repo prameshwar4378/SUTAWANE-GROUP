@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Academic Sessions | {{ institute_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 w-full">
+  <!-- Header Bar -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="calendar-days" class="w-6 h-6 text-emerald-600"></i>
+        <span>Academic Sessions &amp; Cohorts</span>
+      </h1>
+      <p class="text-xs text-muted-foreground mt-0.5">
+        Configure academic years, set active operational session, and manage annual student cohorts.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onclick="openAddSessionModal()"
+      class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+    >
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      <span>Add Academic Session</span>
+    </button>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="p-4 rounded-xl border bg-card text-card-foreground shadow-2xs flex items-center justify-between">
+      <div>
+        <p class="text-xs font-medium text-muted-foreground">Total Sessions</p>
+        <p class="text-xl font-bold text-foreground mt-0.5">{{ sessions_data|length }}</p>
+      </div>
+      <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
+        <i data-lucide="calendar" class="w-4 h-4"></i>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-xl border bg-card text-card-foreground shadow-2xs flex items-center justify-between">
+      <div>
+        <p class="text-xs font-medium text-muted-foreground">Active Operational Session</p>
+        <p class="text-xl font-bold text-emerald-600 mt-0.5">
+          {% if current_session %}{{ current_session.display_name|default:current_session.name }}{% else %}Not Configured{% endif %}
+        </p>
+      </div>
+      <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+        <i data-lucide="star" class="w-4 h-4"></i>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-xl border bg-card text-card-foreground shadow-2xs flex items-center justify-between">
+      <div>
+        <p class="text-xs font-medium text-muted-foreground">Students in Current Session</p>
+        <p class="text-xl font-bold text-foreground mt-0.5">{{ current_session_students }}</p>
+      </div>
+      <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
+        <i data-lucide="users" class="w-4 h-4"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sessions Table Card -->
+  <div class="border rounded-xl bg-card text-card-foreground shadow-2xs overflow-hidden">
+    <div class="p-4 border-b bg-muted/20 flex items-center justify-between">
+      <h2 class="text-sm font-bold text-foreground">Configured Academic Years</h2>
+      <span class="text-xs text-muted-foreground">{{ sessions_data|length }} sessions</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs text-left">
+        <thead class="bg-muted/40 border-b font-semibold text-muted-foreground">
+          <tr>
+            <th class="p-3.5">Academic Session</th>
+            <th class="p-3.5">Duration</th>
+            <th class="p-3.5 text-center">Status</th>
+            <th class="p-3.5 text-center">Enrolled Students</th>
+            <th class="p-3.5 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          {% for item in sessions_data %}
+          {% with s=item.session %}
+          <tr class="hover:bg-muted/20 transition-colors {% if s.is_current %}bg-emerald-50/20{% endif %}">
+            <td class="p-3.5">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xs shrink-0">
+                  <i data-lucide="calendar" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="font-bold text-foreground text-sm flex items-center gap-2">
+                    <span>{{ s.display_name|default:s.name }}</span>
+                    {% if s.is_current %}
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 inline-flex items-center gap-1">
+                        <i data-lucide="star" class="w-3 h-3 text-emerald-600"></i> CURRENT SESSION
+                      </span>
+                    {% endif %}
+                  </div>
+                  <div class="font-mono text-[10px] text-muted-foreground">Code: {{ s.name }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="p-3.5 font-mono text-muted-foreground">
+              {{ s.start_date|date:"d M Y" }} &rarr; {{ s.end_date|date:"d M Y" }}
+            </td>
+            <td class="p-3.5 text-center">
+              {% if s.isActive %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                </span>
+              {% else %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Inactive
+                </span>
+              {% endif %}
+            </td>
+            <td class="p-3.5 text-center">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                {{ item.students_count }} Students
+              </span>
+            </td>
+            <td class="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+              {% if not s.is_current %}
+              <form method="POST" action="{% url 'sessions_list' %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="set_current">
+                <input type="hidden" name="session_id" value="{{ s.id }}">
+                <button
+                  type="submit"
+                  class="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-2xs"
+                  title="Make this the active operational session"
+                >
+                  <i data-lucide="star" class="w-3 h-3 inline mr-1"></i>Set Active
+                </button>
+              </form>
+              {% endif %}
+
+              <button
+                type="button"
+                onclick="openEditSessionModal('{{ s.id }}', '{{ s.name|escapejs }}', '{{ s.display_name|escapejs }}', '{{ s.start_date|date:'Y-m-d' }}', '{{ s.end_date|date:'Y-m-d' }}', {{ s.is_current|lower }})"
+                class="px-2.5 py-1 text-xs font-semibold rounded-md border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+              >
+                <i data-lucide="edit-2" class="w-3 h-3 inline mr-1"></i>Edit
+              </button>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="5" class="p-8 text-center text-muted-foreground">
+              <i data-lucide="calendar-days" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+              <p>No academic sessions configured yet.</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add / Edit Session -->
+<div id="session-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden items-center justify-center p-4">
+  <div class="bg-card text-card-foreground border rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+    <div class="p-4 border-b flex items-center justify-between bg-muted/20">
+      <h3 id="session-modal-title" class="text-sm font-bold flex items-center gap-1.5">
+        <i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600"></i>
+        <span>Add Academic Session</span>
+      </h3>
+      <button type="button" onclick="closeModal('session-modal')" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'sessions_list' %}" class="p-5 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" id="session-action-input" name="action" value="create">
+      <input type="hidden" id="session-id-input" name="session_id" value="">
+
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-foreground">Session Code / Key *</label>
+        <input
+          type="text"
+          id="session-name-input"
+          name="name"
+          required
+          placeholder="e.g. 2026-27"
+          class="w-full h-8 text-xs rounded-lg border border-input bg-background px-3 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      <div class="space-y-1">
+        <label class="text-xs font-semibold text-foreground">Display Name *</label>
+        <input
+          type="text"
+          id="session-display-input"
+          name="display_name"
+          required
+          placeholder="e.g. Academic Year 2026–27"
+          class="w-full h-8 text-xs rounded-lg border border-input bg-background px-3 focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-foreground">Start Date *</label>
+          <input
+            type="date"
+            id="session-start-input"
+            name="start_date"
+            required
+            class="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 font-mono focus:outline-none"
+          />
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-foreground">End Date *</label>
+          <input
+            type="date"
+            id="session-end-input"
+            name="end_date"
+            required
+            class="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 font-mono focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <div class="pt-1">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            id="session-current-input"
+            name="is_current"
+            class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+          />
+          <span class="text-xs font-medium text-foreground">Set as Current Active Academic Session</span>
+        </label>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button
+          type="button"
+          onclick="closeModal('session-modal')"
+          class="px-3 py-1.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer"
+        >
+          Save Session
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openAddSessionModal() {
+    document.getElementById('session-modal-title').innerHTML = '<i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600 inline"></i> <span>Add Academic Session</span>';
+    document.getElementById('session-action-input').value = 'create';
+    document.getElementById('session-id-input').value = '';
+    document.getElementById('session-name-input').value = '';
+    document.getElementById('session-display-input').value = '';
+    document.getElementById('session-start-input').value = '';
+    document.getElementById('session-end-input').value = '';
+    document.getElementById('session-current-input').checked = false;
+    openModal('session-modal');
+  }
+
+  function openEditSessionModal(id, name, displayName, start, end, isCurrent) {
+    document.getElementById('session-modal-title').innerHTML = '<i data-lucide="edit-2" class="w-4 h-4 text-emerald-600 inline"></i> <span>Edit Academic Session</span>';
+    document.getElementById('session-action-input').value = 'update';
+    document.getElementById('session-id-input').value = id;
+    document.getElementById('session-name-input').value = name;
+    document.getElementById('session-display-input').value = displayName;
+    document.getElementById('session-start-input').value = start;
+    document.getElementById('session-end-input').value = end;
+    document.getElementById('session-current-input').checked = isCurrent;
+    openModal('session-modal');
+  }
+</script>
+{% endblock %}

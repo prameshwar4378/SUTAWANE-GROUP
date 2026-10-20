@@ -1,0 +1,603 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt_{{ payment.receipt_number }} - Sutawane Classes</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/print.css' %}">
+  <script src="{% static 'js/lucide.min.js' %}"></script>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
+    @page thermal {
+      size: 80mm auto;
+      margin: 2mm 3mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    @media print {
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+    /* Thermal mode styling */
+    .thermal-slip {
+      width: 76mm;
+      max-width: 100%;
+      margin: 0 auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.3;
+      color: #000;
+      background: #fff;
+      padding: 4mm 2mm;
+      border: 1px dashed #94a3b8;
+    }
+  </style>
+</head>
+<body class="{% if current_mode == 'thermal' %}printing-thermal{% else %}printing-receipt{% endif %}">
+
+  <!-- ========================================================= -->
+  <!-- TOP CONTROL TOOLBAR (HIDDEN ON PRINT)                    -->
+  <!-- ========================================================= -->
+  <header class="no-print sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 shadow-xs">
+    <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Title & Receipt Meta -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-[#28375C] text-white flex items-center justify-center font-bold">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-slate-900 leading-tight">
+            Official Fee Receipt <span class="font-mono text-primary">#{{ payment.receipt_number }}</span>
+          </h1>
+          <p class="text-xs text-slate-500 leading-tight">
+            {{ payment.student.full_name }} • {{ payment.payment_date|date:"d M Y" }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Mode Switcher Pills -->
+      <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+        <a
+          href="?format=a4_dual"
+          class="px-3 py-1.5 rounded-md transition-colors {% if current_mode == 'a4_dual' %}bg-[#28375C] text-white shadow-xs{% else %}text-slate-600 hover:text-slate-900{% endif %}"
+        >
+          A4 Dual Copy
+        </a>
+        <a
+          href="?format=student_only"
+          class="px-3 py-1.5 rounded-md transition-colors {% if current_mode == 'student_only' %}bg-[#28375C] text-white shadow-xs{% else %}text-slate-600 hover:text-slate-900{% endif %}"
+        >
+          Student Slip
+        </a>
+        <a
+          href="?format=office_only"
+          class="px-3 py-1.5 rounded-md transition-colors {% if current_mode == 'office_only' %}bg-[#28375C] text-white shadow-xs{% else %}text-slate-600 hover:text-slate-900{% endif %}"
+        >
+          Office Slip
+        </a>
+        <a
+          href="?format=thermal"
+          class="px-3 py-1.5 rounded-md transition-colors {% if current_mode == 'thermal' %}bg-[#28375C] text-white shadow-xs{% else %}text-slate-600 hover:text-slate-900{% endif %}"
+        >
+          80mm Thermal
+        </a>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2">
+        {% if whatsapp_url %}
+        <a
+          href="{{ whatsapp_url }}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-[#25D366] hover:bg-[#20ba59] text-white shadow-xs transition-colors"
+          title="Send Official Receipt via WhatsApp"
+        >
+          <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-current"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
+          <span>WhatsApp</span>
+        </a>
+        {% endif %}
+
+        <button
+          type="button"
+          onclick="window.print()"
+          class="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-md bg-[#28375C] hover:bg-[#1f2b48] text-white shadow-xs transition-colors cursor-pointer"
+        >
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <span>Print Receipt</span>
+        </button>
+
+        <button
+          type="button"
+          onclick="window.close()"
+          class="inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================= -->
+  <!-- MAIN PRINTABLE CANVAS                                     -->
+  <!-- ========================================================= -->
+  <main class="py-6 px-4 print:py-0 print:px-0">
+
+    {% if current_mode == 'thermal' %}
+    <!-- ======================================================= -->
+    <!-- 80MM THERMAL POS RECEIPT LAYOUT                         -->
+    <!-- ======================================================= -->
+    <div id="printable-thermal-receipt" class="thermal-slip">
+      {% if payment.is_reversed %}
+      <div style="text-align: center; border: 1px solid #000; padding: 2px; font-weight: bold; margin-bottom: 6px;">
+        *** VOIDED / REVERSED ***<br>
+        {{ payment.reversal_reason|default:"Transaction Cancelled" }}
+      </div>
+      {% endif %}
+
+      <!-- Center Header -->
+      <div style="text-align: center; margin-bottom: 6px;">
+        <div style="font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">SUTAWANE CLASSES</div>
+        <div style="font-size: 10px; font-weight: bold;">{{ payment.branch.name|default:"Main Campus" }}</div>
+        <div style="font-size: 9px;">{{ payment.branch.address|default:"Vaijapur, Chhatrapati Sambhajinagar" }}</div>
+        <div style="font-size: 9px;">Tel: {{ payment.branch.phone|default:"+91 9822000000" }}</div>
+      </div>
+
+      <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+
+      <!-- Receipt Meta -->
+      <div style="display: flex; justify-content: space-between; font-size: 10px;">
+        <span>Receipt #: <strong>{{ payment.receipt_number }}</strong></span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 9.5px;">
+        <span>Date: {{ payment.payment_date|date:"d-M-Y" }}</span>
+        <span>Session: {{ payment.session.name }}</span>
+      </div>
+
+      <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+
+      <!-- Student Info -->
+      <div style="font-size: 10px; margin-bottom: 4px;">
+        <div>Student: <strong>{{ payment.student.full_name }}</strong></div>
+        <div>Roll No: <strong>{{ payment.admission.roll_number|default:payment.student.student_code }}</strong> | Class: {{ payment.admission.standard|default:"General" }}</div>
+      </div>
+
+      <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+
+      <!-- Item Breakdown -->
+      <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid #000;">
+            <th style="text-align: left; padding: 2px 0;">Particulars</th>
+            <th style="text-align: right; padding: 2px 0;">Amt (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if allocations %}
+          {% for a in allocations %}
+          <tr>
+            <td style="padding: 2px 0;">{{ a.installment.label|default:"Fee Installment" }}</td>
+            <td style="text-align: right; padding: 2px 0;">{{ a.allocated_amount|floatformat:0 }}</td>
+          </tr>
+          {% endfor %}
+          {% elif payment.previous_due %}
+          <tr>
+            <td style="padding: 2px 0;">Carried Dues ({{ payment.previous_due.original_session.name }})</td>
+            <td style="text-align: right; padding: 2px 0;">{{ payment.total_amount|floatformat:0 }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td style="padding: 2px 0;">Tuition & Coaching Fee</td>
+            <td style="text-align: right; padding: 2px 0;">{{ payment.total_amount|floatformat:0 }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+      <div style="border-top: 1px solid #000; margin: 4px 0;"></div>
+
+      <!-- Total & Details -->
+      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: bold;">
+        <span>TOTAL PAID:</span>
+        <span>₹{{ payment.total_amount|floatformat:0 }}</span>
+      </div>
+
+      <div style="font-size: 9px; font-style: italic; margin-top: 2px;">
+        In Words: {{ amount_in_words }}
+      </div>
+
+      <div style="display: flex; justify-content: space-between; font-size: 9.5px; margin-top: 4px;">
+        <span>Mode: {{ payment.payment_mode }} {% if payment.reference_number %}({{ payment.reference_number }}){% endif %}</span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-top: 2px;">
+        <span>Remaining Dues:</span>
+        <span>{% if remaining_balance > 0 %}₹{{ remaining_balance|floatformat:0 }}{% else %}NIL (Cleared){% endif %}</span>
+      </div>
+
+      <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+      <!-- Footer Note -->
+      <div style="text-align: center; font-size: 8.5px;">
+        Fees once paid are non-refundable.<br>
+        Thank you for your partnership in education!<br>
+        ** Computer Generated Receipt **
+      </div>
+    </div>
+
+    {% else %}
+    <!-- ======================================================= -->
+    <!-- A4 DUAL / SINGLE COPY PRINTABLE CONTAINER               -->
+    <!-- ======================================================= -->
+    <div id="printable-receipt-container" class="max-w-[200mm] mx-auto bg-white text-slate-900 p-5 rounded-lg shadow-sm border border-slate-200 space-y-4 print:p-0 print:border-none print:shadow-none print:space-y-4">
+
+      {% if current_mode == 'a4_dual' or current_mode == 'student_only' %}
+      {# SLIP 1: STUDENT COPY #}
+      <div class="border-2 border-[#28375C] rounded-lg p-5 bg-white text-slate-900 shadow-sm space-y-3 select-text print:border-2 print:border-black print:rounded-none">
+        {% if payment.is_reversed %}
+        <div class="bg-rose-100 text-rose-800 border-2 border-rose-300 px-3 py-1.5 rounded text-center font-bold text-xs uppercase tracking-wider">
+          ⚠️ THIS RECEIPT HAS BEEN VOIDED / REVERSED ({{ payment.reversal_reason|default:"Transaction reversed" }})
+        </div>
+        {% endif %}
+
+        <!-- Header -->
+        <div class="flex items-start justify-between border-b-2 border-[#28375C] pb-3">
+          <div class="flex items-center gap-3.5">
+            <div class="w-13 h-13 rounded-md bg-[#28375C] text-white flex items-center justify-center font-bold flex-shrink-0 shadow-xs">
+              <i data-lucide="graduation-cap" class="w-7 h-7"></i>
+            </div>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-base sm:text-lg font-black tracking-tight leading-tight uppercase text-[#28375C]">
+                  SUTAWANE CLASSES
+                </h2>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-extrabold uppercase bg-blue-50 text-[#28375C] border border-[#28375C]/30 tracking-wider">
+                  📍 {{ payment.branch.name|default:"Main Campus" }}
+                </span>
+              </div>
+              <p class="text-xs font-semibold text-slate-600 leading-tight mt-0.5">
+                {{ payment.branch.name|default:"Main" }} Campus • Excellence in Coaching & Board Exam Preparations
+              </p>
+              <p class="text-[11px] text-slate-500 leading-tight mt-1">
+                📍 {{ payment.branch.address|default:"Vaijapur, Chhatrapati Sambhajinagar" }} • Tel: {{ payment.branch.phone|default:"+91 9822000000" }}
+              </p>
+            </div>
+          </div>
+
+          <div class="text-right flex flex-col items-end flex-shrink-0">
+            <span class="inline-block px-3 py-1 bg-[#28375C] text-white font-extrabold text-[10px] uppercase tracking-widest rounded shadow-xs">
+              STUDENT COPY
+            </span>
+            <div class="mt-1.5 font-mono text-xs leading-tight">
+              <span class="text-slate-500 text-[10px] font-sans font-medium">Receipt No: </span>
+              <strong class="text-slate-950 font-bold">{{ payment.receipt_number }}</strong>
+            </div>
+            <div class="text-[11px] text-slate-600 leading-tight mt-0.5">
+              Date: <span class="font-semibold text-slate-900">{{ payment.payment_date|date:"d M Y" }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Student Meta Grid -->
+        <div class="grid grid-cols-12 gap-3 py-2.5 px-3.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+          <div class="col-span-12 sm:col-span-5">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Student Name</span>
+            <strong class="text-slate-950 text-sm font-black block leading-snug break-words mt-0.5">
+              {{ payment.student.full_name }}
+            </strong>
+          </div>
+          <div class="col-span-4 sm:col-span-2">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Roll No / ID</span>
+            <span class="font-mono font-bold text-slate-900 block text-xs mt-0.5">
+              {{ payment.admission.roll_number|default:payment.student.student_code }}
+            </span>
+          </div>
+          <div class="col-span-4 sm:col-span-2">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Class / Course</span>
+            <span class="font-bold text-slate-900 block text-xs mt-0.5">
+              {{ payment.admission.standard|default:"Class 10" }}
+            </span>
+          </div>
+          <div class="col-span-4 sm:col-span-3">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Admission Branch</span>
+            <span class="font-extrabold text-[#28375C] block text-xs leading-tight break-words mt-0.5">
+              {{ payment.branch.name|default:"Main Campus" }}
+            </span>
+            <span class="text-[10px] text-slate-500 block mt-0.5 font-medium">
+              Session: {{ payment.session.name }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Particulars Table -->
+        <div class="border border-slate-300 rounded-md overflow-hidden">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-[#28375C] text-white font-bold uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="py-2 px-3.5">Fee Particulars / Description</th>
+                <th class="py-2 px-3.5 text-right w-44">Amount Received (₹)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              {% if allocations %}
+              {% for a in allocations %}
+              <tr class="hover:bg-slate-50/50">
+                <td class="py-2 px-3.5 font-medium text-slate-800">{{ a.installment.label|default:"Tuition & Coaching Fee" }}</td>
+                <td class="py-2 px-3.5 text-right font-bold text-slate-900">₹{{ a.allocated_amount|floatformat:0 }}</td>
+              </tr>
+              {% endfor %}
+              {% elif payment.previous_due %}
+              <tr>
+                <td class="py-2 px-3.5 font-medium text-slate-800">Carried-Forward Prior Dues ({{ payment.previous_due.original_session.name }})</td>
+                <td class="py-2 px-3.5 text-right font-bold text-slate-900">₹{{ payment.total_amount|floatformat:0 }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td class="py-2 px-3.5 font-medium text-slate-800">Tuition & Coaching Fee Payment</td>
+                <td class="py-2 px-3.5 text-right font-bold text-slate-900">₹{{ payment.total_amount|floatformat:0 }}</td>
+              </tr>
+              {% endif %}
+              <tr class="bg-slate-100 font-bold border-t-2 border-[#28375C]">
+                <td class="py-2.5 px-3.5 uppercase text-[#28375C] tracking-wide font-extrabold text-xs">Total Amount Collected</td>
+                <td class="py-2.5 px-3.5 text-right font-black text-[#28375C] text-base">₹{{ payment.total_amount|floatformat:0 }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Breakdown & Mode -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-md gap-2">
+          <div class="flex-1 pr-2">
+            <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">In Words: </span>
+            <span class="font-bold italic text-slate-900 block sm:inline">{{ amount_in_words }}</span>
+          </div>
+          <div class="flex items-center gap-4 flex-shrink-0">
+            <div>
+              <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Mode: </span>
+              <strong class="text-slate-900 font-bold">{{ payment.payment_mode }}</strong>
+              {% if payment.reference_number %}
+              <span class="text-slate-600 font-mono text-[10px] ml-1 font-normal">({{ payment.reference_number }})</span>
+              {% endif %}
+            </div>
+            <div class="border-l pl-3 border-slate-300">
+              <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Remaining Balance: </span>
+              <strong class="{% if remaining_balance > 0 %}text-rose-700 font-extrabold{% else %}text-emerald-700 font-extrabold{% endif %}">
+                {% if remaining_balance > 0 %}₹{{ remaining_balance|floatformat:0 }}{% else %}Nil (Settled){% endif %}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {% if payment.notes %}
+        <div class="text-[11px] text-slate-600 px-1">
+          <span class="font-bold text-slate-700">Note: </span>
+          <span>{{ payment.notes }}</span>
+        </div>
+        {% endif %}
+
+        <!-- Stamp & Signature Strip -->
+        <div class="pt-2 flex justify-between items-end text-xs text-slate-600 border-t border-slate-200">
+          <div class="flex items-end gap-3.5">
+            <div class="w-32 h-12 border border-dashed border-slate-400 rounded flex items-center justify-center text-[8.5px] text-slate-500 font-bold uppercase tracking-wider bg-slate-50 flex-shrink-0 px-1 text-center">
+              [ Stamp - {{ payment.branch.name|default:"Main" }} ]
+            </div>
+            <div>
+              <p class="font-semibold text-slate-700 text-[10.5px]">Fees once paid are non-refundable. Retain this slip for future verification.</p>
+              <p class="text-slate-400 text-[9.5px] mt-0.5">Computer generated official receipt • Valid without stamp</p>
+            </div>
+          </div>
+          <div class="text-center flex-shrink-0">
+            <div class="h-6"></div>
+            <div class="w-36 border-b-2 border-slate-800 mb-1"></div>
+            <p class="font-extrabold text-slate-900 uppercase tracking-wider text-[9.5px]">Authorized Signatory</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ========================================== -->
+      <!-- SCISSOR CUT LINE SEPARATOR                 -->
+      <!-- ========================================== -->
+      {% if current_mode == 'a4_dual' %}
+      <div class="receipt-cut-line relative flex items-center justify-center my-4 py-1.5 border-t-2 border-dashed border-slate-400 text-slate-500">
+        <div class="absolute bg-white px-4 flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-600">
+          <i data-lucide="scissors" class="w-3.5 h-3.5 transform -rotate-90 text-slate-500"></i>
+          <span>Cut or fold along dotted line for student / office copy</span>
+          <i data-lucide="scissors" class="w-3.5 h-3.5 transform rotate-90 text-slate-500"></i>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if current_mode == 'a4_dual' or current_mode == 'office_only' %}
+      {# SLIP 2: OFFICE COPY #}
+      <div class="border-2 border-[#28375C] rounded-lg p-5 bg-white text-slate-900 shadow-sm space-y-3 select-text print:border-2 print:border-black print:rounded-none">
+        {% if payment.is_reversed %}
+        <div class="bg-rose-100 text-rose-800 border-2 border-rose-300 px-3 py-1.5 rounded text-center font-bold text-xs uppercase tracking-wider">
+          ⚠️ THIS RECEIPT HAS BEEN VOIDED / REVERSED ({{ payment.reversal_reason|default:"Transaction reversed" }})
+        </div>
+        {% endif %}
+
+        <!-- Header -->
+        <div class="flex items-start justify-between border-b-2 border-[#28375C] pb-3">
+          <div class="flex items-center gap-3.5">
+            <div class="w-13 h-13 rounded-md bg-[#28375C] text-white flex items-center justify-center font-bold flex-shrink-0 shadow-xs">
+              <i data-lucide="graduation-cap" class="w-7 h-7"></i>
+            </div>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-base sm:text-lg font-black tracking-tight leading-tight uppercase text-[#28375C]">
+                  SUTAWANE CLASSES
+                </h2>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-extrabold uppercase bg-amber-50 text-amber-800 border border-amber-300 tracking-wider">
+                  📍 {{ payment.branch.name|default:"Main Campus" }}
+                </span>
+              </div>
+              <p class="text-xs font-semibold text-slate-600 leading-tight mt-0.5">
+                {{ payment.branch.name|default:"Main" }} Campus • Office Audit & Accounts Record
+              </p>
+              <p class="text-[11px] text-slate-500 leading-tight mt-1">
+                📍 {{ payment.branch.address|default:"Vaijapur, Chhatrapati Sambhajinagar" }} • Tel: {{ payment.branch.phone|default:"+91 9822000000" }}
+              </p>
+            </div>
+          </div>
+
+          <div class="text-right flex flex-col items-end flex-shrink-0">
+            <span class="inline-block px-3 py-1 bg-amber-700 text-white font-extrabold text-[10px] uppercase tracking-widest rounded shadow-xs">
+              OFFICE COPY
+            </span>
+            <div class="mt-1.5 font-mono text-xs leading-tight">
+              <span class="text-slate-500 text-[10px] font-sans font-medium">Receipt No: </span>
+              <strong class="text-slate-950 font-bold">{{ payment.receipt_number }}</strong>
+            </div>
+            <div class="text-[11px] text-slate-600 leading-tight mt-0.5">
+              Date: <span class="font-semibold text-slate-900">{{ payment.payment_date|date:"d M Y" }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Student Meta Grid -->
+        <div class="grid grid-cols-12 gap-3 py-2.5 px-3.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+          <div class="col-span-12 sm:col-span-5">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Student Name</span>
+            <strong class="text-slate-950 text-sm font-black block leading-snug break-words mt-0.5">
+              {{ payment.student.full_name }}
+            </strong>
+          </div>
+          <div class="col-span-4 sm:col-span-2">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Roll No / ID</span>
+            <span class="font-mono font-bold text-slate-900 block text-xs mt-0.5">
+              {{ payment.admission.roll_number|default:payment.student.student_code }}
+            </span>
+          </div>
+          <div class="col-span-4 sm:col-span-2">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Class / Course</span>
+            <span class="font-bold text-slate-900 block text-xs mt-0.5">
+              {{ payment.admission.standard|default:"Class 10" }}
+            </span>
+          </div>
+          <div class="col-span-4 sm:col-span-3">
+            <span class="text-[9.5px] text-slate-500 block uppercase font-bold tracking-wider">Admission Branch</span>
+            <span class="font-extrabold text-[#28375C] block text-xs leading-tight break-words mt-0.5">
+              {{ payment.branch.name|default:"Main Campus" }}
+            </span>
+            <span class="text-[10px] text-slate-500 block mt-0.5 font-medium">
+              Session: {{ payment.session.name }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Particulars Table -->
+        <div class="border border-slate-300 rounded-md overflow-hidden">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-[#28375C] text-white font-bold uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="py-2 px-3.5">Fee Particulars / Description</th>
+                <th class="py-2 px-3.5 text-right w-44">Amount Received (₹)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              {% if allocations %}
+              {% for a in allocations %}
+              <tr class="hover:bg-slate-50/50">
+                <td class="py-2 px-3.5 font-medium text-slate-800">{{ a.installment.label|default:"Tuition & Coaching Fee" }}</td>
+                <td class="py-2 px-3.5 text-right font-bold text-slate-900">₹{{ a.allocated_amount|floatformat:0 }}</td>
+              </tr>
+              {% endfor %}
+              {% elif payment.previous_due %}
+              <tr>
+                <td class="py-2 px-3.5 font-medium text-slate-800">Carried-Forward Prior Dues ({{ payment.previous_due.original_session.name }})</td>
+                <td class="py-2 px-3.5 text-right font-bold text-slate-900">₹{{ payment.total_amount|floatformat:0 }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td class="py-2 px-3.5 font-medium text-slate-800">Tuition & Coaching Fee Payment</td>
+                <td class="py-2 px-3.5 text-right font-bold text-slate-900">₹{{ payment.total_amount|floatformat:0 }}</td>
+              </tr>
+              {% endif %}
+              <tr class="bg-slate-100 font-bold border-t-2 border-[#28375C]">
+                <td class="py-2.5 px-3.5 uppercase text-[#28375C] tracking-wide font-extrabold text-xs">Total Amount Collected</td>
+                <td class="py-2.5 px-3.5 text-right font-black text-[#28375C] text-base">₹{{ payment.total_amount|floatformat:0 }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Breakdown & Mode -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-md gap-2">
+          <div class="flex-1 pr-2">
+            <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">In Words: </span>
+            <span class="font-bold italic text-slate-900 block sm:inline">{{ amount_in_words }}</span>
+          </div>
+          <div class="flex items-center gap-4 flex-shrink-0">
+            <div>
+              <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Mode: </span>
+              <strong class="text-slate-900 font-bold">{{ payment.payment_mode }}</strong>
+              {% if payment.reference_number %}
+              <span class="text-slate-600 font-mono text-[10px] ml-1 font-normal">({{ payment.reference_number }})</span>
+              {% endif %}
+            </div>
+            <div class="border-l pl-3 border-slate-300">
+              <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Remaining Balance: </span>
+              <strong class="{% if remaining_balance > 0 %}text-rose-700 font-extrabold{% else %}text-emerald-700 font-extrabold{% endif %}">
+                {% if remaining_balance > 0 %}₹{{ remaining_balance|floatformat:0 }}{% else %}Nil (Settled){% endif %}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stamp & Cashier Signatory Strip -->
+        <div class="pt-2 flex justify-between items-end text-xs text-slate-600 border-t border-slate-200">
+          <div class="flex items-end gap-3.5">
+            <div>
+              <p class="font-semibold text-slate-700 text-[10.5px]">Official Center Accounts & Audit Slip.</p>
+              <p class="text-slate-400 text-[9.5px] mt-0.5">Recorded directly in Sutawane Master Database</p>
+            </div>
+          </div>
+          <div class="text-center flex-shrink-0">
+            <div class="h-6"></div>
+            <div class="w-36 border-b-2 border-slate-800 mb-1"></div>
+            <p class="font-extrabold text-slate-900 uppercase tracking-wider text-[9.5px]">Center Cashier / Receiver</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% endif %}
+
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+      {% if autoprint %}
+      setTimeout(function() {
+        window.print();
+      }, 500);
+      {% endif %}
+    });
+  </script>
+</body>
+</html>

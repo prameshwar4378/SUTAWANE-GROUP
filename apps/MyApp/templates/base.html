@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ institute_name|default:"Sutawane Classes" }} Management Software{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+  
+  <!-- Compiled Tailwind CSS & Design Tokens -->
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1.2">
+  <link rel="stylesheet" href="{% static 'css/print.css' %}?v=1.2">
+
+  <!-- Lucide Icons, HTMX & App Script -->
+  <script src="{% static 'js/lucide.min.js' %}"></script>
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  <script src="{% static 'js/chart.umd.min.js' %}"></script>
+  <script src="{% static 'js/app.js' %}?v=1.4" defer></script>
+  
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-background text-foreground antialiased selection:bg-primary/20" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <div id="root" class="h-full flex overflow-hidden">
+    {% block layout %}
+      <!-- Sidebar Navigation -->
+      {% include 'includes/sidebar.html' %}
+
+      <!-- Main Application Shell -->
+      <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <!-- Top Navigation Header -->
+        {% include 'includes/header.html' %}
+
+        <!-- Flash Alert Messages -->
+        {% include 'includes/messages.html' %}
+
+        <!-- Main Viewport Content -->
+        <main class="flex-1 overflow-y-auto min-w-0 bg-muted/10 p-4 sm:p-5 lg:p-6 scroll-smooth focus:outline-none">
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    {% endblock %}
+  </div>
+
+  {% block modals %}{% endblock %}
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
