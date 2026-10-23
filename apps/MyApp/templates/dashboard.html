@@ -13,7 +13,7 @@
       linear-gradient(125deg, #111b3a 0%, #1c2d5b 48%, #123a53 100%);
     box-shadow: 0 18px 42px rgba(24, 39, 80, .18);
   }
-  .dashboard-hero:after { content: ''; position: absolute; inset: auto -8% -72% 42%; height: 260px; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; transform: rotate(-12deg); }
+  .dashboard-hero:after { content: ''; position: absolute; inset: auto -8% -72% 42%; height: 260px; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; transform: rotate(-12deg); pointer-events: none !important; }
   .dashboard-hero .text-muted-foreground { color: rgba(226,232,240,.78); }
   .dashboard-hero .text-foreground { color: #fff; }
   .dashboard-kpi { position: relative; overflow: hidden; transition: transform .2s ease, box-shadow .2s ease; }
@@ -32,55 +32,73 @@
 {% block content %}
 <div class="dashboard-shell space-y-6 w-full">
   <!-- Scope Banner & Fast Actions -->
-  <div class="dashboard-hero flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-5 sm:p-7 rounded-2xl">
-    <div class="relative z-10">
-      <div class="dashboard-section-label text-sky-200 mb-2">Executive overview</div>
-      <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
-        <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20"><i data-lucide="sparkles" class="w-5 h-5 text-sky-200"></i></span>
+  <div class="dashboard-hero flex flex-col lg:flex-row lg:items-center justify-between gap-5 p-5 sm:p-6 rounded-2xl">
+    <div class="relative z-10 flex-1 min-w-0">
+      <div class="dashboard-section-label text-sky-200 mb-1">Executive overview</div>
+      <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
+        <span class="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20"><i data-lucide="sparkles" class="w-5 h-5 text-sky-200"></i></span>
         <span>Institute Command Center</span>
       </h1>
-      <p class="text-sm text-muted-foreground mt-2 max-w-2xl">
-        Active Scope: <strong class="text-foreground">{% if selected_branch %}{{ selected_branch.name }}{% else %}All Branches Consolidated{% endif %}</strong> | Academic Session:{' '}
-        <strong class="text-foreground">
-          {% if selected_session %}
-            {{ selected_session.display_name|default:selected_session.name }}
-          {% elif is_all_sessions %}
-            All Academic Sessions Consolidated
-          {% else %}
-            2026–27
-          {% endif %}
-        </strong>
-      </p>
+      <!-- Active Scope Pills -->
+      <div class="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+        <span class="text-sky-200/90 text-xs font-semibold flex items-center gap-1 mr-0.5">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-sky-300"></i>
+          <span>Active Scope:</span>
+        </span>
+
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-white border border-white/20 backdrop-blur-xs transition-colors shadow-2xs">
+          <i data-lucide="building-2" class="w-3.5 h-3.5 text-sky-300 shrink-0"></i>
+          <span class="text-sky-100/70 text-[11px]">Branch:</span>
+          <strong class="font-bold text-white text-xs">
+            {% if selected_branch %}{{ selected_branch.name }}{% else %}All Branches Consolidated{% endif %}
+          </strong>
+        </span>
+
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-white border border-white/20 backdrop-blur-xs transition-colors shadow-2xs">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-300 shrink-0"></i>
+          <span class="text-sky-100/70 text-[11px]">Session:</span>
+          <strong class="font-bold text-white text-xs">
+            {% if selected_session %}
+              {{ selected_session.display_name|default:selected_session.name }}
+            {% elif is_all_sessions %}
+              All Academic Sessions Consolidated
+            {% else %}
+              2026–27
+            {% endif %}
+          </strong>
+        </span>
+      </div>
     </div>
 
     <!-- Quick Fast Actions -->
-    <div class="relative z-10 flex items-center gap-2 flex-wrap justify-end">
-      <div class="hidden sm:block mr-2 min-w-[132px] rounded-xl bg-white/10 border border-white/15 px-3 py-2">
-        <div class="text-[9px] uppercase tracking-wider text-sky-100/75">Fee collection rate</div>
-        <div class="text-xl font-black mt-0.5">{{ session_stats.collection_rate }}%</div>
-        <div class="h-1 bg-white/20 rounded-full mt-1 overflow-hidden"><div class="h-full bg-emerald-300 rounded-full" style="width: {{ session_stats.collection_rate }}%"></div></div>
-      </div>
+    <div class="relative z-20 flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0 lg:justify-end" style="position: relative; z-index: 20;">
+      <!-- Collect Fees Button -->
       <a
         href="{% url 'fee_collect' %}"
-        class="inline-flex items-center gap-1.5 bg-white text-slate-900 hover:bg-sky-50 h-10 px-4 rounded-xl text-xs font-bold shadow-lg transition-colors"
+        class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl text-xs shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer transform hover:-translate-y-0.5 border border-emerald-400/30 whitespace-nowrap shrink-0"
+        title="Open Fee Collection Page"
       >
-        <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
+        <i data-lucide="credit-card" class="w-4 h-4 text-emerald-100"></i>
         <span>Collect Fees</span>
       </a>
 
+      <!-- Add Expense Button -->
       <a
         href="{% url 'expenses_list' %}"
-        class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 h-10 px-4 rounded-xl text-xs font-bold transition-colors"
+        class="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl text-xs shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer transform hover:-translate-y-0.5 border border-rose-400/30 whitespace-nowrap shrink-0"
+        title="Open Expenses Management Page"
       >
-        <i data-lucide="receipt" class="w-3.5 h-3.5 text-rose-200"></i>
+        <i data-lucide="receipt" class="w-4 h-4 text-rose-100"></i>
         <span>Add Expense</span>
       </a>
 
+      <!-- New Admission Button -->
       <a
         href="{% url 'students_list' %}"
-        class="inline-flex items-center gap-1.5 bg-indigo-400 hover:bg-indigo-300 text-white h-10 px-4 rounded-xl text-xs font-bold shadow-lg transition-colors"
+        class="inline-flex items-center gap-1.5 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200 font-bold h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl text-xs shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer transform hover:-translate-y-0.5 border border-white whitespace-nowrap shrink-0"
+        title="Open Student Master Directory"
       >
-        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+        <i data-lucide="user-plus" class="w-4 h-4 text-primary"></i>
         <span>New Admission</span>
       </a>
     </div>

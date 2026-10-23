@@ -21,9 +21,9 @@
         <p class="text-xs">
           <strong>{{ student.full_name }}</strong> has been enrolled in <strong>{{ new_admission.standard }}</strong> for academic session <strong>{{ new_admission.session.name }}</strong> with Roll No: <code class="font-mono font-bold">{{ new_admission.roll_number }}</code>.
         </p>
-        {% if previous_due_recorded > 0 %}
-        <p class="text-xs text-rose-700 dark:text-rose-400 font-semibold pt-1">
-          Unpaid balance of ₹{{ previous_due_recorded|floatformat:0 }} successfully carried forward into Previous Session Dues ledger.
+        {% if current_pending_due > 0 %}
+        <p class="text-xs text-amber-700 dark:text-amber-400 font-semibold pt-1">
+          Unpaid balance of ₹{{ current_pending_due|floatformat:0 }} remains strictly in {{ current_admission.session.name }} ledger. You can view or collect it anytime using the session tabs.
         </p>
         {% endif %}
       </div>
@@ -177,7 +177,7 @@
             type="text"
             name="new_roll_number"
             value="{{ suggested_roll }}"
-            placeholder="e.g. SC-101-N"
+            placeholder="e.g. VAI-1"
             class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
             required
           />
@@ -203,47 +203,22 @@
         />
       </div>
 
-      <!-- Outstanding Balance Carry-Forward Section -->
+      <!-- Outstanding Balance Accounting Notice -->
       {% if current_pending_due > 0 %}
-      <div class="p-3 border rounded-lg bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 space-y-2">
+      <div class="p-3.5 border rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 space-y-2">
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-semibold text-xs">
-            <i data-lucide="indian-rupee" class="w-4 h-4"></i>
-            <span>Unpaid Dues from Current Session: ₹{{ current_pending_due|floatformat:0 }}</span>
+          <div class="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-semibold text-xs">
+            <i data-lucide="info" class="w-4 h-4 text-amber-600"></i>
+            <span>Current Session Unpaid Due: ₹{{ current_pending_due|floatformat:0 }}</span>
           </div>
-          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white">
-            Pending Balance
+          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+            Independent Session Ledger
           </span>
         </div>
 
         <p class="text-[11px] text-muted-foreground">
-          By default, this unpaid balance is carried forward into a dedicated <span class="font-semibold text-foreground">PreviousSessionDue</span> record. It will not alter the new session's agreed fee structure.
+          This unpaid balance remains attached to <strong>{{ current_admission.session.name }}</strong> ({{ current_admission.standard }}). In accordance with independent session accounting, each academic session maintains its own fee ledger. You can view or collect payments for any session anytime using the quick-switch session tabs.
         </p>
-
-        <div class="flex items-center gap-2 pt-1">
-          <input
-            type="checkbox"
-            name="carry_forward_due"
-            id="carryForwardDueCb"
-            value="true"
-            checked
-            onchange="toggleDueNotesInput(this)"
-            class="w-4 h-4 rounded text-primary border-gray-300 focus:ring-primary cursor-pointer"
-          />
-          <label for="carryForwardDueCb" class="font-medium text-xs text-foreground cursor-pointer select-none">
-            Carry forward unpaid dues (₹{{ current_pending_due|floatformat:0 }}) to next session
-          </label>
-        </div>
-
-        <div id="dueNotesContainer" class="pt-1.5">
-          <input
-            type="text"
-            name="due_notes"
-            value="Carried forward due from {{ current_admission.session.name|default:'previous session' }} ({{ current_admission.standard|default:'' }})"
-            placeholder="Due reference / description..."
-            class="w-full h-8 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
       </div>
       {% else %}
       <div class="p-3 border rounded-lg bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
@@ -283,13 +258,6 @@
     const feeInput = document.getElementById('newTotalFeesInput');
     if (fee && feeInput) {
       feeInput.value = fee;
-    }
-  }
-
-  function toggleDueNotesInput(cb) {
-    const container = document.getElementById('dueNotesContainer');
-    if (container) {
-      container.style.display = cb.checked ? 'block' : 'none';
     }
   }
 </script>

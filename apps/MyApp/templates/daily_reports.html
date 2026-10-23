@@ -5,7 +5,7 @@
 {% block title %}Daily Financial Statement &amp; Day Book — Sutawane Classes{% endblock %}
 
 {% block content %}
-<div class="space-y-6 w-full">
+<div class="space-y-6 w-full daily-report-main-screen">
   <!-- Page Header -->
   <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 no-print">
     <div>
@@ -67,25 +67,22 @@
         <!-- Mode Switcher Tabs -->
         <div class="flex items-center bg-muted/60 p-1 rounded-lg border gap-1">
           <button
-            type="submit"
-            name="mode"
-            value="DAILY"
+            type="button"
+            onclick="switchReportMode('DAILY')"
             class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer {% if active_mode == 'DAILY' %}bg-background text-foreground shadow-xs{% else %}text-muted-foreground hover:text-foreground{% endif %}"
           >
             Daily Statement
           </button>
           <button
-            type="submit"
-            name="mode"
-            value="MONTHLY"
+            type="button"
+            onclick="switchReportMode('MONTHLY')"
             class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer {% if active_mode == 'MONTHLY' %}bg-background text-foreground shadow-xs{% else %}text-muted-foreground hover:text-foreground{% endif %}"
           >
             Monthly Statement
           </button>
           <button
-            type="submit"
-            name="mode"
-            value="CUSTOM"
+            type="button"
+            onclick="switchReportMode('CUSTOM')"
             class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer {% if active_mode == 'CUSTOM' %}bg-background text-foreground shadow-xs{% else %}text-muted-foreground hover:text-foreground{% endif %}"
           >
             Custom Range
@@ -104,7 +101,7 @@
             >
               <option value="ALL" {% if selected_branch_id == 'ALL' %}selected{% endif %}>All Branches</option>
               {% for b in branches %}
-                <option value="{{ b.id }}" {% if selected_branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+                <option value="{{ b.id }}" {% if selected_branch_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
               {% endfor %}
             </select>
           </div>
@@ -119,7 +116,7 @@
             >
               <option value="ALL" {% if selected_session_id == 'ALL' %}selected{% endif %}>All Sessions</option>
               {% for s in sessions %}
-                <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
+                <option value="{{ s.id }}" {% if selected_session_id == s.id|stringformat:"s" %}selected{% endif %}>
                   {{ s.name }}{% if s.is_current %} (Current){% endif %}
                 </option>
               {% endfor %}
@@ -130,7 +127,7 @@
 
       <!-- Mode-Specific Input Selectors -->
       <div class="flex flex-wrap items-center gap-3 pt-3 border-t">
-        <input type="hidden" name="mode" value="{{ active_mode }}">
+        <input type="hidden" name="mode" id="reportModeInput" value="{{ active_mode }}">
         <input type="hidden" name="table_tab" value="{{ table_tab }}">
 
         {% if active_mode == 'DAILY' %}
@@ -419,10 +416,10 @@
 <div id="receiptModalContainer"></div>
 
 <!-- Official Institutional Report Print Modal (Matching React OfficialFinancialReportModal.tsx) -->
-<div id="officialPrintModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+<div id="officialPrintModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4" onclick="if (event.target === this) closeOfficialPrintModal();">
   <div class="bg-card text-card-foreground border rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
     <!-- Modal Header -->
-    <div class="flex items-center justify-between px-6 py-4 border-b bg-muted/20">
+    <div class="flex items-center justify-between px-6 py-4 border-b bg-muted/20 modal-header no-print">
       <div class="flex items-center gap-2">
         <i data-lucide="printer" class="w-5 h-5 text-primary"></i>
         <h2 class="text-base font-bold text-foreground">
@@ -440,7 +437,7 @@
 
     <!-- Modal Body (Printable Statement Document) -->
     <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 dark:bg-slate-950">
-      <div class="bg-background border rounded-lg p-6 shadow-sm max-w-3xl mx-auto space-y-6">
+      <div id="printable-daily-statement" class="printable-statement-card bg-background border rounded-lg p-6 shadow-sm max-w-3xl mx-auto space-y-6">
         <!-- Document Banner Header -->
         <div class="border-b-2 border-[#28375C] pb-4">
           <div class="flex justify-between items-start">
@@ -602,7 +599,7 @@
     </div>
 
     <!-- Modal Footer Toolbar -->
-    <div class="flex items-center justify-between px-6 py-3.5 border-t bg-muted/20">
+    <div class="flex items-center justify-between px-6 py-3.5 border-t bg-muted/20 modal-footer no-print">
       <button
         type="button"
         onclick="closeOfficialPrintModal()"
@@ -622,7 +619,7 @@
 
         <button
           type="button"
-          onclick="window.print()"
+          onclick="printOfficialStatement()"
           class="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors cursor-pointer"
         >
           <i data-lucide="printer" class="w-3.5 h-3.5"></i>
@@ -633,7 +630,164 @@
   </div>
 </div>
 
+<style>
+  /* Official Institutional Financial Statement print isolation */
+  @media print {
+    body.printing-statement {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      height: auto !important;
+      min-height: 0 !important;
+    }
+
+    /* 1. Hide all background screen chrome, sidebars, headers, banners, toasts, and modal controls */
+    body.printing-statement aside,
+    body.printing-statement header,
+    body.printing-statement nav,
+    body.printing-statement footer,
+    body.printing-statement #toast-container,
+    body.printing-statement .daily-report-main-screen,
+    body.printing-statement #receiptModalContainer,
+    body.printing-statement .modal-header,
+    body.printing-statement .modal-footer,
+    body.printing-statement .no-print,
+    body.printing-statement .print-hide,
+    body.printing-statement button {
+      display: none !important;
+    }
+
+    /* 2. Reset ancestor layout hierarchy */
+    body.printing-statement html,
+    body.printing-statement #root,
+    body.printing-statement #root > div,
+    body.printing-statement main {
+      display: block !important;
+      position: static !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      background: transparent !important;
+      border: none !important;
+    }
+
+    /* 3. Neutralize modal fixed backdrop wrapper */
+    body.printing-statement #officialPrintModal {
+      display: block !important;
+      position: static !important;
+      inset: auto !important;
+      z-index: auto !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    /* 4. Neutralize modal card wrapper */
+    body.printing-statement #officialPrintModal > div {
+      display: block !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+    }
+
+    /* 5. Neutralize scrollable modal body wrapper */
+    body.printing-statement #officialPrintModal .flex-1.overflow-y-auto,
+    body.printing-statement #officialPrintModal .overflow-y-auto {
+      display: block !important;
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      background: transparent !important;
+    }
+
+    /* 6. Exact Document Layout Presentation */
+    body.printing-statement #printable-daily-statement,
+    body.printing-statement .printable-statement-card {
+      display: block !important;
+      visibility: visible !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 190mm !important;
+      margin: 0 auto !important;
+      padding: 6mm 8mm !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1.5px solid #28375C !important;
+      border-radius: 8px !important;
+      box-shadow: none !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
+    /* Compact spacing inside statement document */
+    #printable-daily-statement .space-y-6 > :not([hidden]) ~ :not([hidden]),
+    #printable-daily-statement > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 10px !important;
+    }
+
+    /* Ensure crisp colors and backgrounds on print */
+    #printable-daily-statement * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    #printable-daily-statement table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+    }
+
+    #printable-daily-statement thead {
+      background-color: #f1f5f9 !important;
+    }
+
+    #printable-daily-statement thead th {
+      background-color: #f1f5f9 !important;
+      color: #1e293b !important;
+      font-weight: 700 !important;
+      border: 1px solid #cbd5e1 !important;
+      padding: 4px 6px !important;
+    }
+
+    #printable-daily-statement tbody td {
+      border: 1px solid #e2e8f0 !important;
+      color: #0f172a !important;
+      padding: 4px 6px !important;
+    }
+  }
+</style>
+
 <script>
+  function switchReportMode(newMode) {
+    const modeInput = document.getElementById('reportModeInput');
+    if (modeInput) {
+      modeInput.value = newMode;
+    }
+    document.getElementById('dailyReportFilterForm').submit();
+  }
+
   function openOfficialPrintModal() {
     const modal = document.getElementById('officialPrintModal');
     if (modal) {
@@ -649,11 +803,39 @@
     }
   }
 
-  // Intercept Ctrl+P / Cmd+P to open the official modal
+  function printOfficialStatement() {
+    // Ensure document body is marked for print isolation
+    document.body.classList.add('printing-statement');
+    
+    // Give browser a micro-delay to apply print layout classes
+    setTimeout(function() {
+      window.print();
+    }, 50);
+  }
+
+  // Ensure isolation class is removed when print dialog closes or cancels
+  window.addEventListener('afterprint', function() {
+    document.body.classList.remove('printing-statement');
+  });
+
+  // Handle native browser print triggers (Ctrl+P, browser menu)
+  window.addEventListener('beforeprint', function() {
+    const modal = document.getElementById('officialPrintModal');
+    if (modal && !modal.classList.contains('hidden')) {
+      document.body.classList.add('printing-statement');
+    }
+  });
+
+  // Intercept Ctrl+P / Cmd+P: open modal or trigger print if already open
   window.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
       e.preventDefault();
-      openOfficialPrintModal();
+      const modal = document.getElementById('officialPrintModal');
+      if (modal && !modal.classList.contains('hidden')) {
+        printOfficialStatement();
+      } else {
+        openOfficialPrintModal();
+      }
     }
   });
 

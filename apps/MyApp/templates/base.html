@@ -7,19 +7,172 @@
   <title>{% block title %}{{ institute_name|default:"Sutawane Classes" }} Management Software{% endblock %}</title>
   <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
   
+  <!-- Plus Jakarta Sans & Inter Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
   <!-- Compiled Tailwind CSS & Design Tokens -->
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1.2">
-  <link rel="stylesheet" href="{% static 'css/print.css' %}?v=1.2">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1.3">
+  <link rel="stylesheet" href="{% static 'css/print.css' %}?v=1.3">
+  <link rel="stylesheet" href="{% static 'css/searchable-select.css' %}?v=1.1">
+
+  <style>
+    /* Explicitly map Indian Rupee symbol U+20B9 across the entire application to Inter */
+    @font-face {
+      font-family: 'IndianRupeeFix';
+      src: local('Inter SemiBold'), local('Inter-SemiBold'), local('Inter'),
+           url('https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf') format('truetype');
+      unicode-range: U+20B9;
+      font-weight: 100 900;
+    }
+
+    body, html, input, button, select, textarea {
+      font-family: 'IndianRupeeFix', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    }
+    .font-mono, code, kbd, samp, pre {
+      font-family: 'IndianRupeeFix', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", 'Inter', monospace !important;
+    }
+    .font-rupee, .rupee-symbol {
+      font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+      font-weight: inherit;
+      display: inline-block;
+      line-height: 1;
+    }
+
+    /* Core Layout & Input Utility Fallbacks */
+    .top-1\/2 { top: 50% !important; }
+    .-translate-y-1\/2 { transform: translateY(-50%) !important; }
+
+    .left-2 { left: 0.5rem !important; }
+    .left-2\.5 { left: 0.625rem !important; }
+    .left-3 { left: 0.75rem !important; }
+    .left-3\.5 { left: 0.875rem !important; }
+    .left-4 { left: 1rem !important; }
+
+    .right-2 { right: 0.5rem !important; }
+    .right-2\.5 { right: 0.625rem !important; }
+    .right-3 { right: 0.75rem !important; }
+    .right-3\.5 { right: 0.875rem !important; }
+    .right-4 { right: 1rem !important; }
+
+    .pl-8 { padding-left: 2rem !important; }
+    .pl-9 { padding-left: 2.25rem !important; }
+    .pl-10 { padding-left: 2.5rem !important; }
+    .pl-11 { padding-left: 2.75rem !important; }
+
+    .pr-8 { padding-right: 2rem !important; }
+    .pr-9 { padding-right: 2.25rem !important; }
+    .pr-10 { padding-right: 2.5rem !important; }
+    .pr-11 { padding-right: 2.75rem !important; }
+
+    .gap-5 { gap: 1.25rem !important; }
+    .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem !important; }
+    .rounded-2xl { border-radius: 1rem !important; }
+
+    /* Z-Index Hierarchy & Modal Stacking Utilities */
+    .z-10, .z-\[10\] { z-index: 10 !important; }
+    .z-20, .z-\[20\] { z-index: 20 !important; }
+    .z-30, .z-\[30\] { z-index: 30 !important; }
+    .z-40, .z-\[40\] { z-index: 40 !important; }
+    .z-50, .z-\[50\] { z-index: 50 !important; }
+    .z-60, .z-\[60\] { z-index: 60 !important; }
+    .z-70, .z-\[70\] { z-index: 70 !important; }
+    .z-80, .z-\[80\] { z-index: 80 !important; }
+    .z-90, .z-\[90\] { z-index: 90 !important; }
+    .z-100, .z-\[100\] { z-index: 100 !important; }
+
+    /* High-Priority Global Toast Notification Stack (Positioned with extra top space below header) */
+    #toast-container {
+      position: fixed !important;
+      top: 5.25rem !important; /* 84px: clears the 64px header with 20px extra breathing room */
+      right: 1.25rem !important;
+      z-index: 99999 !important;
+      pointer-events: none !important;
+    }
+    @media (max-width: 640px) {
+      #toast-container {
+        top: 4.75rem !important;
+        right: 0.75rem !important;
+        left: 0.75rem !important;
+        width: auto !important;
+        max-width: 100% !important;
+      }
+    }
+    .toast-item {
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Modal Max-Width Utilities Fallback */
+    .max-w-\[460px\], .max-w-460 { max-width: 460px !important; }
+    .max-w-\[480px\], .max-w-480 { max-width: 480px !important; }
+    .max-w-\[500px\], .max-w-500 { max-width: 500px !important; }
+
+    /* Universal Modal Backdrop Blur & Glassmorphism Utilities */
+    .backdrop-blur-none {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    .backdrop-blur-2xs,
+    .backdrop-blur-xs,
+    .backdrop-blur-sm,
+    .backdrop-blur {
+      -webkit-backdrop-filter: blur(8px) !important;
+      backdrop-filter: blur(8px) !important;
+    }
+    .backdrop-blur-md {
+      -webkit-backdrop-filter: blur(12px) !important;
+      backdrop-filter: blur(12px) !important;
+    }
+    .backdrop-blur-lg,
+    .backdrop-blur-xl {
+      -webkit-backdrop-filter: blur(16px) !important;
+      backdrop-filter: blur(16px) !important;
+    }
+
+    /* Modal Backdrop Background Color Opacity Fallbacks */
+    .bg-black\/40 { background-color: rgba(0, 0, 0, 0.4) !important; }
+    .bg-black\/50 { background-color: rgba(0, 0, 0, 0.5) !important; }
+    .bg-black\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
+    .bg-black\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
+    .bg-black\/75 { background-color: rgba(0, 0, 0, 0.75) !important; }
+    .bg-black\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
+    .bg-slate-950\/60 { background-color: rgba(2, 6, 23, 0.6) !important; }
+    .bg-slate-950\/70 { background-color: rgba(2, 6, 23, 0.7) !important; }
+    .bg-slate-950\/75 { background-color: rgba(2, 6, 23, 0.75) !important; }
+    .bg-slate-950\/80 { background-color: rgba(2, 6, 23, 0.8) !important; }
+
+    /* Top Navigation Header Stacking Context: floats cleanly above main scrollable viewport */
+    header.sticky {
+      z-index: 40 !important;
+    }
+
+    @media (min-width: 1024px) {
+      .lg\:col-span-3 { grid-column: span 3 / span 3 !important; }
+      .lg\:col-span-4 { grid-column: span 4 / span 4 !important; }
+      .lg\:col-span-5 { grid-column: span 5 / span 5 !important; }
+      .lg\:col-span-6 { grid-column: span 6 / span 6 !important; }
+      .lg\:col-span-7 { grid-column: span 7 / span 7 !important; }
+      .lg\:col-span-8 { grid-column: span 8 / span 8 !important; }
+      .lg\:col-span-9 { grid-column: span 9 / span 9 !important; }
+      .lg\:col-span-12 { grid-column: span 12 / span 12 !important; }
+      .lg\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+    }
+  </style>
 
   <!-- Lucide Icons, HTMX & App Script -->
   <script src="{% static 'js/lucide.min.js' %}"></script>
   <script src="{% static 'js/htmx.min.js' %}"></script>
   <script src="{% static 'js/chart.umd.min.js' %}"></script>
-  <script src="{% static 'js/app.js' %}?v=1.4" defer></script>
+  <script src="{% static 'js/searchable-select.js' %}?v=1.0" defer></script>
+  <script src="{% static 'js/app.js' %}?v=1.5" defer></script>
   
   {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full bg-background text-foreground antialiased selection:bg-primary/20" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <!-- Global Top-Right Toast Notification System -->
+  {% include 'includes/messages.html' %}
+
   <div id="root" class="h-full flex overflow-hidden">
     {% block layout %}
       <!-- Sidebar Navigation -->
@@ -29,9 +182,6 @@
       <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <!-- Top Navigation Header -->
         {% include 'includes/header.html' %}
-
-        <!-- Flash Alert Messages -->
-        {% include 'includes/messages.html' %}
 
         <!-- Main Viewport Content -->
         <main class="flex-1 overflow-y-auto min-w-0 bg-muted/10 p-4 sm:p-5 lg:p-6 scroll-smooth focus:outline-none">

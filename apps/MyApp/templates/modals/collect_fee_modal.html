@@ -1,223 +1,394 @@
-<div id="collectFeeModalBackdrop" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-    <div class="p-5 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
-      <h2 class="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
-        <i data-lucide="credit-card" class="w-5 h-5 text-emerald-600"></i>
-        Collect Student Fee
-      </h2>
-      <button type="button" onclick="closeCollectFeeModal()" class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-accent transition-colors">
+<div id="collectFeeModalBackdrop" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-lg my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    
+    {% if success %}
+    <!-- ================= SUCCESS CONFIRMATION VIEW ================= -->
+    <div class="p-6 text-center space-y-5">
+      <div class="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center mx-auto shadow-inner">
+        <i data-lucide="check-circle" class="w-9 h-9"></i>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-bold text-foreground">Payment Recorded Successfully!</h2>
+        <p class="text-xs text-muted-foreground mt-1">Official receipt generated and installment milestone updated.</p>
+      </div>
+
+      <!-- Receipt Summary Card -->
+      <div class="bg-muted/40 border border-border rounded-xl p-4 text-left space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-border">
+          <span class="text-xs text-muted-foreground">Receipt Number</span>
+          <span class="font-mono font-bold text-sm text-foreground bg-background px-2.5 py-0.5 rounded border border-border">
+            {{ payment.receipt_number }}
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <span class="text-muted-foreground block text-[11px]">Student</span>
+            <span class="font-semibold text-foreground">{{ student.full_name }}</span>
+          </div>
+          <div>
+            <span class="text-muted-foreground block text-[11px]">Academic Session</span>
+            <span class="font-semibold text-foreground">{{ current_admission.session.name }} ({{ current_admission.standard }})</span>
+          </div>
+          <div>
+            <span class="text-muted-foreground block text-[11px]">Payment Mode</span>
+            <span class="font-semibold text-foreground">{{ payment.get_payment_mode_display|default:payment.payment_mode }}</span>
+          </div>
+          <div>
+            <span class="text-muted-foreground block text-[11px]">Date</span>
+            <span class="font-semibold text-foreground">{{ payment.payment_date|date:"d M Y" }}</span>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-border flex items-center justify-between">
+          <div>
+            <span class="text-[11px] text-muted-foreground block">Amount Collected</span>
+            <span class="text-lg font-extrabold text-emerald-600 font-mono">
+              <span class="font-rupee">₹</span>{{ amount_paid|floatformat:0 }}
+            </span>
+          </div>
+          <div class="text-right">
+            <span class="text-[11px] text-muted-foreground block">Session Balance Remaining</span>
+            <span class="text-sm font-bold font-mono {% if remaining_after > 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">
+              <span class="font-rupee">₹</span>{{ remaining_after|floatformat:0 }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+        <button
+          type="button"
+          onclick="closeCollectFeeModal(); openReceiptModal('{{ payment.id }}')"
+          class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 gap-2 transition-colors cursor-pointer shadow-xs"
+        >
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          <span>View / Print Receipt</span>
+        </button>
+
+        <button
+          type="button"
+          onclick="window.location.href = '{% url 'student_detail' student.id %}?admission_id={{ current_admission.id }}'"
+          class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg text-xs font-semibold border border-input bg-background hover:bg-accent text-foreground h-9 px-4 gap-1.5 transition-colors cursor-pointer"
+        >
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Done & Refresh Profile</span>
+        </button>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- ================= COLLECT FEE FORM VIEW ================= -->
+    <div class="p-4 sm:p-5 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20">
+          <i data-lucide="credit-card" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h2 class="text-sm sm:text-base font-bold text-foreground leading-tight">Collect Student Fee</h2>
+          <p class="text-[11px] text-muted-foreground">{{ student.full_name }} • {{ student.student_code }}</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onclick="closeCollectFeeModal()"
+        class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-accent transition-colors cursor-pointer"
+      >
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
 
-    <form method="POST" action="{% url 'fee_collect' %}" class="p-6 space-y-4">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="collect_payment">
-      <input type="hidden" name="student_id" value="{{ student.id }}">
+    <div class="p-5 space-y-4 max-h-[calc(88vh-80px)] overflow-y-auto">
 
-      <!-- Student Summary Identity Banner -->
-      <div class="bg-muted/40 border border-border rounded-lg p-3 space-y-2">
-        <div class="flex items-center justify-between font-semibold text-sm text-foreground">
-          <span class="flex items-center gap-2">
-            <i data-lucide="user" class="w-4 h-4 text-primary"></i>
-            {{ student.full_name }}
-          </span>
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono font-medium border border-border bg-background">
-            {{ current_admission.roll_number|default:"—" }}
-          </span>
-        </div>
-        <div class="grid grid-cols-2 gap-2 text-muted-foreground pt-1 border-t border-border/60 text-[11px]">
-          <div>
-            Class: <span class="font-semibold text-foreground">{{ current_admission.standard|default:"—" }}</span>
-          </div>
-          <div>
-            Branch: <span class="font-semibold text-foreground">{{ current_admission.branch.name|default:"—" }}</span>
-          </div>
-          <div>
-            Session Dues:
-            <span class="font-bold {% if pending_fees > 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">
-              ₹{{ pending_fees|floatformat:0 }}
-            </span>
-          </div>
-          <div>
-            Overall Outstanding:
-            <span class="font-bold text-amber-700">
-              ₹{{ overall_pending|floatformat:0 }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Target Selection (Current Admission vs Carried Forward Previous Dues) -->
-      {% if previous_dues %}
+      <!-- Multi-Session Switcher Tabs -->
+      {% if all_admissions|length > 1 %}
       <div class="space-y-1.5">
-        <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
-          <i data-lucide="target" class="w-3.5 h-3.5 text-primary"></i>
-          Select Payment Target Account *
+        <label class="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-primary"></i>
+          <span>Select Academic Session</span>
         </label>
-        <select
-          name="target_type"
-          id="modalTargetTypeSelect"
-          onchange="onModalTargetTypeChange(this)"
-          class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="ADMISSION" {% if not target_previous_due %}selected{% endif %}>
-            Current Session: {{ current_admission.session.name }} ({{ current_admission.standard }}) — Pending: ₹{{ pending_fees|floatformat:0 }}
-          </option>
-          {% for pd in previous_dues %}
-          {% with pd_rem=pd.outstanding_amount|add:pd.collected_amount %}
-          <option value="PREVIOUS_DUE" data-due-id="{{ pd.id }}" data-remaining="{{ pd.outstanding_amount|floatformat:0 }}" {% if target_previous_due and target_previous_due.id == pd.id %}selected{% endif %}>
-            Prior Session Due: {{ pd.original_session.name }} — Balance: ₹{{ pd.outstanding_amount|floatformat:0 }}
-          </option>
-          {% endwith %}
+        <div class="flex flex-wrap gap-1.5 p-1 bg-muted/40 border border-border rounded-lg">
+          {% for adm in all_admissions %}
+          <button
+            type="button"
+            hx-get="{% url 'collect_fee_modal' student.id %}?admission_id={{ adm.id }}"
+            hx-target="#collectFeeModalContainer"
+            hx-swap="innerHTML"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all cursor-pointer {% if adm.is_selected %}bg-primary text-primary-foreground font-semibold shadow-xs{% else %}text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border{% endif %}"
+          >
+            <span>{{ adm.session.name }}</span>
+            <span class="text-[10px] opacity-80">({{ adm.standard|default:"—" }})</span>
+            <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-mono {% if adm.is_selected %}bg-white/20 text-white{% elif adm.adm_pending > 0 %}bg-rose-500/10 text-rose-600 font-semibold{% else %}bg-emerald-500/10 text-emerald-600 font-semibold{% endif %}">
+              {% if adm.adm_pending > 0 %}₹{{ adm.adm_pending|floatformat:0 }}{% else %}Nil{% endif %}
+            </span>
+          </button>
           {% endfor %}
-        </select>
-        <input type="hidden" name="admission_id" value="{{ current_admission.id }}">
-        <input type="hidden" name="previous_due_id" id="modalPreviousDueIdInput" value="{{ target_previous_due.id|default:'' }}">
+        </div>
       </div>
-      {% else %}
-      <input type="hidden" name="target_type" value="ADMISSION">
-      <input type="hidden" name="admission_id" value="{{ current_admission.id }}">
       {% endif %}
 
-      <!-- Payment Amount (₹) -->
-      <div class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <label class="font-semibold text-xs text-foreground flex items-center gap-1">
-            <i data-lucide="indian-rupee" class="w-3.5 h-3.5 text-emerald-600"></i>
-            Payment Amount (₹) *
-          </label>
-          <span class="text-[11px] text-muted-foreground">
-            Max Payable: <strong class="text-rose-600">₹{{ amount_to_pay|floatformat:0 }}</strong>
+      <!-- Active Session Identity & Fee Card -->
+      <div class="bg-muted/30 border border-border rounded-xl p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-foreground flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-primary"></i>
+              {{ current_admission.session.name }}
+            </span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border border-border bg-background text-foreground">
+              {{ current_admission.standard|default:"—" }}
+            </span>
+          </div>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium border border-border bg-background text-muted-foreground">
+            Roll: {{ current_admission.roll_number|default:"—" }}
           </span>
         </div>
-        <input
-          type="number"
-          name="amount"
-          id="modalPaymentAmountInput"
-          min="1"
-          max="{{ overall_pending|floatformat:0 }}"
-          step="1"
-          value="{{ amount_to_pay|floatformat:0 }}"
-          placeholder="Enter payment amount"
-          required
-          class="w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
 
-      <!-- Payment Mode & Reference Number -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div class="space-y-1.5">
-          <label class="font-semibold text-xs text-foreground">Payment Mode *</label>
-          <select
-            name="payment_mode"
-            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-            required
-          >
-            <option value="UPI" selected>UPI / QR Code</option>
-            <option value="CASH">Cash Payment</option>
-            <option value="BANK_TRANSFER">Bank Transfer / NEFT</option>
-            <option value="CHEQUE">Cheque / Demand Draft</option>
-            <option value="OTHER">Other Mode</option>
-          </select>
+        <div class="grid grid-cols-3 gap-2 pt-2 border-t border-border/70 text-center">
+          <div class="bg-background rounded-lg p-2 border border-border">
+            <span class="text-[10px] uppercase tracking-wider text-muted-foreground block font-medium">Agreed Fee</span>
+            <span class="text-xs sm:text-sm font-bold font-mono text-foreground">
+              <span class="font-rupee">₹</span>{{ agreed_fees|floatformat:0 }}
+            </span>
+          </div>
+          <div class="bg-background rounded-lg p-2 border border-border">
+            <span class="text-[10px] uppercase tracking-wider text-muted-foreground block font-medium">Paid Fee</span>
+            <span class="text-xs sm:text-sm font-bold font-mono text-emerald-600">
+              <span class="font-rupee">₹</span>{{ paid_fees|floatformat:0 }}
+            </span>
+          </div>
+          <div class="bg-background rounded-lg p-2 border border-border">
+            <span class="text-[10px] uppercase tracking-wider text-muted-foreground block font-medium">Session Due</span>
+            <span class="text-xs sm:text-sm font-bold font-mono {% if pending_fees > 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">
+              <span class="font-rupee">₹</span>{{ pending_fees|floatformat:0 }}
+            </span>
+          </div>
         </div>
 
-        <div class="space-y-1.5">
-          <label class="font-semibold text-xs text-foreground">Txn / Reference No.</label>
-          <input
-            type="text"
-            name="reference_number"
-            placeholder="UPI Ref / Cheque No."
-            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+        {% if other_sessions_pending > 0 %}
+        <div class="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-1">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-amber-500 shrink-0"></i>
+          <span>Other session dues: <strong class="text-amber-700 font-mono">₹{{ other_sessions_pending|floatformat:0 }}</strong> (switch session tabs above to pay separately).</span>
         </div>
+        {% endif %}
       </div>
 
-      <!-- Payment Date and Next Promise Due Date -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div class="space-y-1.5">
-          <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
-            <i data-lucide="calendar" class="w-3.5 h-3.5 text-primary"></i>
-            Payment Date *
-          </label>
-          <input
-            type="date"
-            name="payment_date"
-            id="modalPaymentDateInput"
-            required
-            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
+      <!-- Form Error Alert -->
+      {% if form_error %}
+      <div class="bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg p-3 flex items-start gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+        <span>{{ form_error }}</span>
+      </div>
+      {% endif %}
 
-        <div class="space-y-1.5">
-          <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
-            <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-500"></i>
-            Next Installment Promise Date
-          </label>
-          <input
-            type="date"
-            name="next_due_date"
-            class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+      {% if pending_fees <= 0 %}
+      <!-- NIL DUE NOTICE -->
+      <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 text-center space-y-2">
+        <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto">
+          <i data-lucide="check" class="w-5 h-5"></i>
         </div>
+        <h3 class="text-sm font-bold text-foreground">Session Fees 100% Cleared</h3>
+        <p class="text-xs text-muted-foreground max-w-sm mx-auto">
+          There are no pending dues for {{ student.full_name }} in <strong>{{ current_admission.session.name }}</strong>.
+        </p>
+        {% if other_sessions_pending > 0 %}
+        <p class="text-xs text-amber-600 font-medium pt-2">
+          Note: Other sessions have pending dues. Click the session tab above to collect payments for them.
+        </p>
+        {% endif %}
       </div>
 
-      <!-- Notes / Remarks -->
-      <div class="space-y-1.5">
-        <label class="font-semibold text-xs text-foreground">Notes / Remarks (Optional)</label>
-        <input
-          type="text"
-          name="notes"
-          placeholder="e.g. Received via PhonePe from Father"
-          class="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
-
-      <!-- Footer Actions -->
-      <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
+      <div class="flex items-center justify-end pt-2">
         <button
           type="button"
           onclick="closeCollectFeeModal()"
-          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-9 px-4 transition-colors cursor-pointer"
+          class="inline-flex items-center justify-center rounded-lg text-xs font-medium border border-input bg-background hover:bg-accent h-9 px-4 transition-colors cursor-pointer"
         >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 gap-2 transition-colors cursor-pointer shadow-sm"
-        >
-          <i data-lucide="credit-card" class="w-4 h-4"></i>
-          Record Payment & Generate Receipt
+          Close
         </button>
       </div>
-    </form>
+
+      {% else %}
+
+      <!-- HTMX COLLECTION FORM -->
+      <form
+        hx-post="{% url 'collect_fee_modal' student.id %}"
+        hx-target="#collectFeeModalContainer"
+        hx-swap="innerHTML"
+        class="space-y-4"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="admission_id" value="{{ current_admission.id }}">
+
+        <!-- Payment Amount -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="font-semibold text-xs text-foreground flex items-center gap-1.5">
+              <i data-lucide="banknote" class="w-3.5 h-3.5 text-emerald-600"></i>
+              Payment Amount (<span class="font-rupee">₹</span>) *
+            </label>
+            <span class="text-[11px] text-muted-foreground">
+              Max Payable: <strong class="text-rose-600 font-mono"><span class="font-rupee">₹</span>{{ pending_fees|floatformat:0 }}</strong>
+            </span>
+          </div>
+
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold font-rupee text-base pointer-events-none">₹</span>
+            <input
+              type="number"
+              name="amount"
+              id="modalPaymentAmountInput"
+              min="1"
+              max="{{ pending_fees|floatformat:0 }}"
+              step="1"
+              value="{{ amount_to_pay|floatformat:0 }}"
+              placeholder="Enter amount"
+              required
+              class="w-full h-10 rounded-lg border border-input bg-background pl-8 pr-3 text-base font-bold font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+
+          <!-- Quick Amount Presets -->
+          <div class="flex items-center gap-1.5 pt-1">
+            <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Quick:</span>
+            <button
+              type="button"
+              onclick="document.getElementById('modalPaymentAmountInput').value = '{{ pending_fees|floatformat:0 }}'"
+              class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/20 transition-colors cursor-pointer"
+            >
+              Full Due (₹{{ pending_fees|floatformat:0 }})
+            </button>
+            <button
+              type="button"
+              onclick="document.getElementById('modalPaymentAmountInput').value = '5000'"
+              class="px-2 py-0.5 rounded text-[11px] font-medium bg-muted hover:bg-accent text-foreground border border-border transition-colors cursor-pointer"
+            >
+              ₹5,000
+            </button>
+            <button
+              type="button"
+              onclick="document.getElementById('modalPaymentAmountInput').value = '10000'"
+              class="px-2 py-0.5 rounded text-[11px] font-medium bg-muted hover:bg-accent text-foreground border border-border transition-colors cursor-pointer"
+            >
+              ₹10,000
+            </button>
+          </div>
+        </div>
+
+        <!-- Payment Mode & Reference Number -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="font-semibold text-xs text-foreground flex items-center gap-1">
+              <i data-lucide="wallet" class="w-3.5 h-3.5 text-primary"></i>
+              Payment Mode *
+            </label>
+            <select
+              name="payment_mode"
+              class="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              required
+            >
+              <option value="UPI" selected>UPI / QR Code</option>
+              <option value="CASH">Cash Payment</option>
+              <option value="BANK_TRANSFER">Bank Transfer / NEFT</option>
+              <option value="CHEQUE">Cheque / Demand Draft</option>
+              <option value="OTHER">Other Mode</option>
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="font-semibold text-xs text-foreground flex items-center gap-1">
+              <i data-lucide="hash" class="w-3.5 h-3.5 text-muted-foreground"></i>
+              Txn / Reference No.
+            </label>
+            <input
+              type="text"
+              name="reference_number"
+              placeholder="UPI Ref / Cheque No."
+              class="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+        </div>
+
+        <!-- Payment Date & Next Milestone Due Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="font-semibold text-xs text-foreground flex items-center gap-1">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-primary"></i>
+              Payment Date *
+            </label>
+            <input
+              type="date"
+              name="payment_date"
+              id="modalPaymentDateInput"
+              required
+              class="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="font-semibold text-xs text-foreground flex items-center gap-1">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-500"></i>
+              Next Promise Due Date
+            </label>
+            <input
+              type="date"
+              name="next_due_date"
+              class="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+          </div>
+        </div>
+
+        <!-- Notes / Remarks -->
+        <div class="space-y-1.5">
+          <label class="font-semibold text-xs text-foreground flex items-center gap-1">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-muted-foreground"></i>
+            Notes / Remarks (Optional)
+          </label>
+          <input
+            type="text"
+            name="notes"
+            placeholder="e.g. Received via GPay from Father"
+            class="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+          />
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-border">
+          <button
+            type="button"
+            onclick="closeCollectFeeModal()"
+            class="inline-flex items-center justify-center rounded-lg text-xs font-medium border border-input bg-background hover:bg-accent h-9 px-4 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 gap-2 transition-colors cursor-pointer shadow-xs"
+          >
+            <i data-lucide="credit-card" class="w-4 h-4"></i>
+            <span>Record Payment & Generate Receipt</span>
+          </button>
+        </div>
+      </form>
+      {% endif %}
+
+    </div>
+    {% endif %}
+
   </div>
 </div>
 
 <script>
-  // Set default payment date to local today
   (function() {
     const today = new Date().toISOString().slice(0, 10);
     const dateInput = document.getElementById('modalPaymentDateInput');
     if (dateInput && !dateInput.value) {
       dateInput.value = today;
     }
-  })();
-
-  function onModalTargetTypeChange(select) {
-    const opt = select.options[select.selectedIndex];
-    const val = opt.value;
-    const dueIdInput = document.getElementById('modalPreviousDueIdInput');
-    const amountInput = document.getElementById('modalPaymentAmountInput');
-
-    if (val === 'PREVIOUS_DUE') {
-      const dueId = opt.getAttribute('data-due-id');
-      const rem = opt.getAttribute('data-remaining');
-      if (dueIdInput) dueIdInput.value = dueId || '';
-      if (amountInput && rem) amountInput.value = rem;
-    } else {
-      if (dueIdInput) dueIdInput.value = '';
-      if (amountInput) amountInput.value = '{{ pending_fees|floatformat:0 }}';
+    if (window.lucide) {
+      lucide.createIcons();
     }
-  }
+  })();
 </script>

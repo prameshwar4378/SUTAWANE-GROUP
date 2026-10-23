@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block title %}Classes & Courses Management - Sutawane Classes{% endblock %}
 
@@ -90,14 +91,14 @@
         <i data-lucide="graduation-cap" class="w-4 h-4 text-primary"></i>
         All Standard Classes & Courses (<span id="visibleCount">{{ courses_data|length }}</span>)
       </div>
-      <div class="relative w-full sm:w-64">
-        <i data-lucide="search" class="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground"></i>
+      <div class="relative w-full sm:w-64 flex items-center">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
         <input
           id="courseSearch"
           type="text"
           placeholder="Search classes or code..."
           value="{{ search_q }}"
-          class="pl-8 text-xs h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          class="w-full text-xs h-9 pl-9 pr-3 rounded-md border border-input bg-background shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           oninput="filterCoursesTable()"
         />
       </div>
@@ -106,15 +107,15 @@
     <div class="overflow-x-auto">
       <table class="w-full text-sm text-left border-collapse" id="coursesTable">
         <thead class="bg-[#28375C] text-white">
-          <tr class="border-b border-[#1b2640]">
-            <th class="w-16 text-center text-white font-semibold py-3 px-4">Order</th>
-            <th class="text-left text-white font-semibold py-3 px-4">Class / Course Name</th>
-            <th class="text-left text-white font-semibold py-3 px-4">Code</th>
-            <th class="text-left text-white font-semibold py-3 px-4">Default Fee</th>
-            <th class="text-left text-white font-semibold py-3 px-4">Enrolled</th>
-            <th class="text-left text-white font-semibold py-3 px-4">Status</th>
-            <th class="text-left text-white font-semibold py-3 px-4">Description</th>
-            <th class="text-right text-white font-semibold py-3 px-4 pr-6">Actions</th>
+          <tr class="border-b border-[#1b2640] text-xs font-semibold">
+            <th class="w-20 text-center py-3 px-3 text-white">Order</th>
+            <th class="text-left py-3 px-4 text-white min-w-[180px]">Class / Course Name</th>
+            <th class="w-28 text-center py-3 px-3 text-white">Code</th>
+            <th class="w-32 text-right py-3 px-4 text-white">Default Fee</th>
+            <th class="w-28 text-center py-3 px-3 text-white">Enrolled</th>
+            <th class="w-28 text-center py-3 px-3 text-white">Status</th>
+            <th class="text-left py-3 px-4 text-white min-w-[160px]">Description</th>
+            <th class="w-56 text-center py-3 px-4 text-white">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
@@ -123,10 +124,10 @@
               data-name="{{ item.course.name|lower }}"
               data-code="{{ item.course.code|default:''|lower }}"
               data-desc="{{ item.course.description|default:''|lower }}">
-            <td class="text-center font-mono text-xs text-muted-foreground py-3 px-4">
+            <td class="text-center font-mono text-xs text-muted-foreground py-3.5 px-3">
               {{ item.course.sort_order }}
             </td>
-            <td class="font-semibold text-foreground py-3 px-4">
+            <td class="font-semibold text-foreground py-3.5 px-4 text-left">
               <div class="flex items-center gap-2">
                 <span>{{ item.course.name }}</span>
                 {% if not item.course.is_active %}
@@ -136,46 +137,46 @@
                 {% endif %}
               </div>
             </td>
-            <td class="py-3 px-4">
+            <td class="text-center py-3.5 px-3">
               {% if item.course.code %}
-              <span class="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-[11px] font-mono font-medium text-secondary-foreground">
+              <span class="inline-flex items-center justify-center rounded-md bg-secondary px-2 py-0.5 text-[11px] font-mono font-medium text-secondary-foreground">
                 {{ item.course.code }}
               </span>
               {% else %}
               <span class="text-muted-foreground text-xs">-</span>
               {% endif %}
             </td>
-            <td class="font-semibold text-foreground py-3 px-4">
+            <td class="text-right font-semibold text-foreground py-3.5 px-4 font-mono">
               {% if item.course.default_fee is not None %}
-              <span>₹{{ item.course.default_fee|floatformat:0 }}</span>
+              <span>₹{{ item.course.default_fee|floatformat:0|intcomma }}</span>
               {% else %}
               <span class="text-muted-foreground text-xs font-normal">Custom</span>
               {% endif %}
             </td>
-            <td class="py-3 px-4">
-              <span class="inline-flex items-center rounded-md border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-xs font-medium text-primary gap-1">
+            <td class="text-center py-3.5 px-3">
+              <span class="inline-flex items-center justify-center rounded-md border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-xs font-medium text-primary gap-1">
                 <i data-lucide="users" class="w-3 h-3"></i>
                 {{ item.enrolled_count }}
               </span>
             </td>
-            <td class="py-3 px-4">
+            <td class="text-center py-3.5 px-3">
               {% if item.course.is_active %}
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+              <span class="inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Active
               </span>
               {% else %}
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/10 text-gray-500 border border-gray-500/20">
+              <span class="inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/10 text-gray-500 border border-gray-500/20">
                 <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                 Inactive
               </span>
               {% endif %}
             </td>
-            <td class="max-w-[220px] truncate text-xs text-muted-foreground py-3 px-4" title="{{ item.course.description|default:'' }}">
+            <td class="max-w-[220px] truncate text-xs text-muted-foreground py-3.5 px-4 text-left" title="{{ item.course.description|default:'' }}">
               {{ item.course.description|default:"-" }}
             </td>
-            <td class="text-right py-3 px-4 pr-6">
-              <div class="flex items-center justify-end gap-1">
+            <td class="text-center py-3.5 px-4">
+              <div class="flex items-center justify-center gap-1.5">
                 <button
                   type="button"
                   onclick="openEditModal('{{ item.course.id }}', '{{ item.course.name|escapejs }}', '{{ item.course.code|default:''|escapejs }}', '{{ item.course.default_fee|default:'' }}', '{{ item.course.sort_order }}', {{ item.course.is_active|yesno:'true,false' }}, '{{ item.course.description|default:''|escapejs }}')"
@@ -249,8 +250,8 @@
 </div>
 
 <!-- Add / Edit Course Modal -->
-<div id="courseModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-[500px] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+<div id="courseModal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" onclick="handleCourseModalBackdropClick(event)">
+  <div class="bg-card text-card-foreground border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150" style="max-width: 520px; width: 100%; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(226, 232, 240, 0.9);">
     <div class="p-6 border-b border-border flex items-center justify-between">
       <h2 id="modalTitle" class="text-lg font-bold flex items-center gap-2 text-foreground">
         <i data-lucide="sparkles" class="w-5 h-5 text-primary"></i>
@@ -367,76 +368,132 @@
 </div>
 
 <!-- Delete / Deactivate Warning Modal -->
-<div id="deleteModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-[460px] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-    <div class="p-6 border-b border-border flex items-center justify-between">
-      <h2 class="text-base font-bold flex items-center gap-2 text-rose-600">
-        <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600"></i>
-        Delete Course: <span id="delModalCourseName"></span>
-      </h2>
-      <button type="button" onclick="closeDeleteModal()" class="text-muted-foreground hover:text-foreground text-sm font-semibold">
+<div id="deleteModal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4" onclick="handleDeleteModalBackdropClick(event)">
+  <div class="bg-white text-slate-900 border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150" 
+       style="max-width: 520px; width: 100%; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(226, 232, 240, 0.9);">
+    
+    <!-- Modal Header -->
+    <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+      <div class="flex items-center gap-3">
+        <div id="delModalIconBox" class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold flex-shrink-0 shadow-xs">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 id="delModalHeading" class="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+            Cannot Delete Course
+          </h3>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="text-[11px] text-slate-500 font-medium">Selected:</span>
+            <span id="delModalCourseName" class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 leading-none">
+              Class 10
+            </span>
+          </div>
+        </div>
+      </div>
+      <button 
+        type="button" 
+        onclick="closeDeleteModal()" 
+        class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+        aria-label="Close dialog"
+      >
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
 
-    <div class="p-6 space-y-4">
-      <!-- Enrolled warning message (shown if enrolled > 0) -->
-      <div id="enrolledWarningBox" class="hidden p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-xs space-y-2">
-        <p class="font-semibold text-amber-900">
-          Cannot delete this course because <span id="delEnrolledCount" class="font-bold underline"></span> student admission(s) are currently enrolled in it.
+    <!-- Modal Content Body -->
+    <div class="p-5 sm:p-6 space-y-4 bg-slate-50/60">
+
+      <!-- ============================================================== -->
+      <!-- Case A: Enrolled Warning Box (shown if enrolled > 0)          -->
+      <!-- ============================================================== -->
+      <div id="enrolledWarningBox" class="hidden rounded-xl border border-amber-300 bg-amber-50/95 p-4 space-y-3 shadow-xs">
+        
+        <!-- Callout Title & Badge -->
+        <div class="flex items-center justify-between gap-2 border-b border-amber-200/90 pb-2.5">
+          <div class="flex items-center gap-2 font-bold text-amber-950 text-xs sm:text-sm">
+            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700 flex-shrink-0"></i>
+            <span>Active Student Enrollments Linked</span>
+          </div>
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-200 text-amber-950 border border-amber-300 shadow-xs">
+            <span id="delEnrolledCount"></span> Enrolled
+          </span>
+        </div>
+
+        <!-- Explanation Points -->
+        <div class="text-xs text-amber-950 space-y-2.5 leading-relaxed">
+          <p class="font-medium text-amber-900">
+            This course cannot be deleted because student admissions, installment schedules, and official fee receipts are permanently tied to it.
+          </p>
+          <div class="rounded-lg bg-white/80 border border-amber-200/90 p-3 space-y-1 text-xs">
+            <div class="font-bold text-amber-950 flex items-center gap-1.5">
+              <span>💡</span>
+              <span>Recommended Action: Deactivate Instead</span>
+            </div>
+            <p class="text-amber-800 leading-normal pl-5 text-[11.5px]">
+              Deactivating safely removes this course from new student admission forms, while 100% preserving historical payment vouchers, attendance ledgers, and academic audit records.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============================================================== -->
+      <!-- Case B: Safe Delete Confirmation (shown if enrolled == 0)      -->
+      <!-- ============================================================== -->
+      <div id="safeDeleteBox" class="hidden rounded-xl border border-rose-300 bg-rose-50/95 p-4 space-y-2 shadow-xs">
+        <div class="flex items-center gap-2 font-bold text-rose-950 text-xs sm:text-sm border-b border-rose-200/90 pb-2">
+          <i data-lucide="trash-2" class="w-4 h-4 text-rose-600 flex-shrink-0"></i>
+          <span>Confirm Permanent Deletion</span>
+        </div>
+        <p class="text-xs text-rose-900 leading-relaxed">
+          Are you sure you want to permanently remove <strong id="delSafeCourseName" class="font-bold text-rose-950"></strong>? There are zero active student admissions associated with this course.
         </p>
-        <p>
-          To protect historical admission records and financial ledgers, courses with active or past enrollments cannot be deleted.
-        </p>
-        <p class="font-medium text-amber-950">
-          Recommendation: Deactivate this course instead so that it will be hidden from new admission forms.
+        <p class="text-[11.5px] text-rose-700 font-medium">
+          ⚠️ This action is permanent and cannot be undone.
         </p>
       </div>
 
-      <!-- Safe delete confirmation message (shown if enrolled == 0) -->
-      <div id="safeDeleteBox" class="hidden text-xs text-muted-foreground space-y-1">
-        <p>
-          Are you sure you want to delete <strong class="text-foreground" id="delSafeCourseName"></strong>? This action cannot be undone.
-        </p>
-      </div>
-
-      <!-- Footer action buttons -->
-      <div class="pt-2 flex justify-end gap-2 border-t border-border">
-        <button
-          type="button"
-          onclick="closeDeleteModal()"
-          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 transition-colors cursor-pointer"
-        >
-          Close
-        </button>
-
-        <!-- Form for Deactivate (if enrolled > 0) -->
-        <form id="deactivateCourseForm" method="POST" action="{% url 'courses_list' %}" class="hidden">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="toggle_status">
-          <input type="hidden" name="course_id" id="deactivateCourseId" value="">
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
-          >
-            Deactivate Course Instead
-          </button>
-        </form>
-
-        <!-- Form for Delete (if enrolled == 0) -->
-        <form id="deleteCourseForm" method="POST" action="{% url 'courses_list' %}" class="hidden">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="delete">
-          <input type="hidden" name="course_id" id="deleteCourseId" value="">
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
-          >
-            Confirm Delete
-          </button>
-        </form>
-      </div>
     </div>
+
+    <!-- Modal Footer Controls -->
+    <div class="px-5 py-3.5 bg-white border-t border-slate-200 flex items-center justify-end gap-2.5">
+      <button
+        type="button"
+        onclick="closeDeleteModal()"
+        class="inline-flex items-center justify-center rounded-lg text-xs font-semibold border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 h-9 px-4 transition-colors cursor-pointer"
+      >
+        Close
+      </button>
+
+      <!-- Deactivate Form (shown if enrolled > 0) -->
+      <form id="deactivateCourseForm" method="POST" action="{% url 'courses_list' %}" class="hidden m-0">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="toggle_status">
+        <input type="hidden" name="course_id" id="deactivateCourseId" value="">
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:scale-95 text-white h-9 px-4 gap-1.5 transition-all cursor-pointer shadow-sm"
+        >
+          <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+          <span>Deactivate Course Instead</span>
+        </button>
+      </form>
+
+      <!-- Delete Form (shown if enrolled == 0) -->
+      <form id="deleteCourseForm" method="POST" action="{% url 'courses_list' %}" class="hidden m-0">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete">
+        <input type="hidden" name="course_id" id="deleteCourseId" value="">
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 active:scale-95 text-white h-9 px-4 gap-1.5 transition-all cursor-pointer shadow-sm"
+        >
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>Confirm Permanent Delete</span>
+        </button>
+      </form>
+    </div>
+
   </div>
 </div>
 
@@ -475,6 +532,18 @@
     document.getElementById('courseModal').classList.add('hidden');
   }
 
+  function handleCourseModalBackdropClick(e) {
+    if (e.target && e.target.id === 'courseModal') {
+      closeCourseModal();
+    }
+  }
+
+  function handleDeleteModalBackdropClick(e) {
+    if (e.target && e.target.id === 'deleteModal') {
+      closeDeleteModal();
+    }
+  }
+
   function openDeleteModal(id, name, enrolledCount) {
     document.getElementById('delModalCourseName').innerText = name;
     document.getElementById('delSafeCourseName').innerText = name;
@@ -484,14 +553,26 @@
     const safeBox = document.getElementById('safeDeleteBox');
     const deactForm = document.getElementById('deactivateCourseForm');
     const delForm = document.getElementById('deleteCourseForm');
+    const heading = document.getElementById('delModalHeading');
+    const iconBox = document.getElementById('delModalIconBox');
 
     if (enrolledCount > 0) {
+      heading.innerText = 'Cannot Delete Course';
+      heading.className = 'text-sm sm:text-base font-bold text-slate-900 leading-tight';
+      iconBox.className = 'w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold flex-shrink-0 shadow-xs';
+      iconBox.innerHTML = '<i data-lucide="shield-alert" class="w-5 h-5 text-amber-600"></i>';
+
       warnBox.classList.remove('hidden');
       safeBox.classList.add('hidden');
       deactForm.classList.remove('hidden');
       delForm.classList.add('hidden');
       document.getElementById('deactivateCourseId').value = id;
     } else {
+      heading.innerText = 'Confirm Permanent Delete';
+      heading.className = 'text-sm sm:text-base font-bold text-slate-900 leading-tight';
+      iconBox.className = 'w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold flex-shrink-0 shadow-xs';
+      iconBox.innerHTML = '<i data-lucide="trash-2" class="w-5 h-5 text-rose-600"></i>';
+
       warnBox.classList.add('hidden');
       safeBox.classList.remove('hidden');
       deactForm.classList.add('hidden');

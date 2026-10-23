@@ -27,6 +27,8 @@ from .export_theme import (
     format_number_inr,
     build_executive_pdf_header,
     ExecutiveLandscapeCanvas,
+    FONT_FAMILY,
+    FONT_FAMILY_BOLD,
 )
 
 
@@ -281,7 +283,7 @@ def export_students_to_pdf(students_data, meta=None):
     hdr_style = ParagraphStyle(
         'StuHdrCenter',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.white,
@@ -290,7 +292,7 @@ def export_students_to_pdf(students_data, meta=None):
     hdr_right_style = ParagraphStyle(
         'StuHdrRight',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.white,
@@ -299,7 +301,7 @@ def export_students_to_pdf(students_data, meta=None):
     cell_normal = ParagraphStyle(
         'StuCellNormal',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -307,7 +309,7 @@ def export_students_to_pdf(students_data, meta=None):
     cell_bold = ParagraphStyle(
         'StuCellBold',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -315,7 +317,7 @@ def export_students_to_pdf(students_data, meta=None):
     cell_center = ParagraphStyle(
         'StuCellCenter',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -324,7 +326,7 @@ def export_students_to_pdf(students_data, meta=None):
     cell_right = ParagraphStyle(
         'StuCellRight',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -333,7 +335,7 @@ def export_students_to_pdf(students_data, meta=None):
     cell_green_bold = ParagraphStyle(
         'StuCellGreen',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_GREEN_PAID),
@@ -342,7 +344,7 @@ def export_students_to_pdf(students_data, meta=None):
     cell_red_bold = ParagraphStyle(
         'StuCellRed',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_RED_PENDING),
@@ -356,6 +358,8 @@ def export_students_to_pdf(students_data, meta=None):
         'institute_name': meta.get('institute_name', 'SUTAWANE CLASSES VAIJAPUR'),
         'branch_name': branch_name,
         'session_name': session_name,
+        'branch_logo': meta.get('branch_logo'),
+        'date_str': meta.get('date_str'),
         'records_count': len(students_data),
     }
     header_elements = build_executive_pdf_header(
@@ -374,9 +378,9 @@ def export_students_to_pdf(students_data, meta=None):
         Paragraph("Class / Course", hdr_style),
         Paragraph("Campus Branch", hdr_style),
         Paragraph("Parent Contact", hdr_style),
-        Paragraph("Agreed Fees", hdr_right_style),
-        Paragraph("Paid Amount", hdr_right_style),
-        Paragraph("Pending Dues", hdr_right_style),
+        Paragraph("Agreed Fees (Rs.)", hdr_right_style),
+        Paragraph("Paid Amount (Rs.)", hdr_right_style),
+        Paragraph("Pending Dues (Rs.)", hdr_right_style),
         Paragraph("Fee Status", hdr_style),
         Paragraph("Enrollment", hdr_style),
     ]
@@ -428,17 +432,13 @@ def export_students_to_pdf(students_data, meta=None):
 
     # 3. Totals Row
     tbl_rows.append([
-        Paragraph("<b>TOTAL</b>", cell_bold),
-        Paragraph("", cell_normal),
-        Paragraph(f"<b>{len(students_data)} Students Enrolled</b>", cell_bold),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
+        Paragraph(f"<b>TOTAL ({len(students_data)} Students Enrolled)</b>", cell_bold),
+        "", "", "", "", "",
         Paragraph(format_currency_inr(tot_agreed), cell_bold),
         Paragraph(format_currency_inr(tot_paid), cell_green_bold),
         Paragraph(format_currency_inr(tot_pending), cell_red_bold),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
+        "",
+        "",
     ])
 
     # Col Widths totaling 802 pt (fits Landscape A4 printable width: 841.89 - 40 = 801.89)
@@ -452,7 +452,8 @@ def export_students_to_pdf(students_data, meta=None):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('SPAN', (0, -1), (5, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),

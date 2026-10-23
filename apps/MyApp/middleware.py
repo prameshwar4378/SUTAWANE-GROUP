@@ -11,7 +11,15 @@ EXEMPT_PREFIXES = (
     '/api/developer/',
 )
 
-PUBLIC_PATHS = {'/'}
+PUBLIC_PATHS = {
+    '/',
+    '/batches/',
+    '/gallery/photos/',
+    '/gallery/videos/',
+    '/about/',
+    '/contact/',
+    '/api/public/inquiry/',
+}
 
 
 class SoftwareLicenseAndAuthMiddleware:

@@ -24,6 +24,8 @@ from .export_theme import (
     build_executive_pdf_header,
     ExecutiveLandscapeCanvas,
     format_excel_worksheet,
+    FONT_FAMILY,
+    FONT_FAMILY_BOLD,
 )
 
 
@@ -250,11 +252,11 @@ def export_expenses_to_pdf(expenses, options=None):
     )
 
     styles = getSampleStyleSheet()
-    cell_normal = ParagraphStyle('CellNorm', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
-    cell_bold = ParagraphStyle('CellBld', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
-    cell_red = ParagraphStyle('CellRed', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_RED_PENDING), alignment=2)
-    cell_center = ParagraphStyle('CellCtr', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, alignment=1)
-    cell_mode = ParagraphStyle('CellMode', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#2563EB'), alignment=1)
+    cell_normal = ParagraphStyle('CellNorm', parent=styles['Normal'], fontName=FONT_FAMILY, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
+    cell_bold = ParagraphStyle('CellBld', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
+    cell_red = ParagraphStyle('CellRed', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_RED_PENDING), alignment=2)
+    cell_center = ParagraphStyle('CellCtr', parent=styles['Normal'], fontName=FONT_FAMILY, fontSize=8, leading=10, alignment=1)
+    cell_mode = ParagraphStyle('CellMode', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=7.5, leading=9, textColor=colors.HexColor('#2563EB'), alignment=1)
 
     story = []
 
@@ -263,14 +265,15 @@ def export_expenses_to_pdf(expenses, options=None):
         'institute_name': institute_name,
         'branch_name': branch_label,
         'session_name': session_label,
-        'date_str': gen_time,
+        'branch_logo': options.get('branch_logo'),
+        'date_str': options.get('date_str') or gen_time,
         'records_count': len(expenses),
     }
     story.extend(build_executive_pdf_header(
         "EXPENSE & OVERHEADS VOUCHERS REPORT",
         meta=meta_dict,
         report_badge_label="OUTFLOWS:",
-        report_badge_value=f"{len(expenses)} Vouchers Recorded"
+        report_badge_value=format_currency_inr(sum(float(e.get('amount', 0.0)) for e in expenses))
     ))
 
     # 2. Table Data
@@ -284,7 +287,7 @@ def export_expenses_to_pdf(expenses, options=None):
             "Vendor / Payee",
             "Payment Mode",
             "Ref / Bill No",
-            "Amount (INR)"
+            "Amount (Rs.)"
         ]
     ]
 
@@ -310,15 +313,14 @@ def export_expenses_to_pdf(expenses, options=None):
             Paragraph(vendor, cell_normal),
             Paragraph(mode, cell_mode),
             Paragraph(ref_no, cell_center),
-            Paragraph(f"₹{int(amt):,}", cell_red),
+            Paragraph(format_currency_inr(amt), cell_red),
         ])
 
     # 3. Totals Row
     table_data.append([
-        "",
         Paragraph(f"<b>TOTAL OUTFLOW ({len(expenses)} vouchers)</b>", cell_bold),
-        "", "", "", "", "", "",
-        Paragraph(f"<b>₹{int(total_amount):,}</b>", cell_red),
+        "", "", "", "", "", "", "",
+        Paragraph(f"<b>{format_currency_inr(total_amount)}</b>", cell_red),
     ])
 
     col_widths = [24, 66, 100, 164, 104, 104, 72, 80, 90]
@@ -327,7 +329,7 @@ def export_expenses_to_pdf(expenses, options=None):
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), FONT_FAMILY_BOLD),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 5.5),
         ('TOPPADDING', (0, 0), (-1, 0), 5.5),
@@ -340,6 +342,7 @@ def export_expenses_to_pdf(expenses, options=None):
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
         ('TOPPADDING', (0, 1), (-1, -1), 4.5),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 4.5),
+        ('SPAN', (0, -1), (7, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.25, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('LINEBELOW', (0, -1), (-1, -1), 1.25, colors.HexColor(COLOR_NAVY_PRIMARY)),

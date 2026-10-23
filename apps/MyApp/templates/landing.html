@@ -1,89 +1,1269 @@
+{% extends 'public_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="{{ institute_name|default:'A considered digital workspace' }} — explore the platform.">
-  <title>{{ institute_name|default:'The Platform' }} · Explore</title>
-  <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
-  <link rel="stylesheet" href="{% static 'css/landing.css' %}">
-  <link rel="stylesheet" href="{% static 'css/coaching.css' %}">
-</head>
-<body class="landing-body">
-  <div class="noise" aria-hidden="true"></div>
-  <header class="landing-nav" id="landing-nav">
-    <a class="brand-mark" href="#top" aria-label="{{ institute_name|default:'The Platform' }} home">
-      <span class="brand-glyph">✦</span><span>{{ institute_name|default:'THE PLATFORM' }}</span>
-    </a>
-    <nav class="nav-links" aria-label="Main navigation">
-      <a href="#platform">Platform</a>
-      <a href="#experience">Experience</a>
-      <a href="{% url 'login' %}">Sign in</a>
-      <a class="nav-cta" href="{% url 'dashboard' %}">Open WebApp <span>↗</span></a>
-    </nav>
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu">Menu</button>
-    <div class="mobile-menu" id="mobile-menu">
-      <a href="#platform">Platform</a><a href="#experience">Experience</a>
-      <a href="{% url 'login' %}">Sign in</a><a href="{% url 'dashboard' %}">Open WebApp ↗</a>
-    </div>
-  </header>
 
-  <main id="top">
-    <section class="hero landing-section">
-      <div class="hero-copy reveal">
-        <p class="eyebrow"><span></span> Sutawane Classes · 11th · 12th · Competitive preparation</p>
-        <h1>Build your<br><em>next chapter.</em></h1>
-        <p class="hero-lede">A focused learning environment for students preparing for boards, entrance pathways, and the confidence to go further.</p>
-        <div class="hero-actions"><a class="button button-primary" href="#platform">Explore the Platform <span>↓</span></a><a class="button button-ghost" href="{% url 'login' %}">Sign In <span>↗</span></a></div>
-        <p class="hero-note">Concept · Clarity · Consistency · Confidence</p>
+{% block title %}Sutawane Group · Premier Coaching Classes for Board, MHT-CET, NEET & JEE{% endblock %}
+{% block meta_desc %}Sutawane Group of Education in Vaijapur - Premier coaching classes for 8th-10th State Board, 11th-12th Science (PCB/PCM), MHT-CET, NEET & JEE. Proven state rankers and expert faculty mentorship.{% endblock %}
+
+{% block content %}
+<!-- ==========================================================================
+     1. TASKHARBOR-LEVEL ULTRA-PROFESSIONAL HERO SECTION
+     ========================================================================== -->
+<section class="taskharbor-hero-section" id="top">
+  <!-- Ethereal ambient radial glow halo -->
+  <div class="taskharbor-hero-halo" aria-hidden="true"></div>
+
+  <div class="modern-container">
+    <div class="taskharbor-hero-wrap">
+      
+      <!-- Top Notification Pill -->
+      <a href="#demoModal" class="hero-notification-pill" onclick="openInquiryModal(); return false;">
+        <span class="pill-badge-indigo">ADMISSIONS 2026–27</span>
+        <span class="pill-text-content">Academic Batches Open · Limited 30 Seats / Batch</span>
+        <span class="pill-arrow-indicator">→</span>
+      </a>
+
+      <!-- Center Master Headline -->
+      <h1 class="taskharbor-headline">
+        Empowering Students.<br>
+        <span class="gradient-text-indigo">Delivering State Rankers.</span>
+      </h1>
+
+      <!-- Concise Professional Subtext -->
+      <p class="taskharbor-subtext">
+        Dedicated classroom coaching for 8th–10th State Board, 11th–12th Science (PCB/PCM), MHT-CET, NEET &amp; JEE. Experienced master faculty, disciplined daily practice, and individual mentorship.
+      </p>
+
+      <!-- Dual Action Pills -->
+      <div class="taskharbor-actions-row">
+        <button type="button" class="btn-taskharbor-primary" onclick="openInquiryModal()">
+          <span>Book Free 3-Day Demo Class</span>
+          <span class="btn-pill-arrow">→</span>
+        </button>
+
+        <a href="{% url 'public_batches' %}" class="btn-taskharbor-frosted">
+          <span>Explore Batches &amp; Timetables</span>
+          <span class="btn-pill-arrow">→</span>
+        </a>
       </div>
-      <div class="hero-stage" aria-label="Abstract three-dimensional platform sculpture" data-depth="0.12">
-        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
-        <div class="sculpture-wrap" data-tilt>
-          <div class="sculpture-shadow"></div><div class="sculpture">
-            <div class="sculpture-face face-front"></div><div class="sculpture-face face-side"></div><div class="sculpture-face face-top"></div>
-            <div class="sculpture-core"></div>
+
+      <!-- Trust Badges Strip -->
+      <div class="taskharbor-trust-strip">
+        <span class="trust-item"><span class="star-icon">★</span> 15+ Yrs Academic Excellence</span>
+        <span class="trust-bullet">•</span>
+        <span class="trust-item"><span class="star-icon">★</span> 10,000+ Alumni Mentored</span>
+        <span class="trust-bullet">•</span>
+        <span class="trust-item"><span class="star-icon">★</span> 100% Board Pass Rate</span>
+        <span class="trust-bullet">•</span>
+        <span class="trust-item"><span class="star-icon">★</span> ISO 9001:2015 Standards</span>
+      </div>
+
+      <!-- ====================================================================
+           SHOWSTOPPER: FLOATING ACADEMIC APP WINDOW MOCKUP (TaskHarbor Inspiration)
+           ==================================================================== -->
+      <div class="taskharbor-window-wrapper">
+        <div class="taskharbor-window-frame">
+          
+          <!-- Top Window Chrome / Bar -->
+          <div class="taskharbor-window-bar">
+            <div class="window-traffic-lights">
+              <span class="traffic-dot dot-red"></span>
+              <span class="traffic-dot dot-yellow"></span>
+              <span class="traffic-dot dot-green"></span>
+            </div>
+            
+            <div class="window-address-bar">
+              <span class="address-lock">🔒</span>
+              <span class="address-url">portal.sutawanegroup.com/student/omkar-patil</span>
+              <span class="address-status">LIVE CLOUD</span>
+            </div>
+
+            <div class="window-bar-actions">
+              <span class="window-badge-live">
+                <span class="live-dot-pulse"></span>
+                <span>Campus Online</span>
+              </span>
+            </div>
           </div>
-          <div class="glass-panel panel-a"><span>01</span><b>Signal</b><small>In focus</small></div>
-          <div class="glass-panel panel-b"><span>02</span><b>Flow</b><small>In motion</small></div>
+
+          <!-- Inside Window Body (3 Columns) -->
+          <div class="taskharbor-window-body">
+            
+            <!-- Column 1: Left Mini Sidebar / Profile -->
+            <aside class="window-col-sidebar">
+              <!-- Student Profile Card -->
+              <div class="window-student-card">
+                <div class="window-student-avatar">OP</div>
+                <div class="window-student-info">
+                  <div class="student-name">Omkar Patil</div>
+                  <div class="student-stream">12th Science · PCB/PCM</div>
+                  <div class="student-roll">Roll #2026-084</div>
+                </div>
+              </div>
+
+              <!-- Quick Nav Items -->
+              <nav class="window-nav-list">
+                <a href="#top" class="window-nav-item active">
+                  <span class="nav-item-icon">📊</span>
+                  <span class="nav-item-label">Dashboard</span>
+                </a>
+                <a href="{% url 'public_batches' %}" class="window-nav-item">
+                  <span class="nav-item-icon">📚</span>
+                  <span class="nav-item-label">Active Batches</span>
+                  <span class="nav-item-pill">Active</span>
+                </a>
+                <a href="#toppersSliderSection" class="window-nav-item">
+                  <span class="nav-item-icon">🏆</span>
+                  <span class="nav-item-label">Rankers Board</span>
+                  <span class="nav-item-pill highlight">99.8%ile</span>
+                </a>
+                <a href="#deskSection" class="window-nav-item">
+                  <span class="nav-item-icon">💬</span>
+                  <span class="nav-item-label">Doubt Desk</span>
+                </a>
+                <a href="{% url 'login' %}" class="window-nav-item">
+                  <span class="nav-item-icon">🔐</span>
+                  <span class="nav-item-label">Student Login</span>
+                </a>
+              </nav>
+
+              <!-- Faculty Support Snippet -->
+              <div class="window-faculty-card">
+                <div class="faculty-tag">CHIEF MENTOR</div>
+                <div class="faculty-name">Prof. Sutawane Sir</div>
+                <div class="faculty-sub">Direct Concept &amp; Doubt Help</div>
+              </div>
+            </aside>
+
+            <!-- Column 2: Center Primary Workspace with Two Rich 3D Cards -->
+            <main class="window-col-center">
+              
+              <!-- Welcome & Progress Banner -->
+              <div class="window-welcome-banner">
+                <div class="welcome-text-group">
+                  <h3 class="welcome-greeting">Hi Omkar! 👋</h3>
+                  <p class="welcome-sub">You have completed 94% of your daily Physics &amp; Maths DPPs this week.</p>
+                </div>
+                <div class="welcome-stat-pill">
+                  <span class="stat-num">99.82%</span>
+                  <span class="stat-lbl">Target Percentile</span>
+                </div>
+              </div>
+
+              <!-- Two Colorful 3D Hero Cards (Coral Rose & Royal Violet) -->
+              <div class="window-cards-row">
+                
+                <!-- Card 1: Coral / Rose Vibrant 3D Card -->
+                <div class="window-card-vibrant card-coral">
+                  <div class="card-vibrant-top">
+                    <span class="card-chip chip-coral">PHYSICS MASTERCLASS</span>
+                    <span class="card-time-badge">4:00 PM Today</span>
+                  </div>
+                  <h4 class="card-vibrant-title">Rotational Dynamics &amp; Angular Momentum</h4>
+                  <p class="card-vibrant-desc">Master derivations, moment of inertia shortcuts &amp; advanced CET questions.</p>
+                  
+                  <div class="card-vibrant-footer">
+                    <div class="card-faculty-info">
+                      <span class="faculty-avatar-mini">👨‍🏫</span>
+                      <span>Prof. Sutawane · Room 102</span>
+                    </div>
+                    <span class="card-action-link" onclick="openInquiryModal()">View Notes →</span>
+                  </div>
+                </div>
+
+                <!-- Card 2: Royal Violet / Indigo Vibrant 3D Card -->
+                <div class="window-card-vibrant card-violet">
+                  <div class="card-vibrant-top">
+                    <span class="card-chip chip-violet">MHT-CET &amp; NEET</span>
+                    <span class="card-score-badge">Mock #12 Active</span>
+                  </div>
+                  <h4 class="card-vibrant-title">Grand Mock Test Series 2026</h4>
+                  <p class="card-vibrant-desc">200 High-yield exam questions with instant negative-marking analytics.</p>
+                  
+                  <div class="card-vibrant-footer">
+                    <div class="card-target-stat">
+                      <span class="target-icon">🎯</span>
+                      <span>Target: 180+ / 200</span>
+                    </div>
+                    <span class="card-action-link" onclick="openInquiryModal()">Start Mock →</span>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Live Announcement Micro Bar -->
+              <div class="window-live-strip">
+                <span class="strip-icon">📢</span>
+                <span class="strip-text"><strong>Sunday Special:</strong> Full Syllabus Grand Revision &amp; OMR Test Session at 8:30 AM sharp.</span>
+              </div>
+
+            </main>
+
+            <!-- Column 3: Right Schedule & Live Analytics -->
+            <aside class="window-col-right">
+              
+              <!-- Daily Timetable Card -->
+              <div class="window-right-widget">
+                <div class="widget-header">
+                  <span class="widget-title">Today's Lectures</span>
+                  <span class="widget-status-badge">3 Batches</span>
+                </div>
+                
+                <div class="schedule-timeline">
+                  <div class="schedule-entry completed">
+                    <div class="schedule-time">08:00 AM</div>
+                    <div class="schedule-details">
+                      <div class="schedule-subject">Chemistry · Chemical Bonding</div>
+                      <div class="schedule-status-text">Completed ✓</div>
+                    </div>
+                  </div>
+
+                  <div class="schedule-entry live">
+                    <div class="schedule-time">04:00 PM</div>
+                    <div class="schedule-details">
+                      <div class="schedule-subject">Physics · Rotational Dynamics</div>
+                      <div class="schedule-status-text">Up Next · Classroom</div>
+                    </div>
+                  </div>
+
+                  <div class="schedule-entry upcoming">
+                    <div class="schedule-time">06:30 PM</div>
+                    <div class="schedule-details">
+                      <div class="schedule-subject">Maths · Definite Integration</div>
+                      <div class="schedule-status-text">DPP Discussion</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Student Performance Meter -->
+              <div class="window-right-widget">
+                <div class="widget-header">
+                  <span class="widget-title">Performance Radar</span>
+                  <span class="widget-top-tag">Top 1%</span>
+                </div>
+
+                <div class="performance-metric-bars">
+                  <div class="metric-row">
+                    <div class="metric-labels">
+                      <span>Physics Mastery</span>
+                      <span class="metric-val">96%</span>
+                    </div>
+                    <div class="metric-bar-track">
+                      <div class="metric-bar-fill fill-coral" style="width: 96%;"></div>
+                    </div>
+                  </div>
+
+                  <div class="metric-row">
+                    <div class="metric-labels">
+                      <span>Chemistry Mastery</span>
+                      <span class="metric-val">92%</span>
+                    </div>
+                    <div class="metric-bar-track">
+                      <div class="metric-bar-fill fill-violet" style="width: 92%;"></div>
+                    </div>
+                  </div>
+
+                  <div class="metric-row">
+                    <div class="metric-labels">
+                      <span>Maths / Biology</span>
+                      <span class="metric-val">98%</span>
+                    </div>
+                    <div class="metric-bar-track">
+                      <div class="metric-bar-fill fill-emerald" style="width: 98%;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </aside>
+
+          </div>
         </div>
-        <span class="stage-label label-top">A01 / SYSTEM</span><span class="stage-label label-bottom">Spatial interface study</span>
       </div>
-      <div class="scroll-cue" aria-hidden="true"><span></span> Scroll to explore</div>
-    </section>
 
-    <section class="intro landing-section" id="platform">
-      <div class="section-index reveal">01 <span>Introduction</span></div>
-      <div class="intro-grid"><h2 class="reveal">Less noise.<br><strong>More signal.</strong></h2><div class="intro-copy reveal"><p>The platform brings your day into focus — with a calm, connected environment that keeps the important things close and the complexity in its place.</p><a class="text-link" href="#ecosystem">See the system <span>→</span></a></div></div>
-    </section>
+    </div>
+  </div>
+</section>
 
-    <section class="ecosystem landing-section" id="ecosystem">
-      <div class="section-heading reveal"><div class="section-index">02 <span>Digital ecosystem</span></div><p>One connected layer for the work behind the work.</p></div>
-      <div class="ecosystem-scene" aria-label="Illustration of connected platform layers">
-        <div class="eco-line line-a"></div><div class="eco-line line-b"></div><div class="eco-node node-a">Context</div><div class="eco-node node-b">Workflow</div><div class="eco-node node-c">People</div>
-        <div class="eco-core"><span>YOUR<br>JOURNEY</span></div>
-        <div class="eco-card card-a"><small>01 / FOUNDATION</small><b>Concepts</b><span>Understand before you solve</span></div><div class="eco-card card-b"><small>02 / PRACTICE</small><b>Application</b><span>Turn learning into instinct</span></div><div class="eco-card card-c"><small>03 / DIRECTION</small><b>Readiness</b><span>Move forward with confidence</span></div>
+<!-- ==========================================================================
+     2. RANKER AUTO-SLIDER (Showing half on the hero section)
+     ========================================================================== -->
+<section class="ranker-slider-section" id="toppersSliderSection">
+  <div class="modern-container">
+    <div class="ranker-slider-panel">
+      
+      <!-- Slider Top Controls Bar -->
+      <div class="slider-top-bar">
+        <div class="slider-heading-badge">
+          <div class="slider-badge-icon">🏆</div>
+          <span>RECENT TOPPERS & STATE RANKERS · SUTAWANE GROUP</span>
+          <div class="slider-auto-indicator">
+            <span class="slider-live-dot"></span>
+            <span id="sliderStatusText">Auto-sliding</span>
+          </div>
+        </div>
+
+        <div class="slider-controls-group">
+          <button type="button" class="btn-slider-arrow" id="sliderPrevBtn" aria-label="Previous topper">‹</button>
+          <button type="button" class="btn-slider-arrow" id="sliderNextBtn" aria-label="Next topper">›</button>
+        </div>
       </div>
-    </section>
 
-    <section class="tracks landing-section" id="tracks">
-      <div class="section-heading reveal"><div class="section-index">03 <span>Choose your direction</span></div><p>Focused pathways. One standard of care.</p></div>
-      <div class="track-grid">
-        <article class="track-card track-blue reveal"><span class="track-no">01</span><span class="track-orbit"></span><h3>Board<br><em>mastery</em></h3><p>Build a strong command of the 11th and 12th curriculum with structured understanding and deliberate practice.</p><a href="#experience">Explore the approach <b>↗</b></a></article>
-        <article class="track-card track-gold reveal"><span class="track-no">02</span><span class="track-orbit"></span><h3>JEE / NEET<br><em>direction</em></h3><p>Develop the depth, speed, and problem-solving discipline needed for competitive preparation.</p><a href="#experience">Explore the approach <b>↗</b></a></article>
-        <article class="track-card track-coral reveal"><span class="track-no">03</span><span class="track-orbit"></span><h3>Study<br><em>system</em></h3><p>A consistent rhythm of lessons, revision, tests, and feedback that makes progress visible.</p><a href="#experience">Explore the approach <b>↗</b></a></article>
+      <!-- Slider Viewport & Track -->
+      <div class="ranker-slider-viewport" id="rankerSliderViewport">
+        <div class="ranker-slider-track" id="rankerSliderTrack">
+          
+          <!-- Slide 1: Omkar Patil -->
+          <div class="ranker-slide-card">
+            <div class="ranker-card-head">
+              <div class="ranker-avatar-box avatar-blue">
+                <span class="avatar-crown">👑</span>
+                <span>OP</span>
+              </div>
+              <div class="ranker-score-pill score-emerald">
+                <span>⚡</span>
+                <span>99.82%ile</span>
+              </div>
+            </div>
+            <h4 class="ranker-student-name">Omkar Patil</h4>
+            <div class="ranker-exam-tag">MHT-CET Engineering · 12th PCM</div>
+            <div class="ranker-achievement-badge">
+              <span>★</span> State Rank 14 · COEP Pune
+            </div>
+            <p class="ranker-quote-text">
+              "Faculty doubt clearance and daily DPPs made this entrance score possible."
+            </p>
+          </div>
+
+          <!-- Slide 2: Snehal Deshmukh -->
+          <div class="ranker-slide-card">
+            <div class="ranker-card-head">
+              <div class="ranker-avatar-box avatar-emerald">
+                <span class="avatar-crown">👑</span>
+                <span>SD</span>
+              </div>
+              <div class="ranker-score-pill score-emerald">
+                <span>🎯</span>
+                <span>652 / 720</span>
+              </div>
+            </div>
+            <h4 class="ranker-student-name">Snehal Deshmukh</h4>
+            <div class="ranker-exam-tag">NEET UG Medical · 12th PCB</div>
+            <div class="ranker-achievement-badge">
+              <span>★</span> Taluka Topper · GMC Aurangabad
+            </div>
+            <p class="ranker-quote-text">
+              "Full-length proctored mock exams gave me total exam day confidence."
+            </p>
+          </div>
+
+          <!-- Slide 3: Prathamesh Shinde -->
+          <div class="ranker-slide-card">
+            <div class="ranker-card-head">
+              <div class="ranker-avatar-box avatar-purple">
+                <span class="avatar-crown">★</span>
+                <span>PS</span>
+              </div>
+              <div class="ranker-score-pill score-blue">
+                <span>📘</span>
+                <span>97.40%</span>
+              </div>
+            </div>
+            <h4 class="ranker-student-name">Prathamesh Shinde</h4>
+            <div class="ranker-exam-tag">12th Science Maharashtra Board</div>
+            <div class="ranker-achievement-badge">
+              <span>★</span> 100/100 in Mathematics
+            </div>
+            <p class="ranker-quote-text">
+              "Structured theory notes helped me score a perfect 100 in Maths."
+            </p>
+          </div>
+
+          <!-- Slide 4: Tanvi Kulkarni -->
+          <div class="ranker-slide-card">
+            <div class="ranker-card-head">
+              <div class="ranker-avatar-box avatar-amber">
+                <span class="avatar-crown">👑</span>
+                <span>TK</span>
+              </div>
+              <div class="ranker-score-pill score-emerald">
+                <span>🏆</span>
+                <span>98.60%</span>
+              </div>
+            </div>
+            <h4 class="ranker-student-name">Tanvi Kulkarni</h4>
+            <div class="ranker-exam-tag">10th SSC State Board · Foundation</div>
+            <div class="ranker-achievement-badge">
+              <span>★</span> Taluka Rank 1 · Vaijapur
+            </div>
+            <p class="ranker-quote-text">
+              "Teachers gave personal attention to every single concept and weak area."
+            </p>
+          </div>
+
+          <!-- Slide 5: Aditya Gaikwad -->
+          <div class="ranker-slide-card">
+            <div class="ranker-card-head">
+              <div class="ranker-avatar-box avatar-blue">
+                <span class="avatar-crown">★</span>
+                <span>AG</span>
+              </div>
+              <div class="ranker-score-pill score-emerald">
+                <span>⚡</span>
+                <span>99.15%ile</span>
+              </div>
+            </div>
+            <h4 class="ranker-student-name">Aditya Gaikwad</h4>
+            <div class="ranker-exam-tag">MHT-CET Engineering · 12th PCM</div>
+            <div class="ranker-achievement-badge">
+              <span>★</span> VJTI Mumbai Selection
+            </div>
+            <p class="ranker-quote-text">
+              "Speed calculation drills and negative marking analysis boosted my rank."
+            </p>
+          </div>
+
+          <!-- Slide 6: Rutuja More -->
+          <div class="ranker-slide-card">
+            <div class="ranker-card-head">
+              <div class="ranker-avatar-box avatar-rose">
+                <span class="avatar-crown">👑</span>
+                <span>RM</span>
+              </div>
+              <div class="ranker-score-pill score-emerald">
+                <span>🎯</span>
+                <span>640 / 720</span>
+              </div>
+            </div>
+            <h4 class="ranker-student-name">Rutuja More</h4>
+            <div class="ranker-exam-tag">NEET UG Medical · 12th PCB</div>
+            <div class="ranker-achievement-badge">
+              <span>★</span> BJ Medical College Pune
+            </div>
+            <p class="ranker-quote-text">
+              "Dedicated mentorship by senior faculty kept me focused throughout."
+            </p>
+          </div>
+
+          <!-- Slide 7: Kunal Jadhav -->
+          <div class="ranker-slide-card">
+            <div class="ranker-card-head">
+              <div class="ranker-avatar-box avatar-purple">
+                <span class="avatar-crown">★</span>
+                <span>KJ</span>
+              </div>
+              <div class="ranker-score-pill score-blue">
+                <span>📘</span>
+                <span>96.80%</span>
+              </div>
+            </div>
+            <h4 class="ranker-student-name">Kunal Jadhav</h4>
+            <div class="ranker-exam-tag">12th Science Maharashtra Board</div>
+            <div class="ranker-achievement-badge">
+              <span>★</span> State Board Distinction
+            </div>
+            <p class="ranker-quote-text">
+              "Daily 4-hour lectures covered every concept in complete detail."
+            </p>
+          </div>
+
+        </div>
       </div>
-    </section>
 
-    <section class="experience landing-section" id="experience">
-      <div class="section-heading reveal"><div class="section-index">04 <span>The experience</span></div><p>See learning as a system — not a collection of disconnected classes.</p></div>
-      <div class="product-frame reveal"><div class="product-topbar"><span class="window-dots"><i></i><i></i><i></i></span><span>Workspace / Overview</span><span class="demo-label">DEMO VIEW</span></div><div class="product-body"><aside><div class="mini-logo">✦</div><span class="active">Overview</span><span>Activity</span><span>Records</span><span>Settings</span></aside><div class="product-main"><div class="product-welcome"><small>MONDAY / 09:41</small><h3>A clear view of the day.</h3><p>Demonstration interface — sample content only.</p></div><div class="demo-stats"><div><small>IN MOTION</small><strong>24</strong><span>items this cycle</span></div><div><small>COMPLETED</small><strong>86%</strong><span>steady progress</span></div><div><small>ATTENTION</small><strong>08</strong><span>open signals</span></div></div><div class="demo-chart"><div class="chart-label">Activity rhythm <span>Last 6 periods</span></div><div class="chart-bars"><i style="height:34%"></i><i style="height:52%"></i><i style="height:42%"></i><i style="height:76%"></i><i style="height:61%"></i><i style="height:88%"></i><i style="height:70%"></i></div></div></div></div></div>
-    </section>
+    </div>
+  </div>
+</section>
 
-    <section class="closing landing-section"><div class="closing-orb" aria-hidden="true"></div><div class="closing-copy reveal"><div class="section-index">05 <span>Begin here</span></div><h2>Your ambition.<br><em>A clearer route.</em></h2><p>Start with the right environment for the next stage of your learning.</p><div class="hero-actions"><a class="button button-primary" href="{% url 'dashboard' %}">Explore the Platform <span>↗</span></a><a class="button button-ghost" href="{% url 'login' %}">Sign In <span>↗</span></a></div></div></section>
-  </main>
-  <footer class="landing-footer"><span>© {% now "Y" %} {{ institute_name|default:'The Platform' }}</span><span>Designed for a clearer next step.</span></footer>
-  <script src="{% static 'js/landing.js' %}"></script>
-</body>
-</html>
+<!-- ==========================================================================
+     3. THE 4 TEACHING PILLARS OF SUTAWANE GROUP (Interactive Animated Pipeline)
+     ========================================================================== -->
+<section class="modern-pillars-section" id="methodologySection">
+  <div class="pillars-ambient-glow" aria-hidden="true"></div>
+
+  <div class="modern-container">
+    
+    <div class="text-center">
+      <div class="modern-badge">
+        <span style="color:var(--brand-blue);font-size:0.95rem;">✦</span>
+        <span>The Sutawane Methodology</span>
+      </div>
+      <h2 class="modern-section-title">Engineered for High-Percentile Academic Mastery</h2>
+      <p class="modern-section-desc mx-auto">
+        A disciplined, multi-layered teaching ecosystem created to elevate every student from foundational clarity to top state ranks.
+      </p>
+    </div>
+
+    <!-- Animated Progression Pipeline Connector (3 Stages) -->
+    <div class="pillars-pipeline-container" style="max-width:880px;">
+      <div class="pillars-pipeline-bar">
+        <div class="pipeline-track-line">
+          <div class="pipeline-progress-beam"></div>
+        </div>
+        <div class="pipeline-node-item active" id="nodePillar0" onclick="spotlightPillar(0)">
+          <div class="pipeline-node-circle">01</div>
+          <span class="pipeline-node-label">1. Conceptual Mastery</span>
+        </div>
+        <div class="pipeline-node-item" id="nodePillar1" onclick="spotlightPillar(1)">
+          <div class="pipeline-node-circle">02</div>
+          <span class="pipeline-node-label">2. Daily DPP Practice</span>
+        </div>
+        <div class="pipeline-node-item" id="nodePillar2" onclick="spotlightPillar(2)">
+          <div class="pipeline-node-circle">03</div>
+          <span class="pipeline-node-label">3. Mocks & Doubt Mentorship</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 Spacious, High-Visibility Pillar Cards -->
+    <div class="pillars-grid" id="pillarsGrid">
+      
+      <!-- Pillar 1: Concept-First Pedagogy -->
+      <div class="pillar-card pillar-theme-blue" id="pillarCard0">
+        <div class="pillar-card-top">
+          <div class="pillar-icon-box pillar-icon-blue">💡</div>
+          <span class="pillar-watermark">01</span>
+        </div>
+        <h3 class="pillar-title">Concept-First Pedagogy</h3>
+        <p class="pillar-desc">
+          Master educators dissect complex Physics, Chemistry, Mathematics, and Biology into intuitive visual mental models with zero rote memorization.
+        </p>
+
+        <!-- Micro Visual Widget: Interactive Subjects & Clarity -->
+        <div class="pillar-visual-widget">
+          <div class="widget-subjects-row">
+            <span class="mini-subject-pill">⚛ Physics</span>
+            <span class="mini-subject-pill">🧪 Chemistry</span>
+            <span class="mini-subject-pill">📐 Maths</span>
+            <span class="mini-subject-pill">🧬 Biology</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.825rem;font-weight:800;color:#1D4ED8;margin-top:0.35rem;">
+            <span>Visual Mental Models</span>
+            <span>100% Concept Retention</span>
+          </div>
+        </div>
+
+        <div class="pillar-tag-wrap">
+          <span class="pillar-tag pillar-tag-blue">
+            <span class="pulse-dot pulse-dot-blue"></span>
+            <span>100% Conceptual Clarity</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Pillar 2: Daily Practice Drills (DPP) -->
+      <div class="pillar-card pillar-theme-amber" id="pillarCard1">
+        <div class="pillar-card-top">
+          <div class="pillar-icon-box pillar-icon-amber">📝</div>
+          <span class="pillar-watermark">02</span>
+        </div>
+        <h3 class="pillar-title">Daily Practice Drills (DPP)</h3>
+        <p class="pillar-desc">
+          Targeted chapter problem sets given every single day. Daily problem-solving builds rapid formula recall, calculation accuracy, and removes exam fear.
+        </p>
+
+        <!-- Micro Visual Widget: Solved Streak & Progress Bar -->
+        <div class="pillar-visual-widget">
+          <div class="widget-streak-row">
+            <span>Weekly Solved Streak</span>
+            <span style="color:#B45309;font-weight:800;">5 / 5 Days Completed</span>
+          </div>
+          <div class="mini-progress-track">
+            <div class="mini-progress-fill"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:#78350F;font-weight:700;margin-top:0.25rem;">
+            <span>30 Questions / Day</span>
+            <span>✔ Instant Feedback</span>
+          </div>
+        </div>
+
+        <div class="pillar-tag-wrap">
+          <span class="pillar-tag pillar-tag-amber">
+            <span class="pulse-dot pulse-dot-amber"></span>
+            <span>Daily Problem Solving</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Pillar 3: Proctored Mocks & Doubt Mentorship -->
+      <div class="pillar-card pillar-theme-emerald" id="pillarCard2">
+        <div class="pillar-card-top">
+          <div class="pillar-icon-box pillar-icon-emerald">🎯</div>
+          <span class="pillar-watermark">03</span>
+        </div>
+        <h3 class="pillar-title">Mocks & Doubt Mentorship</h3>
+        <p class="pillar-desc">
+          Rigorous OMR-based test series with negative marking analysis simulating Board, CET & NEET pressure, backed by daily 1-on-1 faculty tables.
+        </p>
+
+        <!-- Micro Visual Widget: Performance Bar Chart -->
+        <div class="pillar-visual-widget">
+          <div style="display:flex;justify-content:space-between;font-size:0.825rem;font-weight:800;color:#047857;">
+            <span>Mock Test Pacing & Doubt Tables</span>
+            <span>+24% Improvement</span>
+          </div>
+          <div class="widget-mock-chart">
+            <div class="mock-bar" style="height:60%;"><small>72%</small></div>
+            <div class="mock-bar" style="height:78%;"><small>85%</small></div>
+            <div class="mock-bar active" style="height:96%;"><small>98%</small></div>
+          </div>
+        </div>
+
+        <div class="pillar-tag-wrap">
+          <span class="pillar-tag pillar-tag-emerald">
+            <span class="pulse-dot pulse-dot-emerald"></span>
+            <span>Rank Benchmarking & Mentorship</span>
+          </span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- ==========================================================================
+     4. FLAGSHIP ACADEMIC BATCHES (Sutawane Group Core Programs)
+     ========================================================================== -->
+<section class="modern-batches-section">
+  <div class="modern-container">
+    
+    <div class="text-center">
+      <span class="modern-badge">✦ Academic Offerings 2026–2027</span>
+      <h2 class="modern-section-title">Structured Batches for Focused Aspirants</h2>
+      <p class="modern-section-desc mx-auto">
+        Strictly capped batch sizing ensures maximum personalized faculty attention, rigorous testing, and seamless board + entrance integration.
+      </p>
+    </div>
+
+    <div class="batches-preview-grid">
+      
+      <!-- Batch 1: 11th & 12th Science -->
+      <div class="batch-preview-card">
+        <span class="batch-card-badge badge-featured">Most Enrolled</span>
+        <div class="batch-stream-icon">🔬</div>
+        
+        <h3 class="batch-card-title">11th & 12th Science</h3>
+        <div class="batch-card-subtitle">PCB / PCM · Maharashtra State Board</div>
+        
+        <p class="batch-card-desc">
+          Complete mastery of Physics, Chemistry, Mathematics & Biology with integrated entrance exam problem-solving drills.
+        </p>
+
+        <ul class="batch-specs-list">
+          <li><span class="check">✓</span> Daily 4-Hour Intensive Classroom Lectures</li>
+          <li><span class="check">✓</span> Printed Comprehensive Theory & Formula Bank</li>
+          <li><span class="check">✓</span> Board Pattern Answer-Writing Workshops</li>
+          <li><span class="check">✓</span> Real-Time Attendance & Marks via WhatsApp</li>
+        </ul>
+
+        <div class="batch-target-exams">
+          <span class="exam-pill">State Board</span>
+          <span class="exam-pill">MHT-CET</span>
+          <span class="exam-pill">NEET</span>
+          <span class="exam-pill">JEE Main</span>
+        </div>
+
+        <div class="batch-card-footer">
+          <a href="{% url 'public_batches' %}?stream=science" class="btn-modern-navy" style="width:100%;justify-content:center;">
+            <span>View Batch Details & Syllabus</span>
+            <span class="btn-arrow-circle">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Batch 2: MHT-CET & NEET Target (Middle Elevated Dark Grid Card) -->
+      <div class="batch-preview-card featured-dark-card">
+        <span class="batch-card-badge badge-intensive">🔥 HIGH IMPACT · ENTRANCE TRACK</span>
+        <div class="batch-stream-icon">🎯</div>
+        
+        <h3 class="batch-card-title">MHT-CET & NEET Target</h3>
+        <div class="batch-card-subtitle">Specialized Speed & Accuracy Track</div>
+        
+        <p class="batch-card-desc">
+          Dedicated entrance track designed for high percentiles in engineering and medical entrance examinations across Maharashtra.
+        </p>
+
+        <!-- Micro Target Benchmark Widget -->
+        <div class="batch-dark-widget">
+          <div class="dark-widget-header">
+            <span>TARGET BENCHMARK</span>
+            <span class="target-chip">99.5%+ / 650+ NEET</span>
+          </div>
+          <div class="dark-widget-note">
+            ⚡ Includes Full-Length OMR Proctored Mocks + Negative Marking Drills
+          </div>
+        </div>
+
+        <ul class="batch-specs-list">
+          <li><span class="check">✓</span> 5,000+ High-Yield Question Bank & Solution Keys</li>
+          <li><span class="check">✓</span> Past 10-Year Question Paper Pattern Dissection</li>
+          <li><span class="check">✓</span> Weekly Full-Length OMR Mock Exam Series</li>
+          <li><span class="check">✓</span> Speed Calculation & Short-Cut Formula Drills</li>
+        </ul>
+
+        <div class="batch-target-exams">
+          <span class="exam-pill">MHT-CET PCB</span>
+          <span class="exam-pill">MHT-CET PCM</span>
+          <span class="exam-pill">NEET UG</span>
+        </div>
+
+        <div class="batch-card-footer">
+          <a href="{% url 'public_batches' %}?stream=entrance" class="btn-modern-amber" style="width:100%;justify-content:center;box-shadow:0 8px 24px rgba(245,158,11,0.45);">
+            <span class="btn-icon-circle">⚡</span>
+            <span>Enroll for Entrance Batch</span>
+            <span class="btn-arrow-circle">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Batch 3: 8th–10th Foundation -->
+      <div class="batch-preview-card">
+        <span class="batch-card-badge badge-foundation">Pre-Foundation</span>
+        <div class="batch-stream-icon">📘</div>
+        
+        <h3 class="batch-card-title">8th to 10th Foundation</h3>
+        <div class="batch-card-subtitle">State Board & Competitive Base</div>
+        
+        <p class="batch-card-desc">
+          Building rock-solid concepts in Science and Mathematics to ensure distinction in 10th SSC and success in NTSE & Olympiads.
+        </p>
+
+        <ul class="batch-specs-list">
+          <li><span class="check">✓</span> Strong Mathematical Logic & Science Clarity</li>
+          <li><span class="check">✓</span> NTSE, MTSE & Olympiad Exam Orientation</li>
+          <li><span class="check">✓</span> Systematic Board Revision & Answer-Writing</li>
+          <li><span class="check">✓</span> Monthly Parent-Teacher Progress Meetings</li>
+        </ul>
+
+        <div class="batch-target-exams">
+          <span class="exam-pill">10th SSC Board</span>
+          <span class="exam-pill">NTSE</span>
+          <span class="exam-pill">MTSE</span>
+          <span class="exam-pill">Science Olympiad</span>
+        </div>
+
+        <div class="batch-card-footer">
+          <a href="{% url 'public_batches' %}?stream=foundation" class="btn-modern-navy" style="width:100%;justify-content:center;">
+            <span>Discover Foundation Batches</span>
+            <span class="btn-arrow-circle">→</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Action to All Batches -->
+    <div class="text-center" style="margin-top:2.5rem;">
+      <a href="{% url 'public_batches' %}" style="display:inline-flex;align-items:center;gap:0.5rem;color:var(--brand-blue);font-weight:700;font-size:1rem;text-decoration:none;">
+        <span>View all commerce, morning, and evening batch timetables</span>
+        <span>→</span>
+      </a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ==========================================================================
+     5. DIGITAL CAMPUS & PARENT TRANSPARENCY
+     ========================================================================== -->
+<section class="modern-ecosystem-section">
+  <div class="modern-container">
+    
+    <div class="text-center">
+      <span class="modern-badge">✦ Smart Academic Infrastructure</span>
+      <h2 class="modern-section-title">Total Academic Transparency for Every Parent</h2>
+      <p class="modern-section-desc mx-auto">
+        We pair traditional high-caliber classroom pedagogy with modern digital tools so parents and students remain completely connected.
+      </p>
+    </div>
+
+    <div class="ecosystem-split-grid">
+      
+      <!-- Left: Interactive Portal Dashboard Preview Card -->
+      <div class="ecosystem-preview-box">
+        <div class="preview-pill-header">
+          <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700;color:var(--text-dark);font-size:0.95rem;">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2563EB;"></span>
+            <span>Parent Portal · Real-Time Academic Ledger</span>
+          </div>
+          <span style="font-size:0.75rem;padding:0.25rem 0.65rem;border-radius:var(--radius-full);background:#EFF6FF;color:#2563EB;font-weight:700;">Live Feed</span>
+        </div>
+
+        <!-- Attendance Calendar Row -->
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:var(--radius-md);padding:1rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.75rem;font-size:0.825rem;font-weight:700;">
+            <span>Current Month Attendance (October)</span>
+            <span style="color:#059669;">98.4% Present</span>
+          </div>
+          <div style="display:flex;gap:0.35rem;justify-content:space-between;">
+            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
+            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
+            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
+            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
+            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
+            <span style="flex:1;height:24px;background:#E2E8F0;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#64748B;font-size:0.7rem;font-weight:700;">Sun</span>
+            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
+          </div>
+        </div>
+
+        <!-- Fee Ledger Snippet -->
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:var(--radius-md);padding:1rem;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">INSTITUTE FEE LEDGER</div>
+            <div style="font-size:0.95rem;font-weight:800;color:var(--text-dark);">1st Term Installment Paid</div>
+          </div>
+          <span style="padding:0.35rem 0.75rem;background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;border-radius:var(--radius-full);font-size:0.75rem;font-weight:700;">
+            ✓ Official Receipt Generated
+          </span>
+        </div>
+
+        <!-- Test Performance Comparison Snippet -->
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:var(--radius-md);padding:1rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;font-size:0.825rem;font-weight:700;">
+            <span>Physics Grand Mock #4</span>
+            <span style="color:var(--brand-blue);">92 / 100 Marks</span>
+          </div>
+          <div style="width:100%;height:8px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
+            <div style="width:92%;height:100%;background:linear-gradient(90deg, #2563EB, #0EA5E9);border-radius:9999px;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:0.35rem;font-size:0.72rem;color:var(--text-muted);">
+            <span>Batch Average: 74%</span>
+            <span style="font-weight:700;color:#1D4ED8;">Top 5% in Vaijapur</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right: The 4 Strategic Transparency Features -->
+      <div class="ecosystem-feature-list">
+        
+        <div class="eco-feature-row">
+          <div class="eco-feature-icon">⏱️</div>
+          <div class="eco-feature-content">
+            <h4>Real-Time WhatsApp & SMS Alerts</h4>
+            <p>Parents receive instant automated notifications within minutes if their child is absent or delayed from the lecture.</p>
+          </div>
+        </div>
+
+        <div class="eco-feature-row">
+          <div class="eco-feature-icon">💳</div>
+          <div class="eco-feature-content">
+            <h4>Transparent Online Fee Management</h4>
+            <p>Access tuition ledgers, installment schedules, and official GST-compliant tax receipts anytime from any smartphone.</p>
+          </div>
+        </div>
+
+        <div class="eco-feature-row">
+          <div class="eco-feature-icon">📈</div>
+          <div class="eco-feature-content">
+            <h4>Subject-Wise Test Score Analytics</h4>
+            <p>Track accuracy percentages, weak chapter identification, and state-level benchmarking across all CET & NEET mock tests.</p>
+          </div>
+        </div>
+
+        <div class="eco-feature-row">
+          <div class="eco-feature-icon">📚</div>
+          <div class="eco-feature-content">
+            <h4>Centralized Study Material Vault</h4>
+            <p>Download comprehensive chapter notes, solved board papers, formula reference sheets, and daily practice problem banks.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- ==========================================================================
+     6. ON-PAGE CAMPUS INFO & FREE 3-DAY DEMO BOOKING DESK
+     ========================================================================== -->
+<section class="modern-desk-section">
+  <div class="modern-container">
+    <div class="desk-split-grid">
+      
+      <!-- Left Column: Campus Info & Interactive FAQs -->
+      <div class="desk-info-side">
+        <div>
+          <div class="modern-badge">
+            <span style="color:var(--brand-blue);font-size:0.95rem;">✦</span>
+            <span>Campus Guidance Desk</span>
+          </div>
+          <h2 style="font-size:2.35rem;font-weight:800;color:var(--text-dark);line-height:1.2;margin-bottom:0.75rem;">
+            Visit Our Main Campus on Station Road
+          </h2>
+          <p style="font-size:1.025rem;color:var(--text-muted);line-height:1.65;">
+            We warmly welcome parents and students for a personalized academic orientation, batch inspection, and direct counseling with senior faculty.
+          </p>
+        </div>
+
+        <!-- Campus Snapshot Duo Cards -->
+        <div class="campus-meta-duo">
+          <div class="campus-meta-card">
+            <div class="meta-card-head">
+              <div class="meta-card-icon-box meta-icon-blue">📍</div>
+              <span class="meta-card-title">Campus Location</span>
+            </div>
+            <div class="meta-card-value">
+              Station Road, Near Bus Stand, Vaijapur
+            </div>
+            <a href="https://maps.google.com/?q=Station+Road+Vaijapur" target="_blank" rel="noopener noreferrer" class="meta-card-link">
+              <span>View on Google Maps</span>
+              <span>↗</span>
+            </a>
+          </div>
+
+          <div class="campus-meta-card">
+            <div class="meta-card-head">
+              <div class="meta-card-icon-box meta-icon-amber">⏱️</div>
+              <div class="meta-live-badge">
+                <span class="pulse-indicator"></span>
+                <span>Open Today</span>
+              </div>
+            </div>
+            <div class="meta-card-value">
+              Mon – Sat: 7:30 AM – 8:00 PM
+            </div>
+            <span style="font-size:0.75rem;color:var(--text-muted);">Sunday: 8:00 AM – 1:00 PM</span>
+          </div>
+        </div>
+
+        <!-- Fast Contact Helpline Row -->
+        <div class="desk-actions-row">
+          <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="btn-modern-navy" style="display:inline-flex;">
+            <span class="btn-icon-circle">📞</span>
+            <span>Call Counseling Desk</span>
+          </a>
+
+          <a href="https://wa.me/917776824564?text=Hello%20Sutawane%20Classes,%20I%20would%20like%20to%20visit%20the%20campus%20for%20admissions." target="_blank" rel="noopener noreferrer" class="btn-modern-outline" style="display:inline-flex;">
+            <span style="font-size:1.1rem;">💬</span>
+            <span>Chat on WhatsApp</span>
+            <span>↗</span>
+          </a>
+        </div>
+
+        <!-- Interactive FAQ Accordion -->
+        <div class="faq-modern-accordion">
+          
+          <!-- FAQ 1 (Active by default) -->
+          <div class="faq-item active">
+            <button type="button" class="faq-question-btn">
+              <span>Are batches available in both Morning and Evening slots?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer-body">
+              <p>Yes. We offer morning batches (7:30 AM to 11:30 AM) and evening batches (3:30 PM to 7:30 PM) so junior college students can manage their attendance seamlessly without college timetable clashes.</p>
+            </div>
+          </div>
+
+          <!-- FAQ 2 -->
+          <div class="faq-item">
+            <button type="button" class="faq-question-btn">
+              <span>Can a student attend a 3-day demo class before paying fees?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer-body">
+              <p>Absolutely. We provide a full 3-day classroom pass allowing students to experience our teaching methodology, study materials, and faculty doubt resolution firsthand with zero obligation.</p>
+            </div>
+          </div>
+
+          <!-- FAQ 3 -->
+          <div class="faq-item">
+            <button type="button" class="faq-question-btn">
+              <span>Is there an installment facility for tuition fees?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer-body">
+              <p>Yes. Easy 2-term and 3-term installment structures are available, along with merit-based scholarship fee concessions for students scoring 90%+ in 10th Board examinations.</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Right Column: Creative Sticky VIP Demo Class Pass Card -->
+      <div class="desk-card-wrap">
+        <div>
+          <div class="desk-pass-ribbon">
+            <span>🎟️</span>
+            <span>VIP Admission Pass · 100% Free</span>
+          </div>
+          <h3 style="font-size:1.75rem;font-weight:800;color:var(--text-dark);line-height:1.2;margin-bottom:0.35rem;">
+            Claim Your Free 3-Day Trial Pass
+          </h3>
+          <p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:1.5rem;">
+            Fill in your details below. Our academic desk will allocate your demo seat and send lecture timings via WhatsApp.
+          </p>
+        </div>
+
+        <form id="landingInquiryForm" class="modern-form" onsubmit="handleOnPageInquiry(event)">
+          <div class="modern-form-row">
+            <div class="modern-form-group">
+              <label class="modern-form-label" for="page_student_name">Student Full Name *</label>
+              <input type="text" id="page_student_name" class="modern-input" required placeholder="e.g. Aditya Sharma">
+            </div>
+            <div class="modern-form-group">
+              <label class="modern-form-label" for="page_phone">Parent / Student Mobile *</label>
+              <input type="tel" id="page_phone" class="modern-input" required placeholder="e.g. 9876543210">
+            </div>
+          </div>
+
+          <div class="modern-form-row">
+            <div class="modern-form-group">
+              <label class="modern-form-label" for="page_standard">Desired Stream / Class *</label>
+              <select id="page_standard" class="modern-select" required>
+                <option value="" disabled selected>Select Academic Stream</option>
+                <option value="11th Science (PCB/PCM)">11th Science (Board + Entrance)</option>
+                <option value="12th Science Target Batch">12th Science Target Batch (CET / NEET)</option>
+                <option value="MHT-CET Intensive Entrance">MHT-CET Intensive Entrance Track</option>
+                <option value="10th State Board Foundation">10th State Board Foundation</option>
+                <option value="8th & 9th Pre-Foundation">8th & 9th Pre-Foundation</option>
+                <option value="11th & 12th Commerce">11th & 12th Commerce</option>
+              </select>
+            </div>
+            <div class="modern-form-group">
+              <label class="modern-form-label" for="page_slot">Preferred Batch Timing</label>
+              <select id="page_slot" class="modern-select">
+                <option value="Morning Batch (7:30 AM - 11:30 AM)">Morning Batch (7:30 AM – 11:30 AM)</option>
+                <option value="Evening Batch (3:30 PM - 7:30 PM)">Evening Batch (3:30 PM – 7:30 PM)</option>
+                <option value="Weekend Intensive Track">Weekend Intensive Track</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="modern-form-group">
+            <label class="modern-form-label" for="page_notes">Previous Marks / Specific Query (Optional)</label>
+            <textarea id="page_notes" class="modern-textarea" rows="2" placeholder="e.g. Scored 92% in 10th Board, interested in PCB medical track"></textarea>
+          </div>
+
+          <button type="submit" class="btn-modern-amber" style="width:100%;justify-content:center;padding:1rem;margin-top:0.5rem;font-size:1rem;box-shadow:0 8px 24px rgba(245,158,11,0.45);">
+            <span class="btn-icon-circle">🚀</span>
+            <span>Reserve Free 3-Day Demo Pass via WhatsApp</span>
+            <span class="btn-arrow-circle">→</span>
+          </button>
+
+          <!-- Guaranteed Perks Checklist -->
+          <div class="desk-trust-checklist">
+            <span>✔ Free Study Kit Booklet</span>
+            <span>•</span>
+            <span>✔ 1-on-1 Concept Check</span>
+            <span>•</span>
+            <span>✔ Zero Obligations</span>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     7. MODERN FINALE ACTION BANNER
+     ========================================================================== -->
+<section style="padding:0 0 5rem;">
+  <div class="modern-container">
+    <div style="background:linear-gradient(135deg, #091224 0%, #152E58 100%);border-radius:var(--radius-xl);padding:3.5rem;box-shadow:var(--shadow-xl);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2rem;">
+      <div style="max-width:650px;">
+        <span style="display:inline-block;padding:0.3rem 0.85rem;border-radius:4px;background:rgba(255,255,255,0.1);color:#FEF08A;font-size:0.78rem;font-weight:700;margin-bottom:1rem;">
+          ⚡ Admissions Open 2026–2027
+        </span>
+        <h3 style="font-size:2.35rem;font-weight:800;color:#FFFFFF;line-height:1.2;margin-bottom:0.75rem;">
+          Begin Your Academic Journey With Sutawane Group
+        </h3>
+        <p style="font-size:1rem;color:#CBD5E1;line-height:1.6;">
+          Join over 10,000+ successful alumni across Maharashtra. Connect with our academic mentors to select the best batch for your target examination.
+        </p>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <button type="button" class="btn-modern-amber" onclick="openInquiryModal()">
+          <span class="btn-icon-circle">🚀</span>
+          <span>Apply for Admission</span>
+          <span class="btn-arrow-circle">→</span>
+        </button>
+
+        <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="btn-modern-outline" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.25);color:#FFFFFF !important;">
+          <span>📞 Helpline: {{ institute_settings.phone|default:'+91 98765 43210' }}</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Robust Auto-Slider for Toppers with Pause on Hover & Swipe
+  (function initRankerSlider() {
+    const track = document.getElementById('rankerSliderTrack');
+    const viewport = document.getElementById('rankerSliderViewport');
+    const prevBtn = document.getElementById('sliderPrevBtn');
+    const nextBtn = document.getElementById('sliderNextBtn');
+    const statusText = document.getElementById('sliderStatusText');
+
+    if (!track || !viewport) return;
+
+    let currentIndex = 0;
+    let autoInterval = null;
+    let isPaused = false;
+    const cards = track.querySelectorAll('.ranker-slide-card');
+    const totalCards = cards.length;
+
+    function getCardStep() {
+      if (cards.length === 0) return 330;
+      const cardRect = cards[0].getBoundingClientRect();
+      const style = window.getComputedStyle(track);
+      const gap = parseFloat(style.gap) || 20;
+      return cardRect.width + gap;
+    }
+
+    function getMaxIndex() {
+      const step = getCardStep();
+      const visibleCount = Math.max(1, Math.floor(viewport.clientWidth / step));
+      return Math.max(0, totalCards - visibleCount);
+    }
+
+    function updateSliderPosition() {
+      const step = getCardStep();
+      const maxIdx = getMaxIndex();
+      if (currentIndex > maxIdx) {
+        currentIndex = 0; // Seamless loop back to first
+      } else if (currentIndex < 0) {
+        currentIndex = maxIdx;
+      }
+      track.style.transform = `translateX(-${currentIndex * step}px)`;
+    }
+
+    function slideNext() {
+      currentIndex++;
+      updateSliderPosition();
+    }
+
+    function slidePrev() {
+      currentIndex--;
+      updateSliderPosition();
+    }
+
+    function startAutoSlide() {
+      if (autoInterval) clearInterval(autoInterval);
+      autoInterval = setInterval(() => {
+        if (!isPaused) {
+          slideNext();
+        }
+      }, 3000);
+      if (statusText) statusText.textContent = "Auto-sliding";
+    }
+
+    function pauseAutoSlide() {
+      isPaused = true;
+      if (statusText) statusText.textContent = "Paused (Hover)";
+    }
+
+    function resumeAutoSlide() {
+      isPaused = false;
+      if (statusText) statusText.textContent = "Auto-sliding";
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        slideNext();
+      });
+    }
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        slidePrev();
+      });
+    }
+
+    viewport.addEventListener('mouseenter', pauseAutoSlide);
+    viewport.addEventListener('mouseleave', resumeAutoSlide);
+
+    // Touch Swipe handling for mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    viewport.addEventListener('touchstart', (e) => {
+      pauseAutoSlide();
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchStartX - touchEndX > 50) {
+        slideNext();
+      } else if (touchEndX - touchStartX > 50) {
+        slidePrev();
+      }
+      setTimeout(resumeAutoSlide, 2000);
+    }, { passive: true });
+
+    // Handle responsive window resize
+    window.addEventListener('resize', updateSliderPosition);
+
+    // Initial Start
+    startAutoSlide();
+  })();
+
+  // Interactive Pillar Pipeline Spotlight (3 Stages)
+  function spotlightPillar(index) {
+    for (let i = 0; i < 3; i++) {
+      const node = document.getElementById(`nodePillar${i}`);
+      const card = document.getElementById(`pillarCard${i}`);
+      if (node) {
+        if (i === index) node.classList.add('active');
+        else node.classList.remove('active');
+      }
+      if (card) {
+        if (i === index) {
+          card.style.transform = 'translateY(-12px) scale(1.03)';
+          card.style.boxShadow = '0 30px 60px -12px rgba(37, 99, 235, 0.28)';
+          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          setTimeout(() => {
+            card.style.transform = '';
+            card.style.boxShadow = '';
+          }, 1800);
+        }
+      }
+    }
+  }
+
+  // Direct On-Page Inquiry Form Handler
+  function handleOnPageInquiry(e) {
+    e.preventDefault();
+    const name = document.getElementById('page_student_name').value.trim();
+    const phone = document.getElementById('page_phone').value.trim();
+    const standard = document.getElementById('page_standard').value;
+    const slot = document.getElementById('page_slot').value;
+    const notes = document.getElementById('page_notes').value.trim();
+
+    const text = `*New 3-Day Demo Pass Request - Sutawane Group*\n\n` +
+                 `*Student Name:* ${name}\n` +
+                 `*Contact:* ${phone}\n` +
+                 `*Stream/Batch:* ${standard}\n` +
+                 `*Preferred Timing:* ${slot}\n` +
+                 (notes ? `*Student Notes:* ${notes}\n\n` : `\n`) +
+                 `Please confirm my 3-day demo class seat and share the lecture timetable.`;
+
+    const targetPhone = "917776824564";
+    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+  }
+
+  // Interactive FAQ Accordion Listener
+  document.querySelectorAll('.faq-question-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.faq-item');
+      const isActive = item.classList.contains('active');
+      // Collapse all items
+      document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('active'));
+      // Toggle clicked item
+      if (!isActive) {
+        item.classList.add('active');
+      }
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,294 @@
+{% extends 'public_base.html' %}
+{% load static %}
+
+{% block title %}Video Gallery & Lectures · Sutawane Group Vaijapur{% endblock %}
+{% block meta_desc %}Watch concept masterclasses, MHT-CET & NEET strategy talks, topper student interview testimonials, and campus seminars from Sutawane Classes.{% endblock %}
+
+{% block content %}
+<!-- ==========================================================================
+     1. HERO HEADER WITH AMBIENT HALO
+     ========================================================================== -->
+<section class="modern-page-hero" id="top">
+  <!-- Atmospheric diffused glow halo -->
+  <div class="page-hero-halo" aria-hidden="true"></div>
+
+  <div class="modern-container">
+    <div class="modern-page-hero-wrap">
+      
+      <!-- Eyebrow Notification Pill -->
+      <a href="#videoGrid" class="hero-notification-pill">
+        <span class="pill-badge-indigo">MULTIMEDIA ARCHIVE</span>
+        <span class="pill-text-content">Concept Masterclasses &amp; Topper Success Stories</span>
+        <span class="pill-arrow-indicator">↓</span>
+      </a>
+
+      <!-- Page Title -->
+      <h1 class="modern-page-title">
+        Knowledge in Motion.<br>
+        <span class="gradient-text-indigo">Watch How Toppers Think &amp; Conquer.</span>
+      </h1>
+
+      <!-- Subtitle Description -->
+      <p class="modern-page-desc">
+        Watch high-yield lecture demonstrations, speed-boosting numerical shortcuts, inspirational state ranker testimonials, and expert examination seminars delivered by the faculty of Sutawane Classes.
+      </p>
+
+      <!-- Category Filter Pills Bar -->
+      <div class="modern-filter-bar">
+        <button type="button" class="modern-filter-btn active" data-video-filter="all">All Videos</button>
+        <button type="button" class="modern-filter-btn" data-video-filter="topper">Topper Interviews</button>
+        <button type="button" class="modern-filter-btn" data-video-filter="lecture">Concept Masterclasses</button>
+        <button type="button" class="modern-filter-btn" data-video-filter="seminar">Seminars &amp; Motivation</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     2. MODERN VIDEOS GRID SECTION
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0;padding-bottom:5.5rem;">
+  <div class="modern-container">
+    <div class="modern-videos-grid" id="videoGrid">
+
+      <!-- Video 1: Topper Interview -->
+      <div class="modern-video-card" data-cat="topper" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'How I Scored 99.82%ile in MHT-CET & Secured COEP Pune')">
+        <div class="video-thumb-container">
+          <span class="video-card-badge">Topper Journey</span>
+          <img class="video-card-thumb" src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Topper Interview">
+          <div class="video-play-orb">▶</div>
+          <span class="video-duration-pill">⏱ 14:20</span>
+        </div>
+        <div class="video-card-body">
+          <div>
+            <h3 class="video-card-title">How I Scored 99.82%ile in MHT-CET &amp; Secured COEP Pune</h3>
+            <div class="video-speaker-tag">
+              <span>🎓</span>
+              <span>Speaker: Pooja Deshmukh (Batch 2024)</span>
+            </div>
+          </div>
+          <div class="video-action-strip">
+            <span>Watch Full Testimonial</span>
+            <span>→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video 2: Physics Masterclass -->
+      <div class="modern-video-card" data-cat="lecture" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Rotational Dynamics: Solving Hard Moment of Inertia Numericals in 30 Sec')">
+        <div class="video-thumb-container">
+          <span class="video-card-badge">Physics Masterclass</span>
+          <img class="video-card-thumb" src="https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Physics Masterclass">
+          <div class="video-play-orb">▶</div>
+          <span class="video-duration-pill">⏱ 28:45</span>
+        </div>
+        <div class="video-card-body">
+          <div>
+            <h3 class="video-card-title">Rotational Dynamics: Solving Hard Moment of Inertia Numericals in 30 Sec</h3>
+            <div class="video-speaker-tag">
+              <span>👨‍🏫</span>
+              <span>Faculty: Prof. S. R. Sutawane (18+ Yrs Exp.)</span>
+            </div>
+          </div>
+          <div class="video-action-strip">
+            <span>Watch Lecture Masterclass</span>
+            <span>→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video 3: Medical Ranker -->
+      <div class="modern-video-card" data-cat="topper" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'From Average Student to GMC Aurangabad MBBS: My NEET Journey')">
+        <div class="video-thumb-container">
+          <span class="video-card-badge">Medical Ranker</span>
+          <img class="video-card-thumb" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="NEET Topper">
+          <div class="video-play-orb">▶</div>
+          <span class="video-duration-pill">⏱ 18:10</span>
+        </div>
+        <div class="video-card-body">
+          <div>
+            <h3 class="video-card-title">From Average Student to GMC Aurangabad MBBS: My NEET Journey</h3>
+            <div class="video-speaker-tag">
+              <span>🩺</span>
+              <span>Speaker: Rahul Shinde (NEET Score: 655/720)</span>
+            </div>
+          </div>
+          <div class="video-action-strip">
+            <span>Watch Preparation Journey</span>
+            <span>→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video 4: Chemistry Masterclass -->
+      <div class="modern-video-card" data-cat="lecture" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Aldehydes & Ketones: Complete Named Reactions Roadmap')">
+        <div class="video-thumb-container">
+          <span class="video-card-badge">Chemistry Masterclass</span>
+          <img class="video-card-thumb" src="https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Chemistry Demo">
+          <div class="video-play-orb">▶</div>
+          <span class="video-duration-pill">⏱ 22:15</span>
+        </div>
+        <div class="video-card-body">
+          <div>
+            <h3 class="video-card-title">Aldehydes &amp; Ketones: Complete Named Reactions Roadmap</h3>
+            <div class="video-speaker-tag">
+              <span>👨‍🏫</span>
+              <span>Faculty: Dr. K. M. Joshi (M.Sc., Ph.D. Chemistry)</span>
+            </div>
+          </div>
+          <div class="video-action-strip">
+            <span>Watch Concept Masterclass</span>
+            <span>→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video 5: Motivational Seminar -->
+      <div class="modern-video-card" data-cat="seminar" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Mastering Examination Pressure: How State Rankers Think Under Stress')">
+        <div class="video-thumb-container">
+          <span class="video-card-badge">Motivation &amp; Strategy</span>
+          <img class="video-card-thumb" src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Motivational Seminar">
+          <div class="video-play-orb">▶</div>
+          <span class="video-duration-pill">⏱ 34:50</span>
+        </div>
+        <div class="video-card-body">
+          <div>
+            <h3 class="video-card-title">Mastering Examination Pressure: How State Rankers Think Under Stress</h3>
+            <div class="video-speaker-tag">
+              <span>🎙️</span>
+              <span>Keynote: Prof. Sutawane at Annual Conclave</span>
+            </div>
+          </div>
+          <div class="video-action-strip">
+            <span>Watch Full Keynote</span>
+            <span>→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video 6: Foundation Math -->
+      <div class="modern-video-card" data-cat="lecture" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Circle Geometry & Similarity Theorems: Never Lose a Single Mark')">
+        <div class="video-thumb-container">
+          <span class="video-card-badge">Foundation Math</span>
+          <img class="video-card-thumb" src="https://images.unsplash.com/photo-1596495578065-6e0763fa1178?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Math Shortcuts">
+          <div class="video-play-orb">▶</div>
+          <span class="video-duration-pill">⏱ 19:30</span>
+        </div>
+        <div class="video-card-body">
+          <div>
+            <h3 class="video-card-title">Circle Geometry &amp; Similarity Theorems: Never Lose a Single Mark</h3>
+            <div class="video-speaker-tag">
+              <span>👨‍🏫</span>
+              <span>Faculty: Prof. V. N. Kulkarni (B.E., M.Tech)</span>
+            </div>
+          </div>
+          <div class="video-action-strip">
+            <span>Watch Proof Masterclass</span>
+            <span>→</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     3. HIGH-PERFORMANCE VIDEO PLAYER MODAL
+     ========================================================================== -->
+<div class="modern-video-modal-overlay" id="modernVideoModal" role="dialog" aria-modal="true" aria-label="Video Player">
+  <div class="modern-video-modal-dialog">
+    
+    <!-- Modal Header -->
+    <div class="video-modal-header">
+      <h4 class="video-modal-title" id="modernVideoTitle">Lecture Video</h4>
+      <button type="button" class="video-modal-close" onclick="closeModernVideo()" aria-label="Close video player">×</button>
+    </div>
+
+    <!-- 16:9 Video Player Stage -->
+    <div class="video-modal-stage">
+      <iframe 
+        id="modernVideoFrame" 
+        src="" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        allowfullscreen>
+      </iframe>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="video-modal-footer">
+      <span style="font-size:0.8rem;color:#94A3B8;">
+        ✦ Sutawane Group of Education · Digital Video Archive
+      </span>
+      <button type="button" class="btn-taskharbor-primary" style="padding:0.5rem 1.25rem;font-size:0.825rem;" onclick="openInquiryModal(); closeModernVideo();">
+        <span>Book Free 3-Day Demo Class</span>
+        <span class="btn-pill-arrow">→</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Video Modal Player Controls
+  const videoModalOverlay = document.getElementById('modernVideoModal');
+  const videoIframe = document.getElementById('modernVideoFrame');
+  const videoTitleElem = document.getElementById('modernVideoTitle');
+
+  function openModernVideo(url, title) {
+    if (videoModalOverlay && videoIframe) {
+      videoIframe.src = url;
+      videoTitleElem.textContent = title || 'Lecture Masterclass';
+      videoModalOverlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeModernVideo() {
+    if (videoModalOverlay && videoIframe) {
+      videoModalOverlay.classList.remove('active');
+      videoIframe.src = '';
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Backdrop click to close
+  if (videoModalOverlay) {
+    videoModalOverlay.addEventListener('click', (e) => {
+      if (e.target === videoModalOverlay) closeModernVideo();
+    });
+  }
+
+  // Escape key to close
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && videoModalOverlay && videoModalOverlay.classList.contains('active')) {
+      closeModernVideo();
+    }
+  });
+
+  // Client-Side Video Category Filter Logic
+  document.querySelectorAll('[data-video-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-video-filter]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filter = btn.getAttribute('data-video-filter');
+      const cards = document.querySelectorAll('.modern-video-card');
+
+      cards.forEach(card => {
+        if (filter === 'all' || card.getAttribute('data-cat') === filter) {
+          card.style.display = 'flex';
+          setTimeout(() => { card.style.opacity = '1'; card.style.transform = ''; }, 10);
+        } else {
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.96)';
+          setTimeout(() => { card.style.display = 'none'; }, 200);
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

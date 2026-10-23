@@ -25,6 +25,8 @@ from .export_theme import (
     build_executive_pdf_header,
     ExecutiveLandscapeCanvas,
     format_excel_worksheet,
+    FONT_FAMILY,
+    FONT_FAMILY_BOLD,
 )
 
 
@@ -299,13 +301,13 @@ def export_dues_to_pdf(dues_list, meta=None):
     date_str = meta.get('date_str') or datetime.now().strftime("%d %b %Y, %I:%M %p")
 
     styles = getSampleStyleSheet()
-    cell_normal = ParagraphStyle('CellNorm', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
-    cell_bold = ParagraphStyle('CellBld', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
-    cell_green = ParagraphStyle('CellGrn', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_GREEN_PAID), alignment=2)
-    cell_red = ParagraphStyle('CellRed', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_RED_PENDING), alignment=2)
-    cell_fee = ParagraphStyle('CellFee', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT), alignment=2)
-    cell_center = ParagraphStyle('CellCtr', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, alignment=1)
-    cell_status = ParagraphStyle('CellStat', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#2563EB'), alignment=1)
+    cell_normal = ParagraphStyle('CellNorm', parent=styles['Normal'], fontName=FONT_FAMILY, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
+    cell_bold = ParagraphStyle('CellBld', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
+    cell_green = ParagraphStyle('CellGrn', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_GREEN_PAID), alignment=2)
+    cell_red = ParagraphStyle('CellRed', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_RED_PENDING), alignment=2)
+    cell_fee = ParagraphStyle('CellFee', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT), alignment=2)
+    cell_center = ParagraphStyle('CellCtr', parent=styles['Normal'], fontName=FONT_FAMILY, fontSize=8, leading=10, alignment=1)
+    cell_status = ParagraphStyle('CellStat', parent=styles['Normal'], fontName=FONT_FAMILY_BOLD, fontSize=7.5, leading=9, textColor=colors.HexColor('#2563EB'), alignment=1)
 
     story = []
 
@@ -314,6 +316,7 @@ def export_dues_to_pdf(dues_list, meta=None):
         'institute_name': meta.get('institute_name') or 'SUTAWANE CLASSES VAIJAPUR',
         'branch_name': branch_name,
         'session_name': session_name,
+        'branch_logo': meta.get('branch_logo'),
         'date_str': date_str,
         'records_count': len(dues_list),
     }
@@ -334,9 +337,9 @@ def export_dues_to_pdf(dues_list, meta=None):
             "Branch",
             "Phone",
             "Due Date",
-            "Session Fee",
-            "Amount Paid",
-            "Balance Due (INR)",
+            "Session Fee (Rs.)",
+            "Amount Paid (Rs.)",
+            "Balance Due (Rs.)",
             "Status"
         ]
     ]
@@ -362,31 +365,30 @@ def export_dues_to_pdf(dues_list, meta=None):
             Paragraph(str(d.get('branch_name', '—')), cell_normal),
             Paragraph(str(d.get('parent_phone', '—')), cell_center),
             Paragraph(str(d.get('due_date_formatted', '—')), cell_center),
-            Paragraph(f"{int(f_amt):,}", cell_fee),
-            Paragraph(f"{int(p_amt):,}", cell_green),
-            Paragraph(f"{int(b_amt):,}", cell_red),
+            Paragraph(format_currency_inr(f_amt), cell_fee),
+            Paragraph(format_currency_inr(p_amt), cell_green),
+            Paragraph(format_currency_inr(b_amt), cell_red),
             Paragraph(str(d.get('status', 'DUE')), cell_status),
         ])
 
     # 3. Totals Row
     table_data.append([
-        "",
         Paragraph(f"<b>TOTALS ({len(dues_list)} accounts)</b>", cell_bold),
-        "", "", "", "", "",
-        Paragraph(f"<b>{int(total_fee):,}</b>", cell_fee),
-        Paragraph(f"<b>{int(total_paid):,}</b>", cell_green),
-        Paragraph(f"<b>{int(total_balance):,}</b>", cell_red),
+        "", "", "", "", "", "",
+        Paragraph(f"<b>{format_currency_inr(total_fee)}</b>", cell_fee),
+        Paragraph(f"<b>{format_currency_inr(total_paid)}</b>", cell_green),
+        Paragraph(f"<b>{format_currency_inr(total_balance)}</b>", cell_red),
         "",
     ])
 
-    # Table Column Widths (Sum = 804 points, fits Landscape A4)
-    col_widths = [24, 134, 66, 62, 114, 76, 66, 76, 70, 76, 44]
+    # Table Column Widths (Sum = 802 points, fits Landscape A4)
+    col_widths = [22, 130, 65, 60, 110, 75, 65, 75, 70, 80, 50]
 
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), FONT_FAMILY_BOLD),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 5.5),
         ('TOPPADDING', (0, 0), (-1, 0), 5.5),
@@ -400,6 +402,7 @@ def export_dues_to_pdf(dues_list, meta=None):
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
         ('TOPPADDING', (0, 1), (-1, -1), 4.5),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 4.5),
+        ('SPAN', (0, -1), (6, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.25, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('LINEBELOW', (0, -1), (-1, -1), 1.25, colors.HexColor(COLOR_NAVY_PRIMARY)),

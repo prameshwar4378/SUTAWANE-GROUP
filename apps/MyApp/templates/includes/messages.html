@@ -1,32 +1,234 @@
-{% if messages %}
-<div class="px-6 pt-4 space-y-2">
-  {% for message in messages %}
-    <div
-      class="p-3.5 rounded-lg border flex items-center justify-between text-xs font-medium shadow-xs transition-all animate-in fade-in
-        {% if message.tags == 'success' %}
-          bg-emerald-50 text-emerald-800 border-emerald-200
-        {% elif message.tags == 'error' %}
-          bg-rose-50 text-rose-800 border-rose-200
-        {% elif message.tags == 'warning' %}
-          bg-amber-50 text-amber-800 border-amber-200
-        {% else %}
-          bg-blue-50 text-blue-800 border-blue-200
-        {% endif %}"
-    >
-      <div class="flex items-center gap-2">
-        {% if message.tags == 'success' %}
-          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
-        {% elif message.tags == 'error' %}
-          <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
-        {% else %}
-          <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
-        {% endif %}
-        <span>{{ message }}</span>
+{% load static %}
+<!-- Top-Right Floating Toast Notification Stack -->
+<div
+  id="toast-container"
+  class="fixed flex flex-col gap-2.5 max-w-sm w-[calc(100%-2rem)] sm:w-96 pointer-events-none select-none no-print"
+  style="position: fixed !important; top: 5.25rem !important; right: 1.25rem !important; z-index: 99999 !important;"
+  aria-live="polite"
+>
+  {% if messages %}
+    {% for message in messages %}
+      <div
+        class="toast-item pointer-events-auto bg-card/95 backdrop-blur-md border rounded-xl shadow-lg p-3.5 flex items-start gap-3 transition-all duration-300 ease-out transform translate-x-0 opacity-100 relative overflow-hidden group
+          {% if message.tags == 'success' %}
+            border-emerald-500/40 text-foreground
+          {% elif message.tags == 'error' %}
+            border-rose-500/40 text-foreground
+          {% elif message.tags == 'warning' %}
+            border-amber-500/40 text-foreground
+          {% else %}
+            border-blue-500/40 text-foreground
+          {% endif %}"
+        data-toast-type="{{ message.tags|default:'info' }}"
+      >
+        <!-- Icon Badge -->
+        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5
+          {% if message.tags == 'success' %}
+            bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400
+          {% elif message.tags == 'error' %}
+            bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400
+          {% elif message.tags == 'warning' %}
+            bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400
+          {% else %}
+            bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400
+          {% endif %}"
+        >
+          {% if message.tags == 'success' %}
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          {% elif message.tags == 'error' %}
+            <i data-lucide="alert-circle" class="w-4 h-4"></i>
+          {% elif message.tags == 'warning' %}
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+          {% else %}
+            <i data-lucide="info" class="w-4 h-4"></i>
+          {% endif %}
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 min-w-0 pr-2">
+          <p class="text-xs font-semibold leading-tight text-foreground">
+            {% if message.tags == 'success' %}
+              Success
+            {% elif message.tags == 'error' %}
+              Error
+            {% elif message.tags == 'warning' %}
+              Notice
+            {% else %}
+              Notification
+            {% endif %}
+          </p>
+          <p class="text-xs text-muted-foreground mt-0.5 leading-relaxed break-words font-medium">
+            {{ message }}
+          </p>
+        </div>
+
+        <!-- Close Button -->
+        <button
+          type="button"
+          onclick="dismissToast(this.closest('.toast-item'))"
+          class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/60 transition-colors cursor-pointer flex-shrink-0"
+          title="Dismiss notification"
+        >
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+
+        <!-- Progress Bar Indicator -->
+        <div
+          class="toast-progress absolute bottom-0 left-0 h-1 transition-all
+            {% if message.tags == 'success' %}
+              bg-emerald-500
+            {% elif message.tags == 'error' %}
+              bg-rose-500
+            {% elif message.tags == 'warning' %}
+              bg-amber-500
+            {% else %}
+              bg-blue-500
+            {% endif %}"
+          style="width: 100%;"
+        ></div>
       </div>
-      <button type="button" onclick="this.parentElement.remove()" class="opacity-70 hover:opacity-100">
+    {% endfor %}
+  {% endif %}
+</div>
+
+<script>
+  // Dismiss a toast with smooth slide-out and fade-out animation
+  function dismissToast(toastEl) {
+    if (!toastEl || toastEl.dataset.dismissing === 'true') return;
+    toastEl.dataset.dismissing = 'true';
+    toastEl.classList.remove('translate-x-0', 'opacity-100');
+    toastEl.classList.add('translate-x-full', 'opacity-0', 'scale-95');
+    setTimeout(() => {
+      toastEl.remove();
+    }, 320);
+  }
+
+  // Initialize countdown and hover pause on a toast item
+  function initToast(toastEl, duration = 4500) {
+    if (!toastEl || toastEl.dataset.initialized === 'true') return;
+    toastEl.dataset.initialized = 'true';
+    const progressBar = toastEl.querySelector('.toast-progress');
+    let remainingTime = duration;
+    let timerId = null;
+    let isPaused = false;
+    let animFrameId = null;
+
+    function updateProgress() {
+      if (!isPaused && progressBar) {
+        const pct = Math.max(0, (remainingTime / duration) * 100);
+        progressBar.style.width = pct + '%';
+      }
+      if (remainingTime > 0) {
+        animFrameId = requestAnimationFrame(updateProgress);
+      }
+    }
+
+    function startTimer() {
+      timerId = setInterval(() => {
+        if (!isPaused) {
+          remainingTime -= 50;
+          if (remainingTime <= 0) {
+            clearInterval(timerId);
+            cancelAnimationFrame(animFrameId);
+            dismissToast(toastEl);
+          }
+        }
+      }, 50);
+      animFrameId = requestAnimationFrame(updateProgress);
+    }
+
+    toastEl.addEventListener('mouseenter', () => {
+      isPaused = true;
+    });
+
+    toastEl.addEventListener('mouseleave', () => {
+      isPaused = false;
+    });
+
+    startTimer();
+  }
+
+  // Global programmatic showToast helper for frontend JS and HTMX
+  window.showToast = function (message, type = 'success', duration = 4500, title = null) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      container.className = 'fixed flex flex-col gap-2.5 max-w-sm w-[calc(100%-2rem)] sm:w-96 pointer-events-none select-none no-print';
+      container.style.cssText = 'position: fixed !important; top: 5.25rem !important; right: 1.25rem !important; z-index: 99999 !important;';
+      document.body.appendChild(container);
+    }
+
+    const typeConfig = {
+      success: {
+        border: 'border-emerald-500/40',
+        badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400',
+        icon: 'check-circle-2',
+        bar: 'bg-emerald-500',
+        defaultTitle: 'Success',
+      },
+      error: {
+        border: 'border-rose-500/40',
+        badge: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400',
+        icon: 'alert-circle',
+        bar: 'bg-rose-500',
+        defaultTitle: 'Error',
+      },
+      warning: {
+        border: 'border-amber-500/40',
+        badge: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400',
+        icon: 'alert-triangle',
+        bar: 'bg-amber-500',
+        defaultTitle: 'Notice',
+      },
+      info: {
+        border: 'border-blue-500/40',
+        badge: 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400',
+        icon: 'info',
+        bar: 'bg-blue-500',
+        defaultTitle: 'Notification',
+      },
+    };
+
+    const cfg = typeConfig[type] || typeConfig.info;
+    const headerTitle = title || cfg.defaultTitle;
+
+    const toast = document.createElement('div');
+    toast.className = `toast-item pointer-events-auto bg-card/95 backdrop-blur-md border rounded-xl shadow-lg p-3.5 flex items-start gap-3 transition-all duration-300 ease-out transform translate-x-full opacity-0 relative overflow-hidden group ${cfg.border} text-foreground`;
+    toast.dataset.toastType = type;
+
+    toast.innerHTML = `
+      <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.badge}">
+        <i data-lucide="${cfg.icon}" class="w-4 h-4"></i>
+      </div>
+      <div class="flex-1 min-w-0 pr-2">
+        <p class="text-xs font-semibold leading-tight text-foreground">${headerTitle}</p>
+        <p class="text-xs text-muted-foreground mt-0.5 leading-relaxed break-words font-medium">${message}</p>
+      </div>
+      <button type="button" onclick="dismissToast(this.closest('.toast-item'))" class="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/60 transition-colors cursor-pointer flex-shrink-0" title="Dismiss notification">
         <i data-lucide="x" class="w-3.5 h-3.5"></i>
       </button>
-    </div>
-  {% endfor %}
-</div>
-{% endif %}
+      <div class="toast-progress absolute bottom-0 left-0 h-1 transition-all ${cfg.bar}" style="width: 100%;"></div>
+    `;
+
+    container.appendChild(toast);
+    if (window.lucide) {
+      lucide.createIcons({ root: toast });
+    }
+
+    // Trigger slide-in transition
+    requestAnimationFrame(() => {
+      toast.classList.remove('translate-x-full', 'opacity-0');
+      toast.classList.add('translate-x-0', 'opacity-100');
+    });
+
+    initToast(toast, duration);
+  };
+
+  // Initialize server-rendered Django toasts on page load
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.toast-item').forEach((t) => {
+      initToast(t, 4500);
+    });
+  });
+</script>

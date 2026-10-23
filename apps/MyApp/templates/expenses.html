@@ -19,6 +19,17 @@
 
     <!-- Global Action Toolbar -->
     <div class="flex items-center gap-2">
+      <!-- Manage Categories Button -->
+      <button
+        type="button"
+        onclick="openManageCategoriesModal()"
+        class="inline-flex items-center gap-1.5 text-xs h-9 px-3.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+        title="Add, rename or delete overhead expense categories"
+      >
+        <i data-lucide="tags" class="w-4 h-4 text-primary"></i>
+        <span>Manage Categories</span>
+      </button>
+
       <!-- Add Expense Voucher Button -->
       <button
         type="button"
@@ -134,8 +145,8 @@
     >
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         <!-- Search Input with Clear Button -->
-        <div class="relative">
-          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground pointer-events-none"></i>
+        <div class="relative flex items-center">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
           <input
             type="text"
             id="expenseSearchInput"
@@ -147,7 +158,7 @@
           {% if filters.q %}
             <a
               href="?{% for k, v in filters.items %}{% if k != 'q' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}"
-              class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
               title="Clear search"
             >
               <i data-lucide="x" class="w-4 h-4"></i>
@@ -253,22 +264,10 @@
       <!-- Hidden sort inputs to preserve sorting -->
       <input type="hidden" name="sort" value="{{ filters.sort|default:'expenseDate' }}">
       <input type="hidden" name="direction" value="{{ filters.direction|default:'desc' }}">
+      <input type="hidden" name="page_size" id="hiddenFilterPageSize" value="{{ filters.page_size|default:25 }}">
 
-      <!-- Tertiary Filter & Reset Controls -->
-      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t text-xs">
-        <div class="flex items-center gap-2">
-          <span class="text-muted-foreground font-medium">Page Size:</span>
-          <select
-            name="page_size"
-            class="h-7 bg-background border rounded px-2 text-xs font-medium focus:outline-none cursor-pointer"
-          >
-            <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
-            <option value="25" {% if filters.page_size == 25 or not filters.page_size %}selected{% endif %}>25 per page</option>
-            <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
-          </select>
-        </div>
-
-        {% if has_active_filters %}
+      {% if has_active_filters %}
+      <div class="flex items-center justify-end gap-2 pt-2 border-t text-xs">
         <a
           href="{% url 'expenses_list' %}"
           class="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 font-medium hover:underline cursor-pointer"
@@ -276,8 +275,8 @@
           <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
           <span>Reset All Filters</span>
         </a>
-        {% endif %}
       </div>
+      {% endif %}
     </form>
   </div>
 
@@ -293,6 +292,21 @@
 
       <!-- Corner Table Action Toolbar -->
       <div class="flex flex-wrap items-center gap-2">
+        <!-- Page Size Selector: Visible Left of the Columns Button -->
+        <div class="flex items-center gap-1.5 text-xs mr-0.5">
+          <label for="tablePageSizeSelect" class="text-xs text-muted-foreground font-medium whitespace-nowrap">Page Size:</label>
+          <select
+            id="tablePageSizeSelect"
+            class="h-8 bg-background border border-input rounded-md px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-2xs"
+            onchange="updatePageSize(this.value)"
+          >
+            <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
+            <option value="25" {% if filters.page_size == 25 or not filters.page_size %}selected{% endif %}>25 per page</option>
+            <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
+            <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100 per page</option>
+          </select>
+        </div>
+
         <!-- Column Visibility Toggle Button -->
         <button
           type="button"
@@ -335,7 +349,7 @@
 <!-- ========================================================================= -->
 
 <!-- 1. Add / Edit Expense Voucher Modal -->
-<div id="expenseModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+<div id="expenseModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeExpenseModal();">
   <div class="bg-background border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
     <form method="POST" action="{% url 'expenses_list' %}" enctype="multipart/form-data">
       {% csrf_token %}
@@ -387,6 +401,15 @@
           <div class="space-y-1">
             <div class="flex items-center justify-between">
               <label class="font-semibold text-foreground">Category *</label>
+              <button
+                type="button"
+                onclick="openManageCategoriesModal()"
+                class="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                title="Manage expense categories"
+              >
+                <i data-lucide="settings-2" class="w-3 h-3"></i>
+                <span>Manage</span>
+              </button>
             </div>
             <!-- Category Selector with New Category Typing support -->
             <select
@@ -531,7 +554,7 @@
 </div>
 
 <!-- 2. Bill Attachment Viewer Modal -->
-<div id="attachmentViewerModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+<div id="attachmentViewerModal" class="fixed inset-0 z-70 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="z-index: 70 !important; background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeAttachmentModal();">
   <div class="bg-background border rounded-xl shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
     <div class="py-3 px-4 bg-muted/30 border-b flex items-center justify-between">
       <h3 class="text-sm font-bold text-foreground flex items-center gap-2">
@@ -570,7 +593,7 @@
 </div>
 
 <!-- 3. Delete Expense Confirmation Modal -->
-<div id="deleteExpenseModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+<div id="deleteExpenseModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeDeleteExpenseModal();">
   <div class="bg-background border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
     <form method="POST" action="{% url 'expenses_list' %}">
       {% csrf_token %}
@@ -606,8 +629,270 @@
   </div>
 </div>
 
-<!-- 4. Column Visibility Customization Dialog -->
-<div id="columnModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+<!-- 4. Manage Expense Categories Modal Dialog -->
+<div id="manageCategoriesModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeManageCategoriesModal();">
+  <div class="bg-background border rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+    <!-- Modal Header -->
+    <div class="py-4 px-6 bg-muted/30 border-b flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+          <i data-lucide="tags" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-foreground">Manage Expense Categories</h3>
+          <p class="text-xs text-muted-foreground mt-0.5">Add new categories, inline-edit existing names, or view voucher usage.</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeManageCategoriesModal()" class="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer" title="Close modal">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Alert / Toast Message Banner in Modal -->
+    <div id="catModalAlert" class="mx-6 mt-4 p-3 rounded-xl text-xs font-semibold hidden"></div>
+
+    <!-- Quick Add Category Form -->
+    <div class="p-6 pb-4 border-b flex-shrink-0 bg-card">
+      <label class="block text-xs font-bold text-foreground mb-2">Create New Category</label>
+      <form id="addNewCategoryForm" onsubmit="handleAddNewCategory(event)" class="flex items-center gap-2.5">
+        <div class="relative flex-1 flex items-center">
+          <i data-lucide="tag" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+          <input
+            type="text"
+            id="modalNewCategoryInput"
+            placeholder="Type new category name (e.g. Office Supplies, Computer Lab, Postage)..."
+            required
+            autocomplete="off"
+            class="w-full pl-9 pr-3.5 h-10 text-xs rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-xs font-medium"
+          />
+        </div>
+        <button
+          type="submit"
+          id="modalAddCategoryBtn"
+          class="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+        >
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Add Category</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Search / Filter & Categories List Table (Scrollable) -->
+    <div class="p-6 pt-4 overflow-y-auto space-y-3.5 flex-1">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Existing Categories</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground font-mono" id="catTotalCountBadge">
+            {{ categories|length }}
+          </span>
+        </div>
+        <div class="relative w-64 flex items-center">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+          <input
+            type="text"
+            id="catSearchFilterInput"
+            oninput="filterCategoriesTable(this.value)"
+            placeholder="Search categories..."
+            class="w-full pl-9 pr-3 h-8.5 text-xs rounded-lg border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+          />
+        </div>
+      </div>
+
+      <!-- Categories Table -->
+      <div class="border border-border rounded-xl overflow-hidden shadow-2xs bg-card">
+        <table class="w-full text-xs text-left">
+          <thead class="bg-muted/60 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b">
+            <tr>
+              <th class="py-3 px-3.5 w-12 text-center">#</th>
+              <th class="py-3 px-4 text-left">Category Name</th>
+              <th class="py-3 px-4 text-center">Recorded Expenses</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="manageCategoriesTableBody" class="divide-y divide-border">
+            {% for c in categories %}
+            <tr id="cat-row-{{ c.id }}" data-id="{{ c.id }}" data-name="{{ c.name }}" data-count="{{ c.expense_count }}" data-total="{{ c.expense_total|default:0 }}" class="hover:bg-muted/30 transition-colors">
+              <td class="py-3 px-3.5 text-center font-mono text-muted-foreground text-[11px] cat-row-index">{{ forloop.counter }}</td>
+              <td class="py-3 px-4" id="cat-name-cell-{{ c.id }}">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-semibold text-foreground text-xs cat-display-name">{{ c.name }}</span>
+                  {% if c.expense_count > 0 %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-muted text-muted-foreground border border-border/60" title="Total recorded spend: ₹{{ c.expense_total|default:0|floatformat:0 }}">
+                    ₹{{ c.expense_total|default:0|floatformat:0 }}
+                  </span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="py-3 px-4 text-center" id="cat-count-cell-{{ c.id }}">
+                {% if c.expense_count > 0 %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20" title="Protected: Category cannot be deleted while vouchers exist">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span>{{ c.expense_count }} voucher{{ c.expense_count|pluralize }}</span>
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium text-muted-foreground bg-muted/60 border border-border/60">
+                  0 vouchers (Unused)
+                </span>
+                {% endif %}
+              </td>
+              <td class="py-3 px-4 text-right" id="cat-actions-cell-{{ c.id }}">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onclick="startEditCategory('{{ c.id }}')"
+                    class="h-8 px-3 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Inline Edit / Rename Category"
+                  >
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+                    <span>Edit</span>
+                  </button>
+
+                  {% if c.expense_count > 0 %}
+                  <button
+                    type="button"
+                    onclick="showCannotDeleteWarning('{{ c.name|escapejs }}', {{ c.expense_count }}, '{{ c.expense_total|default:0|floatformat:0 }}', '{{ c.id }}')"
+                    class="h-8 px-3 text-xs font-semibold rounded-lg border border-border/50 bg-muted/40 text-muted-foreground/60 cursor-not-allowed inline-flex items-center gap-1.5 shadow-2xs"
+                    title="Protected: Cannot delete category with recorded vouchers"
+                  >
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500"></i>
+                    <span>Delete</span>
+                  </button>
+                  {% else %}
+                  <button
+                    type="button"
+                    onclick="openCategoryDeleteConfirmModal('{{ c.id }}', '{{ c.name|escapejs }}')"
+                    class="h-8 px-3 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Delete unused category"
+                  >
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <span>Delete</span>
+                  </button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr id="noCategoriesRow">
+              <td colspan="4" class="py-8 text-center text-xs text-muted-foreground">
+                No expense categories found. Add your first category using the form above.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="py-3.5 px-6 bg-muted/20 border-t flex items-center justify-between flex-shrink-0 text-xs text-muted-foreground">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+        <span>Categories with recorded expenses are protected from deletion to maintain accounting integrity.</span>
+      </div>
+      <button
+        type="button"
+        onclick="closeManageCategoriesModal()"
+        class="h-9 px-5 rounded-lg border bg-background hover:bg-muted text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Cannot Delete Category Warning Modal Dialog -->
+<div id="categoryDeleteWarningModal" class="fixed inset-0 z-70 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="z-index: 70 !important; background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeCategoryDeleteWarningModal();">
+  <div class="bg-background border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-6 space-y-4">
+    <div class="flex items-start gap-3.5">
+      <div class="w-11 h-11 rounded-2xl bg-amber-500/15 text-amber-600 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-base font-bold text-foreground">Cannot Delete Category</h3>
+        <p class="text-xs text-muted-foreground leading-relaxed" id="warningModalBody">
+          This category has recorded expense vouchers and cannot be removed.
+        </p>
+      </div>
+    </div>
+
+    <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-300 space-y-1.5">
+      <div class="font-bold flex items-center gap-1.5">
+        <i data-lucide="info" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+        <span>Accounting Policy Requirement</span>
+      </div>
+      <p class="text-[11px] leading-relaxed">
+        Deleting an in-use category would break historical expense registers, cash outflow reports, and financial audits. You may freely <strong>rename or update</strong> this category using the inline <strong>Edit</strong> button.
+      </p>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 pt-2 border-t">
+      <button
+        type="button"
+        onclick="closeCategoryDeleteWarningModal()"
+        class="h-9 px-4 rounded-lg border border-input bg-card hover:bg-accent text-xs font-semibold cursor-pointer transition-colors"
+      >
+        I Understand
+      </button>
+      <button
+        type="button"
+        id="warningModalRenameBtn"
+        class="h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+      >
+        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+        <span>Rename Category</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 5b. Professional Category Delete Confirmation Dialog -->
+<div id="categoryDeleteConfirmModal" class="fixed inset-0 z-70 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="z-index: 70 !important; background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeCategoryDeleteConfirmModal();">
+  <div class="bg-background border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-6 space-y-4">
+    <div class="flex items-start gap-3.5">
+      <div class="w-11 h-11 rounded-2xl bg-rose-500/15 text-rose-600 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="trash-2" class="w-6 h-6"></i>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-base font-bold text-foreground">Delete Expense Category</h3>
+        <p class="text-xs text-muted-foreground leading-relaxed">
+          Are you sure you want to permanently delete category <strong id="confirmDeleteCatName" class="text-foreground font-bold"></strong>?
+        </p>
+      </div>
+    </div>
+
+    <div class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-900 dark:text-rose-300 space-y-1.5">
+      <div class="font-bold flex items-center gap-1.5">
+        <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 flex-shrink-0"></i>
+        <span>Permanent Removal</span>
+      </div>
+      <p class="text-[11px] leading-relaxed">
+        This category currently has <strong>0 recorded vouchers</strong>. Once deleted, it will be immediately removed from the categories master list and voucher entry dropdowns.
+      </p>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 pt-2 border-t">
+      <button
+        type="button"
+        onclick="closeCategoryDeleteConfirmModal()"
+        class="h-9 px-4 rounded-lg border border-input bg-card hover:bg-accent text-xs font-semibold cursor-pointer transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        id="confirmDeleteCategoryActionBtn"
+        onclick="executeCategoryDelete()"
+        class="h-9 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+      >
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        <span id="confirmDeleteCategoryBtnText">Delete Category</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 6. Column Visibility Customization Dialog -->
+<div id="columnModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeColumnModal();">
   <div class="bg-background border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
     <div class="py-3 px-4 bg-muted/30 border-b flex items-center justify-between">
       <h3 class="text-sm font-bold text-foreground flex items-center gap-2">
@@ -697,6 +982,22 @@
       newCatInput.classList.add('hidden');
       newCatInput.required = false;
       newCatInput.value = '';
+    }
+  }
+
+  // --- Table Page Size Controller ---
+  function updatePageSize(size) {
+    const hiddenInput = document.getElementById('hiddenFilterPageSize');
+    if (hiddenInput) {
+      hiddenInput.value = size;
+    }
+    const form = document.getElementById('expensesFilterForm');
+    if (form) {
+      if (window.htmx) {
+        htmx.trigger(form, 'change');
+      } else {
+        form.submit();
+      }
     }
   }
 
@@ -865,10 +1166,584 @@
     openColumnModal();
   }
 
+  // =========================================================================
+  // Category Management & Inline Row Editing Engine
+  // =========================================================================
+  const activeCategoryEditState = { currentId: null };
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeJs(str) {
+    if (!str) return '';
+    return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
+  }
+
+  function openManageCategoriesModal() {
+    const modal = document.getElementById('manageCategoriesModal');
+    if (!modal) return;
+    hideCatModalAlert();
+    const newCatInput = document.getElementById('modalNewCategoryInput');
+    if (newCatInput) newCatInput.value = '';
+    const filterInput = document.getElementById('catSearchFilterInput');
+    if (filterInput) {
+      filterInput.value = '';
+      filterCategoriesTable('');
+    }
+    modal.classList.remove('hidden');
+    lucide.createIcons();
+    if (newCatInput) setTimeout(() => newCatInput.focus(), 100);
+  }
+
+  function closeManageCategoriesModal() {
+    const modal = document.getElementById('manageCategoriesModal');
+    if (!modal) return;
+    if (activeCategoryEditState.currentId) {
+      cancelEditCategory(activeCategoryEditState.currentId);
+    }
+    modal.classList.add('hidden');
+  }
+
+  function showCatModalAlert(msg, type = 'info') {
+    const alertBox = document.getElementById('catModalAlert');
+    if (!alertBox) return;
+    alertBox.classList.remove('hidden', 'bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-800', 'dark:text-emerald-300', 'bg-rose-500/10', 'border-rose-500/20', 'text-rose-800', 'dark:text-rose-300', 'bg-amber-500/10', 'border-amber-500/20', 'text-amber-800', 'dark:text-amber-300');
+    if (type === 'success') {
+      alertBox.className = 'mx-6 mt-4 p-3 rounded-xl text-xs font-semibold border bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300 flex items-center gap-2';
+      alertBox.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i><span>${escapeHtml(msg)}</span>`;
+    } else if (type === 'error') {
+      alertBox.className = 'mx-6 mt-4 p-3 rounded-xl text-xs font-semibold border bg-rose-500/10 border-rose-500/20 text-rose-800 dark:text-rose-300 flex items-center gap-2';
+      alertBox.innerHTML = `<i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 flex-shrink-0"></i><span>${escapeHtml(msg)}</span>`;
+    } else {
+      alertBox.className = 'mx-6 mt-4 p-3 rounded-xl text-xs font-semibold border bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300 flex items-center gap-2';
+      alertBox.innerHTML = `<i data-lucide="info" class="w-4 h-4 text-blue-600 flex-shrink-0"></i><span>${escapeHtml(msg)}</span>`;
+    }
+    lucide.createIcons();
+    setTimeout(() => {
+      if (type === 'success') hideCatModalAlert();
+    }, 4000);
+  }
+
+  function hideCatModalAlert() {
+    const alertBox = document.getElementById('catModalAlert');
+    if (alertBox) alertBox.classList.add('hidden');
+  }
+
+  // --- Add Category Action ---
+  async function handleAddNewCategory(e) {
+    e.preventDefault();
+    const input = document.getElementById('modalNewCategoryInput');
+    const name = input.value.trim();
+    if (!name) return;
+
+    const btn = document.getElementById('modalAddCategoryBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Adding...</span>`;
+    lucide.createIcons();
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('action', 'create_category');
+    formData.append('category_name', name);
+
+    try {
+      const resp = await fetch("{% url 'expenses_list' %}", {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      });
+      const data = await resp.json();
+
+      if (data.success) {
+        input.value = '';
+        showCatModalAlert(data.message, 'success');
+        addCategoryRowToTable(data.category);
+        addCategoryOptionToDropdowns(data.category.id, data.category.name);
+        updateCategoryCountBadge();
+      } else {
+        showCatModalAlert(data.error || 'Failed to create category.', 'error');
+      }
+    } catch (err) {
+      showCatModalAlert('A network error occurred while adding the category.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i><span>Add Category</span>`;
+      lucide.createIcons();
+    }
+  }
+
+  function addCategoryRowToTable(cat) {
+    const tbody = document.getElementById('manageCategoriesTableBody');
+    const noRow = document.getElementById('noCategoriesRow');
+    if (noRow) noRow.remove();
+
+    const existingRows = tbody.querySelectorAll('tr[id^="cat-row-"]');
+    const newIndex = existingRows.length + 1;
+
+    const tr = document.createElement('tr');
+    tr.id = 'cat-row-' + cat.id;
+    tr.setAttribute('data-id', cat.id);
+    tr.setAttribute('data-name', cat.name);
+    tr.setAttribute('data-count', '0');
+    tr.setAttribute('data-total', '0');
+    tr.className = 'hover:bg-muted/30 transition-colors animate-in fade-in duration-200';
+
+    tr.innerHTML = `
+      <td class="py-3 px-3.5 text-center font-mono text-muted-foreground text-[11px] cat-row-index">${newIndex}</td>
+      <td class="py-3 px-4" id="cat-name-cell-${cat.id}">
+        <div class="flex items-center gap-2.5">
+          <span class="font-semibold text-foreground text-xs cat-display-name">${escapeHtml(cat.name)}</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">New</span>
+        </div>
+      </td>
+      <td class="py-3 px-4 text-center" id="cat-count-cell-${cat.id}">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium text-muted-foreground bg-muted/60 border border-border/60">
+          0 vouchers (Unused)
+        </span>
+      </td>
+      <td class="py-3 px-4 text-right" id="cat-actions-cell-${cat.id}">
+        <div class="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onclick="startEditCategory('${cat.id}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Inline Edit / Rename Category"
+          >
+            <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+            <span>Edit</span>
+          </button>
+          <button
+            type="button"
+            onclick="openCategoryDeleteConfirmModal('${cat.id}', '${escapeJs(cat.name)}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Delete unused category"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Delete</span>
+          </button>
+        </div>
+      </td>
+    `;
+
+    tbody.prepend(tr);
+    renumberTableRows();
+    lucide.createIcons();
+  }
+
+  // --- Inline Row Editing ---
+  function startEditCategory(catId) {
+    const row = document.getElementById('cat-row-' + catId);
+    if (!row) return;
+
+    if (activeCategoryEditState.currentId && activeCategoryEditState.currentId !== catId) {
+      cancelEditCategory(activeCategoryEditState.currentId);
+    }
+    activeCategoryEditState.currentId = catId;
+
+    const currentName = row.getAttribute('data-name');
+    const count = parseInt(row.getAttribute('data-count') || '0', 10);
+    const total = row.getAttribute('data-total') || '0';
+
+    const nameCell = document.getElementById('cat-name-cell-' + catId);
+    const actionsCell = document.getElementById('cat-actions-cell-' + catId);
+
+    nameCell.innerHTML = `
+      <div class="space-y-1">
+        <input
+          type="text"
+          id="cat-edit-input-${catId}"
+          value="${escapeHtml(currentName)}"
+          class="w-full h-8 px-3 text-xs font-semibold border-2 border-primary rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
+          onkeydown="handleCategoryEditKey(event, '${catId}')"
+        />
+        ${count > 0 ? `
+          <p class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+            <i data-lucide="alert-circle" class="w-3 h-3 flex-shrink-0"></i>
+            <span>Warning: Renaming updates across all ${count} recorded voucher(s).</span>
+          </p>
+        ` : ''}
+      </div>
+    `;
+
+    actionsCell.innerHTML = `
+      <div class="flex items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onclick="saveEditCategory('${catId}')"
+          class="h-8 px-3 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+          title="Save changes"
+        >
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Save</span>
+        </button>
+        <button
+          type="button"
+          onclick="cancelEditCategory('${catId}')"
+          class="h-8 px-3 text-xs font-medium rounded-lg border border-input bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+          title="Cancel editing"
+        >
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <span>Cancel</span>
+        </button>
+      </div>
+    `;
+
+    lucide.createIcons();
+    const input = document.getElementById('cat-edit-input-' + catId);
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function handleCategoryEditKey(e, catId) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEditCategory(catId);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEditCategory(catId);
+    }
+  }
+
+  async function saveEditCategory(catId) {
+    const input = document.getElementById('cat-edit-input-' + catId);
+    if (!input) return;
+    const newName = input.value.trim();
+    if (!newName) {
+      showCatModalAlert('Category name cannot be empty.', 'error');
+      input.focus();
+      return;
+    }
+
+    const row = document.getElementById('cat-row-' + catId);
+    const count = parseInt(row.getAttribute('data-count') || '0', 10);
+    const total = row.getAttribute('data-total') || '0';
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('action', 'update_category');
+    formData.append('category_id', catId);
+    formData.append('category_name', newName);
+
+    try {
+      const resp = await fetch("{% url 'expenses_list' %}", {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      });
+      const data = await resp.json();
+
+      if (data.success) {
+        row.setAttribute('data-name', data.category.name);
+        activeCategoryEditState.currentId = null;
+        renderCategoryRowView(catId, data.category.name, count, total);
+        syncCategoryOptionInDropdowns(catId, data.category.name);
+        showCatModalAlert(data.message, 'success');
+        if (typeof window.showToast === 'function') {
+          window.showToast(data.message, 'success');
+        }
+      } else {
+        showCatModalAlert(data.error || 'Failed to update category.', 'error');
+        if (typeof window.showToast === 'function') {
+          window.showToast(data.error || 'Failed to update category.', 'error');
+        }
+      }
+    } catch (err) {
+      showCatModalAlert('A network error occurred while updating the category.', 'error');
+    }
+  }
+
+  function cancelEditCategory(catId) {
+    const row = document.getElementById('cat-row-' + catId);
+    if (!row) return;
+    const name = row.getAttribute('data-name');
+    const count = parseInt(row.getAttribute('data-count') || '0', 10);
+    const total = row.getAttribute('data-total') || '0';
+
+    activeCategoryEditState.currentId = null;
+    renderCategoryRowView(catId, name, count, total);
+  }
+
+  function renderCategoryRowView(catId, name, count, total) {
+    const nameCell = document.getElementById('cat-name-cell-' + catId);
+    const actionsCell = document.getElementById('cat-actions-cell-' + catId);
+    if (!nameCell || !actionsCell) return;
+
+    nameCell.innerHTML = `
+      <div class="flex items-center gap-2.5">
+        <span class="font-semibold text-foreground text-xs cat-display-name">${escapeHtml(name)}</span>
+        ${count > 0 ? `
+          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-muted text-muted-foreground border border-border/60" title="Total recorded spend: ₹${Math.round(total || 0).toLocaleString('en-IN')}">
+            ₹${Math.round(total || 0).toLocaleString('en-IN')}
+          </span>
+        ` : ''}
+      </div>
+    `;
+
+    actionsCell.innerHTML = `
+      <div class="flex items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onclick="startEditCategory('${catId}')"
+          class="h-8 px-3 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          title="Inline Edit / Rename Category"
+        >
+          <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+          <span>Edit</span>
+        </button>
+
+        ${count > 0 ? `
+          <button
+            type="button"
+            onclick="showCannotDeleteWarning('${escapeJs(name)}', ${count}, '${Math.round(total || 0).toLocaleString('en-IN')}', '${catId}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-border/50 bg-muted/40 text-muted-foreground/60 cursor-not-allowed inline-flex items-center gap-1.5 shadow-2xs"
+            title="Protected: Cannot delete category with recorded vouchers"
+          >
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500"></i>
+            <span>Delete</span>
+          </button>
+        ` : `
+          <button
+            type="button"
+            onclick="openCategoryDeleteConfirmModal('${catId}', '${escapeJs(name)}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Delete unused category"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Delete</span>
+          </button>
+        `}
+      </div>
+    `;
+
+    lucide.createIcons();
+  }
+
+  // --- Professional Category Delete Dialog State & Handlers ---
+  let categoryPendingDeletion = null;
+
+  function openCategoryDeleteConfirmModal(catId, catName) {
+    categoryPendingDeletion = { id: catId, name: catName };
+    const labelEl = document.getElementById('confirmDeleteCatName');
+    if (labelEl) labelEl.textContent = `"${catName}"`;
+
+    const btn = document.getElementById('confirmDeleteCategoryActionBtn');
+    const btnText = document.getElementById('confirmDeleteCategoryBtnText');
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Delete Category';
+
+    const modal = document.getElementById('categoryDeleteConfirmModal');
+    if (modal) modal.classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function closeCategoryDeleteConfirmModal() {
+    const modal = document.getElementById('categoryDeleteConfirmModal');
+    if (modal) modal.classList.add('hidden');
+    categoryPendingDeletion = null;
+  }
+
+  async function executeCategoryDelete() {
+    if (!categoryPendingDeletion) return;
+    const catId = categoryPendingDeletion.id;
+    const catName = categoryPendingDeletion.name;
+
+    const btn = document.getElementById('confirmDeleteCategoryActionBtn');
+    const btnText = document.getElementById('confirmDeleteCategoryBtnText');
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Deleting...</span>`;
+    lucide.createIcons();
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('action', 'delete_category');
+    formData.append('category_id', catId);
+
+    try {
+      const resp = await fetch("{% url 'expenses_list' %}", {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      });
+      const data = await resp.json();
+
+      closeCategoryDeleteConfirmModal();
+
+      if (data.success) {
+        const row = document.getElementById('cat-row-' + catId);
+        if (row) {
+          row.style.opacity = '0';
+          setTimeout(() => {
+            row.remove();
+            renumberTableRows();
+            updateCategoryCountBadge();
+          }, 200);
+        }
+        removeCategoryOptionFromDropdowns(catId);
+        showCatModalAlert(data.message, 'success');
+        if (typeof window.showToast === 'function') {
+          window.showToast(data.message, 'success');
+        }
+      } else {
+        if (data.cannot_delete) {
+          showCannotDeleteWarning(catName, data.expense_count, '0', catId);
+        } else {
+          showCatModalAlert(data.error || 'Failed to delete category.', 'error');
+          if (typeof window.showToast === 'function') {
+            window.showToast(data.error || 'Failed to delete category.', 'error');
+          }
+        }
+      }
+    } catch (err) {
+      closeCategoryDeleteConfirmModal();
+      showCatModalAlert('A network error occurred while deleting the category.', 'error');
+      if (typeof window.showToast === 'function') {
+        window.showToast('A network error occurred while deleting the category.', 'error');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+      if (btnText) btnText.textContent = 'Delete Category';
+      lucide.createIcons();
+    }
+  }
+
+  // Alias for backward compatibility
+  function confirmDeleteCategory(catId, catName) {
+    openCategoryDeleteConfirmModal(catId, catName);
+  }
+
+  function showCannotDeleteWarning(catName, count, total, catId) {
+    const body = document.getElementById('warningModalBody');
+    body.innerHTML = `
+      The category <strong class="text-foreground">"${escapeHtml(catName)}"</strong> is currently linked to 
+      <strong class="text-rose-600 font-bold">${count} recorded expense voucher(s)</strong> (total spend: <strong>₹${total}</strong>).
+      <br><br>
+      To preserve historical accounting ledgers and prevent audit discrepancies, categories with existing expenses cannot be deleted.
+    `;
+    const renameBtn = document.getElementById('warningModalRenameBtn');
+    renameBtn.onclick = function() {
+      closeCategoryDeleteWarningModal();
+      startEditCategory(catId);
+    };
+    document.getElementById('categoryDeleteWarningModal').classList.remove('hidden');
+    lucide.createIcons();
+  }
+
+  function closeCategoryDeleteWarningModal() {
+    document.getElementById('categoryDeleteWarningModal').classList.add('hidden');
+  }
+
+  // --- Real-Time Select Dropdown Synchronizer ---
+  function addCategoryOptionToDropdowns(id, name) {
+    const expSelect = document.getElementById('expenseCategorySelect');
+    if (expSelect) {
+      const newOption = new Option(name, id);
+      const newPromptOpt = expSelect.querySelector('option[value="__NEW__"]');
+      if (newPromptOpt) {
+        expSelect.insertBefore(newOption, newPromptOpt);
+      } else {
+        expSelect.appendChild(newOption);
+      }
+      expSelect.value = id;
+    }
+
+    const filterSelect = document.querySelector('select[name="category_id"]');
+    if (filterSelect) {
+      const filterOpt = new Option(name, id);
+      filterSelect.appendChild(filterOpt);
+    }
+  }
+
+  function syncCategoryOptionInDropdowns(id, name) {
+    const options = document.querySelectorAll(`select[name="category_id"] option[value="${id}"], #expenseCategorySelect option[value="${id}"]`);
+    options.forEach(opt => {
+      opt.textContent = name;
+    });
+  }
+
+  function removeCategoryOptionFromDropdowns(id) {
+    const options = document.querySelectorAll(`select[name="category_id"] option[value="${id}"], #expenseCategorySelect option[value="${id}"]`);
+    options.forEach(opt => opt.remove());
+  }
+
+  function renumberTableRows() {
+    const rows = document.querySelectorAll('#manageCategoriesTableBody tr[id^="cat-row-"]');
+    rows.forEach((r, idx) => {
+      const indexCell = r.querySelector('.cat-row-index');
+      if (indexCell) indexCell.textContent = idx + 1;
+    });
+  }
+
+  function updateCategoryCountBadge() {
+    const rows = document.querySelectorAll('#manageCategoriesTableBody tr[id^="cat-row-"]');
+    const badge = document.getElementById('catTotalCountBadge');
+    if (badge) badge.textContent = rows.length;
+  }
+
+  function filterCategoriesTable(query) {
+    const q = query.toLowerCase().trim();
+    const rows = document.querySelectorAll('#manageCategoriesTableBody tr[id^="cat-row-"]');
+    let visibleCount = 0;
+    rows.forEach(r => {
+      const name = (r.getAttribute('data-name') || '').toLowerCase();
+      if (!q || name.includes(q)) {
+        r.classList.remove('hidden');
+        visibleCount++;
+      } else {
+        r.classList.add('hidden');
+      }
+    });
+  }
+
+  // Keyboard shortcuts (Escape key closes modals)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeAttachmentModal();
+      closeExpenseModal();
+      closeDeleteExpenseModal();
+      closeColumnModal();
+      const confirmModal = document.getElementById('categoryDeleteConfirmModal');
+      if (confirmModal && !confirmModal.classList.contains('hidden')) {
+        closeCategoryDeleteConfirmModal();
+        return;
+      }
+      const warnModal = document.getElementById('categoryDeleteWarningModal');
+      if (warnModal && !warnModal.classList.contains('hidden')) {
+        closeCategoryDeleteWarningModal();
+        return;
+      }
+      const manageModal = document.getElementById('manageCategoriesModal');
+      if (manageModal && !manageModal.classList.contains('hidden') && (!activeCategoryEditState || !activeCategoryEditState.currentId)) {
+        closeManageCategoriesModal();
+      }
+    }
+  });
+
   // Hook into initial page load and HTMX swaps
   document.addEventListener('DOMContentLoaded', () => {
     applyColumnVisibility();
     lucide.createIcons();
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'new') {
+      openCreateExpenseModal();
+    }
   });
 
   document.body.addEventListener('htmx:afterSwap', (evt) => {

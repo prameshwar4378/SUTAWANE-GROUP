@@ -142,27 +142,20 @@
         </div>
       </div>
 
-      <!-- Carry Forward Unpaid Balances Option -->
-      <div class="p-3 border rounded-lg bg-muted/40 space-y-2">
+      <!-- Independent Session Accounting Notice -->
+      <div class="p-3 border rounded-lg bg-muted/40 space-y-1.5">
         <div class="flex items-center justify-between">
-          <span class="font-semibold text-xs text-foreground">Unpaid Balances Carry Forward</span>
+          <span class="font-semibold text-xs text-foreground flex items-center gap-1.5">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-primary"></i>
+            <span>Independent Session Accounting</span>
+          </span>
           <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {% if total_dues_across_selected > 0 %}bg-amber-500/10 text-amber-700 border border-amber-500/20{% else %}bg-emerald-500/10 text-emerald-700 border border-emerald-500/20{% endif %}">
-            Total Dues: ₹{{ total_dues_across_selected|floatformat:0 }}
+            Total Prior Dues: ₹{{ total_dues_across_selected|floatformat:0 }}
           </span>
         </div>
-        <div class="flex items-center gap-2">
-          <input
-            type="checkbox"
-            name="carry_forward_dues"
-            id="batchCarryForwardCb"
-            value="true"
-            checked
-            class="w-4 h-4 rounded text-primary border-gray-300 focus:ring-primary cursor-pointer"
-          />
-          <label for="batchCarryForwardCb" class="font-medium text-xs text-foreground cursor-pointer select-none">
-            Automatically record previous session outstanding dues in PreviousSessionDue ledger
-          </label>
-        </div>
+        <p class="text-[11px] text-muted-foreground">
+          Existing fee balances remain preserved strictly within each student's current session admission. New session enrollments start cleanly without cross-session carry-forward debt.
+        </p>
       </div>
 
       <!-- Selected Students Preview Table -->

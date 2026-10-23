@@ -1,236 +1,372 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In | {{ institute_name|default:"Sutawane Classes" }}</title>
+  <title>Portal Sign In · {{ institute_name|default:"Sutawane Classes Vaijapur" }}</title>
   <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  
+  <!-- Plus Jakarta Sans Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Modern Light Portal Stylesheet with Cache Busting -->
+  <link rel="stylesheet" href="{% static 'css/modern_portal.css' %}?v=2.2">
   <script src="{% static 'js/lucide.min.js' %}"></script>
-  <script src="{% static 'js/app.js' %}" defer></script>
 </head>
-<body class="h-full bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50/40 text-foreground antialiased flex items-center justify-center p-4">
-  <div class="w-full max-w-md space-y-4">
-    <!-- Brand Header -->
-    <div class="text-center space-y-1.5">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white border border-slate-200/80 shadow-md p-1.5 mb-1 overflow-hidden">
-        {% if active_logo_url %}
-          <img src="{{ active_logo_url }}" alt="Logo" class="w-full h-full object-contain">
-        {% else %}
-          <img src="{% static 'images/icon.png' %}" alt="Logo" class="w-full h-full object-contain">
-        {% endif %}
+<body class="modern-auth-screen">
+  
+  <!-- Atmospheric Diffused Radial Glow Halos -->
+  <div class="auth-ambient-halo-left" aria-hidden="true"></div>
+  <div class="auth-ambient-halo-right" aria-hidden="true"></div>
+  <div class="ambient-grid" aria-hidden="true"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="auth-top-navbar">
+    <a href="{% url 'landing' %}" class="btn-auth-back-pill">
+      <span>←</span>
+      <span>Back to Public Website</span>
+    </a>
+
+    <div class="auth-top-status-pill">
+      <span class="live-dot-pulse"></span>
+      <span>Live Cloud Network · SSL 256-Bit</span>
+    </div>
+  </header>
+
+  <!-- 2-Column Next-Level Creative Split Layout -->
+  <main class="modern-auth-split-layout">
+    
+    <!-- LEFT COLUMN: Academic Command Center Showcase -->
+    <div class="auth-left-showcase">
+      
+      <div class="auth-showcase-badge">
+        <span>✦</span>
+        <span>SUTAWANE GROUP OF EDUCATION · MANAGEMENT OS</span>
       </div>
-      <h1 class="text-2xl font-black tracking-tight text-foreground">
-        {{ institute_name|default:"SUTAWANE CLASSES"|upper }}
+
+      <h1 class="auth-showcase-title">
+        The Intelligent Operating System for <span class="gradient-text-indigo">State Rankers.</span>
       </h1>
-      <p class="text-xs text-muted-foreground font-medium">
-        Desktop Management &amp; Coaching Operating System
+
+      <p class="auth-showcase-desc">
+        Complete enterprise control for student admissions, fee collections, real-time WhatsApp parent alerts, biometric attendance, and state-level ranker tracking across all branches.
       </p>
-    </div>
 
-    <!-- Subscription Notice if Expired or Inactive -->
-    {% if license and not license.isActive or license and license.isExpired %}
-    <div class="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs space-y-1.5 shadow-xs">
-      <div class="font-bold flex items-center gap-1.5 text-amber-800">
-        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
-        <span>Subscription Notice</span>
-      </div>
-      <p class="leading-relaxed font-medium">
-        Your software subscription plan is expired. Please call the support team to renew your subscription plan.
-      </p>
-      <div class="p-2 bg-white/80 rounded-md border border-amber-300/60 font-mono text-amber-950 font-semibold text-[11px]">
-        {{ license.developerNote|default:"Support Helpline: +91 7776824564 (Mr. Rameshwar Pawar)" }}
-      </div>
-      <p class="text-[10px] text-muted-foreground pt-0.5">
-        * Support &amp; developer team can log in via Developer OTP tab below to update or renew the subscription plan.
-      </p>
-    </div>
-    {% endif %}
-
-    <!-- Main Authentication Card -->
-    <div class="shadow-xl border border-border/80 rounded-xl bg-card overflow-hidden">
-      <!-- Role Tabs -->
-      <div class="grid grid-cols-2 border-b bg-muted/40 text-xs font-bold">
-        <button
-          type="button"
-          onclick="switchTab('owner')"
-          id="tab-btn-owner"
-          class="py-3 px-4 flex items-center justify-center gap-2 border-b-2 border-primary bg-background text-foreground shadow-xs transition-all cursor-pointer"
-        >
-          <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
-          <span>Class Owner</span>
-        </button>
-
-        <button
-          type="button"
-          onclick="switchTab('developer')"
-          id="tab-btn-developer"
-          class="py-3 px-4 flex items-center justify-center gap-2 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
-        >
-          <i data-lucide="code-2" class="w-4 h-4 text-blue-600"></i>
-          <span>Developer (OTP)</span>
-        </button>
-      </div>
-
-      <div class="p-6 space-y-4">
-        <!-- Error / Feedback Messages -->
-        {% if error_msg %}
-        <div class="p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-xs flex items-start gap-2 animate-in fade-in">
-          <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600 shrink-0 mt-0.5"></i>
-          <span class="font-medium leading-relaxed">{{ error_msg }}</span>
-        </div>
-        {% endif %}
-
-        {% if success_msg %}
-        <div class="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-start gap-2 animate-in fade-in">
-          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
-          <span class="font-medium leading-relaxed">{{ success_msg }}</span>
-        </div>
-        {% endif %}
-
-        <!-- TAB 1: CLASS OWNER LOGIN FORM -->
-        <div id="tab-content-owner">
-          <form method="POST" action="{% url 'login' %}" class="space-y-4">
-            {% csrf_token %}
-            <input type="hidden" name="login_type" value="owner">
-            <input type="hidden" name="next" value="{{ next_url|default:'' }}">
-
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Username</span>
-                <span class="text-[10px] text-muted-foreground">Class Owner</span>
-              </label>
-              <div class="relative">
-                <i data-lucide="user" class="w-3.5 h-3.5 absolute left-3 top-3 text-muted-foreground"></i>
-                <input
-                  type="text"
-                  name="username"
-                  required
-                  value="{{ entered_username|default:'sutawane' }}"
-                  class="pl-9 pr-3 h-9 text-xs rounded-lg border border-input bg-background w-full focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Enter username"
-                />
-              </div>
+      <!-- 3D Interactive Floating System Cards -->
+      <div class="auth-widgets-stack">
+        
+        <!-- Widget 1: Active Admissions -->
+        <div class="auth-widget-card">
+          <div class="widget-icon-box icon-blue">📊</div>
+          <div class="widget-content">
+            <div class="widget-title-row">
+              <span class="widget-label">Active Academic Term</span>
+              <span class="widget-live-pill">● 2026–27 Live</span>
             </div>
-
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Password</span>
-                <span class="text-[10px] text-muted-foreground">Default: sutawane@123</span>
-              </label>
-              <div class="relative">
-                <i data-lucide="lock" class="w-3.5 h-3.5 absolute left-3 top-3 text-muted-foreground"></i>
-                <input
-                  type="password"
-                  id="owner-password-input"
-                  name="password"
-                  required
-                  value="sutawane@123"
-                  class="pl-9 pr-9 h-9 text-xs rounded-lg border border-input bg-background w-full focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Enter password"
-                />
-                <button
-                  type="button"
-                  onclick="togglePasswordVisibility('owner-password-input', this)"
-                  class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
-                >
-                  <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              class="w-full h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-              <span>Sign In as Class Owner</span>
-            </button>
-          </form>
-
-          <div class="mt-4 pt-3 border-t text-center">
-            <span class="text-[11px] text-muted-foreground">
-              Default Owner: <code class="bg-muted px-1 py-0.5 rounded font-mono font-bold text-foreground">sutawane</code> / <code class="bg-muted px-1 py-0.5 rounded font-mono font-bold text-foreground">sutawane@123</code>
-            </span>
+            <div class="widget-main-stat">10,000+ Alumni Mentored</div>
+            <div class="widget-sub-stat">Consistently delivering Taluka Rank 1 &amp; Top MHT-CET Percentiles</div>
           </div>
         </div>
 
-        <!-- TAB 2: DEVELOPER OTP LOGIN FORM -->
-        <div id="tab-content-developer" class="hidden">
-          <form method="POST" action="{% url 'login' %}" class="space-y-4">
-            {% csrf_token %}
-            <input type="hidden" name="login_type" value="developer">
-            <input type="hidden" name="next" value="{{ next_url|default:'' }}">
-
-            <div class="space-y-1.5">
-              <label class="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Developer Email</span>
-                <span class="text-[10px] text-muted-foreground">Authorized Email</span>
-              </label>
-              <div class="relative">
-                <i data-lucide="mail" class="w-3.5 h-3.5 absolute left-3 top-3 text-muted-foreground"></i>
-                <input
-                  type="email"
-                  id="dev-email-input"
-                  name="email"
-                  required
-                  value="{{ entered_email|default:'prameshwar4378@gmail.com' }}"
-                  class="pl-9 pr-3 h-9 text-xs rounded-lg border border-input bg-background w-full focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="prameshwar4378@gmail.com"
-                />
-              </div>
+        <!-- Widget 2: Recent State Topper Spotlight -->
+        <div class="auth-widget-card">
+          <div class="widget-icon-box icon-purple">🏆</div>
+          <div class="widget-content">
+            <div class="widget-title-row">
+              <span class="widget-label">MHT-CET Topper Record</span>
+              <span class="widget-score-tag">99.82 %ile</span>
             </div>
-
-            <!-- Send OTP Button -->
-            <button
-              type="button"
-              onclick="sendDeveloperOtp()"
-              id="send-otp-btn"
-              class="w-full h-8 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <i data-lucide="send" class="w-3.5 h-3.5"></i>
-              <span id="send-otp-text">Send Verification OTP to Email</span>
-            </button>
-
-            <!-- OTP Input Field -->
-            <div class="space-y-1.5 pt-1">
-              <label class="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Enter 6-Digit OTP</span>
-                <span class="text-[10px] text-muted-foreground">Check server console / email</span>
-              </label>
-              <div class="relative">
-                <i data-lucide="key-round" class="w-3.5 h-3.5 absolute left-3 top-3 text-muted-foreground"></i>
-                <input
-                  type="text"
-                  name="otp_code"
-                  maxlength="6"
-                  class="pl-9 pr-3 h-9 text-xs rounded-lg border border-input bg-background w-full font-mono font-bold tracking-widest text-center text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="000000"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              class="w-full h-9 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
-              <span>Verify &amp; Access Developer Portal</span>
-            </button>
-          </form>
-
-          <div class="mt-4 pt-3 border-t text-center">
-            <span class="text-[11px] text-muted-foreground">
-              Developer Support: <strong class="text-foreground">+91 7776824564</strong> (Mr. Rameshwar Pawar)
-            </span>
+            <div class="widget-main-stat">Omkar Patil · COEP Pune Selected</div>
+            <div class="widget-sub-stat">State Rank 14 in Engineering Entrance · Classroom Batch</div>
           </div>
         </div>
+
+        <!-- Widget 3: Live Campus Diagnostics -->
+        <div class="auth-widget-card">
+          <div class="widget-icon-box icon-emerald">⚡</div>
+          <div class="widget-content">
+            <div class="widget-title-row">
+              <span class="widget-label">Station Road Main Campus</span>
+              <span class="widget-status-online">Cloud Active</span>
+            </div>
+            <div class="widget-main-stat">Automated Daily DPPs &amp; Parent SMS</div>
+            <div class="widget-sub-stat">Real-time attendance syncing with zero data loss guarantee</div>
+          </div>
+        </div>
+
       </div>
+
+      <!-- Trust Strip -->
+      <div class="auth-showcase-trust">
+        <span>★ 15+ Yrs Academic Excellence</span>
+        <span class="bullet">•</span>
+        <span>★ 100% Board Pass Rate</span>
+        <span class="bullet">•</span>
+        <span>★ ISO 9001:2015 Standards</span>
+      </div>
+
     </div>
-  </div>
+
+    <!-- RIGHT COLUMN: The TaskHarbor-Style Creative Auth Window -->
+    <div class="auth-right-window-wrapper">
+      
+      <div class="next-level-auth-window">
+        
+        <!-- macOS Style Window Chrome Header -->
+        <div class="next-window-bar">
+          <div class="window-traffic-lights">
+            <span class="traffic-dot dot-red"></span>
+            <span class="traffic-dot dot-yellow"></span>
+            <span class="traffic-dot dot-green"></span>
+          </div>
+
+          <div class="window-address-bar" style="padding:0.25rem 0.75rem;font-size:0.75rem;">
+            <span class="address-lock">🔒</span>
+            <span class="address-url">portal.sutawanegroup.com/auth/login</span>
+            <span class="address-status" style="font-size:0.6rem;">SECURE</span>
+          </div>
+
+          <div class="window-bar-actions">
+            <span class="auth-security-tag">256-BIT</span>
+          </div>
+        </div>
+
+        <!-- Card Brand Identity -->
+        <div class="next-auth-header">
+          <div class="next-logo-wrapper">
+            {% if active_logo_url %}
+              <img src="{{ active_logo_url }}" alt="Logo" class="next-logo-img">
+            {% else %}
+              <div class="next-logo-fallback">SG</div>
+            {% endif %}
+          </div>
+          <h2 class="next-auth-title">{{ institute_name|default:"SUTAWANE CLASSES VAIJAPUR"|upper }}</h2>
+          <p class="next-auth-subtitle">Desktop Management &amp; Coaching Operating System</p>
+        </div>
+
+        <!-- Subscription Alert if Expired or Inactive -->
+        {% if license and not license.isActive or license and license.isExpired %}
+        <div style="margin:0 1.75rem 1rem;padding:0.85rem 1rem;background:#FEF3C7;border:1.5px solid #FCD34D;border-radius:12px;color:#92400E;font-size:0.8rem;">
+          <div style="display:flex;align-items:center;gap:0.4rem;font-weight:800;color:#B45309;margin-bottom:0.25rem;">
+            <span>⚠️</span>
+            <span>Subscription Notice</span>
+          </div>
+          <p style="line-height:1.45;margin-bottom:0.35rem;">
+            Your software subscription plan is expired. Please call the support team to renew your subscription plan.
+          </p>
+          <div style="padding:0.35rem 0.5rem;background:#FFFFFF;border-radius:6px;font-family:monospace;font-weight:700;font-size:0.75rem;color:#78350F;">
+            {{ license.developerNote|default:"Support Helpline: +91 7776824564 (Mr. Rameshwar Pawar)" }}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Dual Role Tabs: Class Owner vs Developer OTP -->
+        <div class="next-role-tabs">
+          <button
+            type="button"
+            onclick="switchTab('owner')"
+            id="tab-btn-owner"
+            class="next-role-tab {% if active_tab != 'developer' %}active{% endif %}"
+          >
+            <span class="tab-icon">🛡️</span>
+            <span>Class Owner</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="switchTab('developer')"
+            id="tab-btn-developer"
+            class="next-role-tab {% if active_tab == 'developer' %}active{% endif %}"
+          >
+            <span class="tab-icon">⚡</span>
+            <span>Developer (OTP)</span>
+          </button>
+        </div>
+
+        <!-- Interactive Form Body -->
+        <div class="next-auth-body">
+          
+          <!-- Error / Feedback Messages -->
+          {% if error_msg %}
+          <div style="padding:0.75rem 1rem;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:12px;color:#991B1B;font-size:0.825rem;display:flex;align-items:center;gap:0.5rem;margin-bottom:1.25rem;">
+            <span>⚠️</span>
+            <span style="font-weight:700;">{{ error_msg }}</span>
+          </div>
+          {% endif %}
+
+          {% if success_msg %}
+          <div style="padding:0.75rem 1rem;background:#ECFDF5;border:1.5px solid #A7F3D0;border-radius:12px;color:#065F46;font-size:0.825rem;display:flex;align-items:center;gap:0.5rem;margin-bottom:1.25rem;">
+            <span>✓</span>
+            <span style="font-weight:700;">{{ success_msg }}</span>
+          </div>
+          {% endif %}
+
+          <!-- TAB 1: CLASS OWNER LOGIN FORM -->
+          <div id="tab-content-owner" {% if active_tab == 'developer' %}style="display:none;"{% endif %}>
+            <form method="POST" action="{% url 'login' %}">
+              {% csrf_token %}
+              <input type="hidden" name="login_type" value="owner">
+              <input type="hidden" name="next" value="{{ next_url|default:'' }}">
+
+              <!-- Username Field -->
+              <div class="next-form-group">
+                <label class="next-form-label" for="owner-username-input">
+                  <span>Username</span>
+                  <span class="next-label-hint">Class Owner</span>
+                </label>
+                <div class="next-input-box">
+                  <span class="next-input-icon">👤</span>
+                  <input
+                    type="text"
+                    id="owner-username-input"
+                    name="username"
+                    required
+                    value="{{ entered_username|default:'sutawane' }}"
+                    class="next-input-field"
+                    placeholder="Enter username"
+                  />
+                </div>
+              </div>
+
+              <!-- Password Field with Interactive Eye Toggle -->
+              <div class="next-form-group">
+                <label class="next-form-label" for="owner-password-input">
+                  <span>Password</span>
+                  <span class="next-label-hint">Default: sutawane@123</span>
+                </label>
+                <div class="next-input-box">
+                  <span class="next-input-icon">🔒</span>
+                  <input
+                    type="password"
+                    id="owner-password-input"
+                    name="password"
+                    required
+                    value="sutawane@123"
+                    class="next-input-field"
+                    placeholder="Enter password"
+                  />
+                  <button
+                    type="button"
+                    onclick="togglePasswordVisibility('owner-password-input', this)"
+                    class="next-input-toggle"
+                    aria-label="Toggle password visibility"
+                  >
+                    👁️
+                  </button>
+                </div>
+              </div>
+
+              <!-- Primary Submit Button -->
+              <button type="submit" class="next-btn-submit">
+                <span>Sign In as Class Owner</span>
+                <span style="font-size:1.1rem;font-weight:800;">→</span>
+              </button>
+            </form>
+
+            <!-- Default Owner Credentials Pill -->
+            <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #F1F5F9;text-align:center;">
+              <span style="font-size:0.775rem;color:#64748B;">
+                Default Owner: <code style="background:#EEF2FF;color:#4F46E5;padding:0.2rem 0.5rem;border-radius:6px;font-weight:800;">sutawane</code> / <code style="background:#EEF2FF;color:#4F46E5;padding:0.2rem 0.5rem;border-radius:6px;font-weight:800;">sutawane@123</code>
+              </span>
+            </div>
+          </div>
+
+          <!-- TAB 2: DEVELOPER OTP LOGIN FORM -->
+          <div id="tab-content-developer" {% if active_tab != 'developer' %}style="display:none;"{% endif %}>
+            <!-- Dynamic Inline Feedback Box for Developer Actions -->
+            <div id="dev-otp-feedback" style="display:none;padding:0.75rem 1rem;border-radius:12px;font-size:0.825rem;align-items:center;gap:0.5rem;margin-bottom:1.25rem;"></div>
+
+            <form method="POST" action="{% url 'login' %}" onsubmit="return submitDeveloperOtp(event);">
+              {% csrf_token %}
+              <input type="hidden" name="login_type" value="developer">
+              <input type="hidden" name="next" value="{{ next_url|default:'' }}">
+
+              <!-- Developer Email Field -->
+              <div class="next-form-group">
+                <label class="next-form-label" for="dev-email-input">
+                  <span>Developer Email</span>
+                  <span class="next-label-hint">Authorized Email</span>
+                </label>
+                <div class="next-input-box">
+                  <span class="next-input-icon">✉️</span>
+                  <input
+                    type="email"
+                    id="dev-email-input"
+                    name="email"
+                    required
+                    value="{{ entered_email|default:'prameshwar4378@gmail.com' }}"
+                    class="next-input-field"
+                    placeholder="prameshwar4378@gmail.com"
+                  />
+                </div>
+              </div>
+
+              <!-- Send Verification OTP Button -->
+              <button
+                type="button"
+                onclick="sendDeveloperOtp()"
+                id="send-otp-btn"
+                style="width:100%;height:40px;border-radius:12px;border:1.5px solid #C7D2FE;background:#EEF2FF;color:#4F46E5;font-weight:800;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.45rem;margin-bottom:1.25rem;transition:all 0.2s;"
+              >
+                <span>⚡</span>
+                <span id="send-otp-text">Send Verification OTP to Email</span>
+              </button>
+
+              <!-- OTP Code Input with Automatic Digit Cleaning -->
+              <div class="next-form-group">
+                <label class="next-form-label" for="dev-otp-input">
+                  <span>Enter 6-Digit OTP</span>
+                  <span class="next-label-hint">Check server console / email</span>
+                </label>
+                <div class="next-input-box">
+                  <span class="next-input-icon">🔑</span>
+                  <input
+                    type="text"
+                    id="dev-otp-input"
+                    name="otp_code"
+                    maxlength="10"
+                    autocomplete="one-time-code"
+                    class="next-input-field"
+                    style="text-align:center;font-family:monospace;letter-spacing:0.35em;font-size:1.25rem;font-weight:800;"
+                    placeholder="000000"
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);"
+                  />
+                </div>
+              </div>
+
+              <!-- Verify OTP Submit Button -->
+              <button type="submit" id="dev-submit-btn" class="next-btn-submit" style="background:#2563EB;">
+                <span id="dev-submit-btn-text">Verify &amp; Access Developer Portal</span>
+                <span style="font-size:1.1rem;font-weight:800;">→</span>
+              </button>
+            </form>
+
+            <!-- Developer Support Hint -->
+            <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #F1F5F9;text-align:center;">
+              <span style="font-size:0.775rem;color:#64748B;">
+                Developer Support: <strong style="color:#0F172A;">+91 7776824564</strong> (Mr. Rameshwar Pawar)
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Window Security Footer -->
+        <div class="next-auth-footer-help">
+          <span>🔒 Secure 256-Bit SSL Encryption · Support Helpline: <strong>+91 77768 24564</strong></span>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
 
   <script>
+    // Tab Switching Logic
     function switchTab(tab) {
       const ownerBtn = document.getElementById('tab-btn-owner');
       const devBtn = document.getElementById('tab-btn-developer');
@@ -238,35 +374,84 @@
       const devContent = document.getElementById('tab-content-developer');
 
       if (tab === 'owner') {
-        ownerBtn.className = "py-3 px-4 flex items-center justify-center gap-2 border-b-2 border-primary bg-background text-foreground shadow-xs transition-all cursor-pointer";
-        devBtn.className = "py-3 px-4 flex items-center justify-center gap-2 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer";
-        ownerContent.classList.remove('hidden');
-        devContent.classList.add('hidden');
+        ownerBtn.classList.add('active');
+        devBtn.classList.remove('active');
+        ownerContent.style.display = 'block';
+        devContent.style.display = 'none';
+        try {
+          const u = new URL(window.location);
+          u.searchParams.delete('tab');
+          window.history.replaceState({}, '', u);
+        } catch (e) {}
       } else {
-        devBtn.className = "py-3 px-4 flex items-center justify-center gap-2 border-b-2 border-primary bg-background text-foreground shadow-xs transition-all cursor-pointer";
-        ownerBtn.className = "py-3 px-4 flex items-center justify-center gap-2 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer";
-        devContent.classList.remove('hidden');
-        ownerContent.classList.add('hidden');
+        devBtn.classList.add('active');
+        ownerBtn.classList.remove('active');
+        devContent.style.display = 'block';
+        ownerContent.style.display = 'none';
+        try {
+          const u = new URL(window.location);
+          u.searchParams.set('tab', 'developer');
+          window.history.replaceState({}, '', u);
+        } catch (e) {}
+        const otpInput = document.getElementById('dev-otp-input');
+        if (otpInput && !otpInput.value) {
+          setTimeout(() => otpInput.focus(), 100);
+        }
       }
-      window.renderIcons();
     }
 
+    // Toggle Password Visibility
     function togglePasswordVisibility(inputId, btn) {
       const input = document.getElementById(inputId);
       if (input.type === 'password') {
         input.type = 'text';
+        btn.textContent = '🙈';
       } else {
         input.type = 'password';
+        btn.textContent = '👁️';
       }
     }
 
+    // Show Inline Feedback in Developer Tab
+    function showDevFeedback(message, type) {
+      const box = document.getElementById('dev-otp-feedback');
+      if (!box) return;
+      box.style.display = 'flex';
+      if (type === 'success') {
+        box.style.background = '#ECFDF5';
+        box.style.border = '1.5px solid #A7F3D0';
+        box.style.color = '#065F46';
+        box.innerHTML = `<span style="font-size:1.1rem;">✓</span><span style="font-weight:700;">${message}</span>`;
+      } else {
+        box.style.background = '#FEF2F2';
+        box.style.border = '1.5px solid #FECACA';
+        box.style.color = '#991B1B';
+        box.innerHTML = `<span style="font-size:1.1rem;">⚠️</span><span style="font-weight:700;">${message}</span>`;
+      }
+    }
+
+    // Intercept paste event on dev-otp-input to strip extra whitespace/formatting cleanly
+    const devOtpField = document.getElementById('dev-otp-input');
+    if (devOtpField) {
+      devOtpField.addEventListener('paste', function (e) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const digitsOnly = text.replace(/[^0-9]/g, '').slice(0, 6);
+        this.value = digitsOnly;
+        if (digitsOnly.length === 6) {
+          showDevFeedback('6-digit OTP code pasted. Click verify below to sign in.', 'success');
+        }
+      });
+    }
+
+    // Send Developer OTP via Backend API
     function sendDeveloperOtp() {
       const email = document.getElementById('dev-email-input').value.trim();
       const btn = document.getElementById('send-otp-btn');
       const textSpan = document.getElementById('send-otp-text');
 
       if (!email) {
-        alert('Please enter developer email address');
+        showDevFeedback('Please enter developer email address.', 'error');
         return;
       }
 
@@ -284,23 +469,91 @@
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          alert('OTP sent successfully! Check your email or server console: ' + (data.code || ''));
+          showDevFeedback(data.message || 'OTP sent successfully! Please check your email inbox.', 'success');
           textSpan.textContent = 'OTP Sent! (Resend in 30s)';
+          const otpInput = document.getElementById('dev-otp-input');
+          if (otpInput) {
+            otpInput.focus();
+          }
           setTimeout(() => {
             btn.disabled = false;
             textSpan.textContent = 'Resend Verification OTP';
           }, 30000);
         } else {
-          alert(data.error || 'Failed to send OTP');
+          showDevFeedback(data.error || 'Failed to send OTP.', 'error');
           btn.disabled = false;
           textSpan.textContent = 'Send Verification OTP to Email';
         }
       })
       .catch(err => {
-        alert('Error sending OTP: ' + err);
+        showDevFeedback('Error sending OTP: ' + err, 'error');
         btn.disabled = false;
         textSpan.textContent = 'Send Verification OTP to Email';
       });
+    }
+
+    // Asynchronously submit and verify developer OTP
+    function submitDeveloperOtp(event) {
+      event.preventDefault();
+      const emailInput = document.getElementById('dev-email-input');
+      const otpInput = document.getElementById('dev-otp-input');
+      const submitBtn = document.getElementById('dev-submit-btn');
+      const btnText = document.getElementById('dev-submit-btn-text');
+      const nextInput = document.querySelector('#tab-content-developer input[name=next]');
+
+      const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+      const otp = otpInput ? otpInput.value.replace(/[^0-9]/g, '').trim() : '';
+
+      if (!email) {
+        showDevFeedback('Please enter developer email address.', 'error');
+        return false;
+      }
+
+      if (!otp || otp.length !== 6) {
+        showDevFeedback('Please enter the full 6-digit OTP code.', 'error');
+        if (otpInput) otpInput.focus();
+        return false;
+      }
+
+      submitBtn.disabled = true;
+      if (btnText) btnText.textContent = 'Verifying Code...';
+
+      fetch('/api/developer/verify-otp/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: JSON.stringify({
+          email: email,
+          otp_code: otp,
+          next: nextInput ? nextInput.value : ''
+        }),
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showDevFeedback('✓ OTP verified successfully! Access granted. Redirecting...', 'success');
+          setTimeout(() => {
+            window.location.href = data.redirect_url || '/developer-portal/';
+          }, 400);
+        } else {
+          showDevFeedback(data.error || 'Invalid OTP code. Please check and try again.', 'error');
+          submitBtn.disabled = false;
+          if (btnText) btnText.textContent = 'Verify & Access Developer Portal';
+          if (otpInput) {
+            otpInput.focus();
+            otpInput.select();
+          }
+        }
+      })
+      .catch(err => {
+        showDevFeedback('Network error verifying OTP: ' + err, 'error');
+        submitBtn.disabled = false;
+        if (btnText) btnText.textContent = 'Verify & Access Developer Portal';
+      });
+
+      return false;
     }
 
     // Auto-switch to developer tab if ?tab=developer in URL

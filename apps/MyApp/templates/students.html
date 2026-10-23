@@ -34,6 +34,7 @@
   <!-- Filters & Search Toolbar -->
   <div class="rounded-xl border border-border bg-card p-4 shadow-xs space-y-3">
     <form
+      id="studentsFilterForm"
       method="GET"
       action="{% url 'students_list' %}"
       hx-get="{% url 'students_list' %}"
@@ -44,24 +45,25 @@
       hx-trigger="change, keyup changed delay:250ms from:input[name=q]"
       class="space-y-3"
     >
+      <input type="hidden" name="page_size" id="hiddenFilterPageSize" value="{{ filters.page_size|default:25 }}">
       <!-- Row 1: Primary Search & Standard Filters -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <!-- Search Input -->
         <div class="space-y-1">
           <label class="text-xs font-semibold text-muted-foreground">Search Student / Roll / Phone</label>
-          <div class="relative">
-            <i data-lucide="search" class="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground pointer-events-none"></i>
+          <div class="relative flex items-center">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
             <input
               type="text"
               name="q"
               value="{{ filters.q }}"
               placeholder="Search by name, roll, mobile, ID..."
-              class="pl-8 text-xs h-9 w-full rounded-md border border-input bg-background px-3 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+              class="w-full text-xs h-9 pl-9 pr-8 rounded-md border border-input bg-background shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
             {% if filters.q %}
             <a
               href="{% url 'students_list' %}"
-              class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground text-xs"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-0.5"
               title="Clear search"
             >
               <i data-lucide="x" class="w-3.5 h-3.5"></i>
@@ -232,14 +234,29 @@
       <div class="py-3 px-4 sm:px-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20">
         <div class="flex items-center gap-2.5 text-foreground">
           <i data-lucide="users" class="w-4 h-4 text-primary"></i>
-          <span class="text-sm font-semibold">Students Directory (<span id="visibleStudentsCount">{{ students_data|length }}</span>)</span>
+          <span class="text-sm font-semibold">Students Directory (<span id="visibleStudentsCount">{{ total_count }}</span>)</span>
           <span class="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-background">
-            Showing all matching admissions
+            Showing {{ page_obj|length }} of {{ total_count }} matching admissions
           </span>
         </div>
 
-        <!-- Corner Toolbar: Columns, Excel, PDF -->
+        <!-- Corner Toolbar: Page Size, Columns, Excel, PDF -->
         <div class="flex flex-wrap items-center gap-2">
+          <!-- Page Size Selector: Visible Left of the Columns Button -->
+          <div class="flex items-center gap-1.5 text-xs mr-0.5">
+            <label for="tablePageSizeSelect" class="text-xs text-muted-foreground font-medium whitespace-nowrap">Page Size:</label>
+            <select
+              id="tablePageSizeSelect"
+              class="h-8 bg-background border border-input rounded-md px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-2xs"
+              onchange="updatePageSize(this.value)"
+            >
+              <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
+              <option value="25" {% if filters.page_size == 25 or not filters.page_size %}selected{% endif %}>25 per page</option>
+              <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
+              <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100 per page</option>
+            </select>
+          </div>
+
           <!-- Column Visibility Toggle Button -->
           <button
             type="button"
@@ -333,9 +350,9 @@
               <!-- Photo Avatar -->
               <td class="text-center py-3.5 px-3 col-photo">
                 {% if item.student.photo_url %}
-                <img src="{{ item.student.photo_url }}" alt="{{ item.student.full_name }}" class="w-8 h-8 rounded-full object-cover mx-auto border border-border">
+                <img src="{{ item.student.photo_url }}" alt="{{ item.student.full_name }}" class="w-8 h-8 rounded-full object-cover mx-auto border border-border" style="width: 32px; height: 32px; max-width: 32px; max-height: 32px; object-fit: cover; object-position: center 20%; display: block;">
                 {% else %}
-                <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs mx-auto">
+                <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs mx-auto" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                   {{ item.student.full_name|slice:":1"|upper }}
                 </div>
                 {% endif %}
@@ -513,6 +530,59 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Table Footer with Pagination Controls -->
+      <div class="p-3 bg-muted/20 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div>
+          Showing <strong class="text-foreground">{{ page_obj|length }}</strong> of <strong class="text-foreground">{{ total_count }}</strong> matching students
+        </div>
+
+        <div class="flex items-center gap-2">
+          {% if page_obj.has_previous %}
+            <a
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+              hx-target="#studentsContentArea"
+              hx-select="#studentsContentArea"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
+            >
+              <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+              <span>Previous</span>
+            </a>
+          {% else %}
+            <span class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border opacity-50 cursor-not-allowed">
+              <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+              <span>Previous</span>
+            </span>
+          {% endif %}
+
+          <span class="text-xs font-medium px-2">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages|default:1 }}
+          </span>
+
+          {% if page_obj.has_next %}
+            <a
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+              hx-target="#studentsContentArea"
+              hx-select="#studentsContentArea"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
+            >
+              <span>Next</span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </a>
+          {% else %}
+            <span class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border opacity-50 cursor-not-allowed">
+              <span>Next</span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </span>
+          {% endif %}
+        </div>
+      </div>
     </div>
 
 </div>
@@ -559,7 +629,9 @@
             <input
               type="text"
               name="roll_number"
+              id="admRollNumberInput"
               value="{{ suggested_roll }}"
+              placeholder="e.g. VAI-1"
               required
               class="w-full text-xs font-mono font-semibold rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
             />
@@ -586,6 +658,8 @@
             <label class="text-xs font-semibold text-foreground">Branch Location *</label>
             <select
               name="branch_id"
+              id="admBranchSelect"
+              onchange="updateSuggestedRollNumber()"
               class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
             >
               {% for b in branches %}
@@ -598,6 +672,8 @@
             <label class="text-xs font-semibold text-foreground">Academic Session *</label>
             <select
               name="session_id"
+              id="admSessionSelect"
+              onchange="updateSuggestedRollNumber()"
               class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
             >
               {% for s in sessions %}
@@ -767,44 +843,60 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteStudentModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-card text-card-foreground border border-border rounded-xl shadow-2xl w-full max-w-[460px] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-    <div class="p-6 border-b border-border flex items-center justify-between">
-      <h2 class="text-base font-bold flex items-center gap-2 text-rose-600">
-        <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600"></i>
-        Permanent Deletion Warning
-      </h2>
-      <button type="button" onclick="closeDeleteStudentModal()" class="text-muted-foreground hover:text-foreground text-sm font-semibold">
-        <i data-lucide="x" class="w-5 h-5"></i>
+<div id="deleteStudentModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) closeDeleteStudentModal();">
+  <div class="bg-card text-card-foreground border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200" style="max-width: 480px;">
+    <div class="p-5 sm:p-6 border-b border-border flex items-start justify-between gap-4 bg-muted/20">
+      <div class="flex items-start gap-3.5">
+        <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center flex-shrink-0 border border-rose-200/70 dark:border-rose-900/60 shadow-xs">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-foreground leading-snug">
+            Delete Student Record
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">Permanent action &bull; Cannot be undone</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeDeleteStudentModal()" class="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer" title="Close dialog">
+        <i data-lucide="x" class="w-4 h-4"></i>
       </button>
     </div>
 
-    <form method="POST" action="{% url 'students_list' %}" class="p-6 space-y-4">
+    <form method="POST" action="{% url 'students_list' %}" class="p-5 sm:p-6 space-y-4">
       {% csrf_token %}
       <input type="hidden" name="action" value="delete">
       <input type="hidden" name="student_id" id="deleteStudentIdInput" value="">
 
-      <div class="text-xs space-y-2 text-foreground">
-        <p>Are you sure you want to permanently delete <strong id="deleteStudentNameSpan" class="text-rose-600 font-bold"></strong>?</p>
-        <div class="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-md space-y-1 text-[11px]">
-          <p class="font-bold">⚠️ Irreversible Action:</p>
-          <p>This will erase all historical admissions, fee schedules, installment allocations, and physical photograph files permanently.</p>
+      <div class="space-y-3 text-xs text-foreground">
+        <p class="leading-relaxed">
+          Are you sure you want to permanently delete <strong id="deleteStudentNameSpan" class="text-rose-600 dark:text-rose-400 font-bold text-sm"></strong>?
+        </p>
+
+        <div class="p-3.5 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 rounded-xl space-y-1.5 text-xs">
+          <div class="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-400">
+            <i data-lucide="shield-alert" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Irreversible Action Warning</span>
+          </div>
+          <p class="text-[11px] leading-relaxed text-rose-800/90 dark:text-rose-300/90">
+            This will permanently erase all historical admissions, fee schedules, installment allocations, and physical photograph files from the system.
+          </p>
         </div>
       </div>
 
-      <div class="pt-2 flex justify-end gap-2 border-t border-border">
+      <div class="pt-3 flex items-center justify-end gap-2.5 border-t border-border">
         <button
           type="button"
           onclick="closeDeleteStudentModal()"
-          class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background hover:bg-accent h-9 px-4 transition-colors cursor-pointer"
+          class="inline-flex items-center justify-center rounded-lg text-xs font-medium border border-input bg-background hover:bg-muted text-foreground h-9 px-4 transition-colors cursor-pointer"
         >
           Cancel
         </button>
         <button
           type="submit"
-          class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
+          class="inline-flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
         >
-          Confirm Delete
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>Confirm Delete</span>
         </button>
       </div>
     </form>
@@ -816,7 +908,7 @@
     { id: 'select', label: 'Select Checkbox', defaultVisible: true },
     { id: 'photo', label: 'Photo Avatar', defaultVisible: true },
     { id: 'rollNo', label: 'Roll Number', defaultVisible: true },
-    { id: 'fullName', label: 'Student Name', defaultVisible: true },
+    { id: 'fullName', label: 'Student Name', defaultVisible: true, required: true },
     { id: 'standard', label: 'Class / Course', defaultVisible: true },
     { id: 'branch', label: 'Branch Location', defaultVisible: true },
     { id: 'dueDate', label: 'Fee Due Date', defaultVisible: true },
@@ -826,10 +918,16 @@
     { id: 'pendingFees', label: 'Session Pending Fees', defaultVisible: true },
     { id: 'overallPending', label: 'Overall Pending Dues', defaultVisible: true },
     { id: 'status', label: 'Fee Status', defaultVisible: true },
-    { id: 'actions', label: 'Actions Toolbar', defaultVisible: true }
+    { id: 'actions', label: 'Actions Toolbar', defaultVisible: true, required: true }
   ];
 
   let currentVisibleCols = {};
+
+  function isColRequired(colOrId) {
+    const id = typeof colOrId === 'string' ? colOrId : (colOrId && colOrId.id);
+    const col = COLUMNS_CONFIG.find(c => c.id === id);
+    return Boolean(col && (col.required || col.id === 'fullName' || col.id === 'actions'));
+  }
 
   function initColumns() {
     const saved = localStorage.getItem('sutawane_student_columns_v2');
@@ -837,10 +935,15 @@
       try { currentVisibleCols = JSON.parse(saved); } catch (e) {}
     }
     COLUMNS_CONFIG.forEach(col => {
-      if (currentVisibleCols[col.id] === undefined) {
+      if (isColRequired(col)) {
+        // Required columns (Student Name, Actions Toolbar) MUST ALWAYS be pre-selected and visible
+        currentVisibleCols[col.id] = true;
+      } else if (currentVisibleCols[col.id] === undefined) {
         currentVisibleCols[col.id] = col.defaultVisible;
       }
     });
+    // Persist normalized state back so invalid/corrupt localStorage is corrected immediately
+    localStorage.setItem('sutawane_student_columns_v2', JSON.stringify(currentVisibleCols));
     applyColumnVisibility();
     renderColumnCheckboxes();
   }
@@ -848,7 +951,8 @@
   function applyColumnVisibility() {
     let visibleCount = 0;
     COLUMNS_CONFIG.forEach(col => {
-      const isVis = currentVisibleCols[col.id] !== false;
+      const isReq = isColRequired(col);
+      const isVis = isReq ? true : (currentVisibleCols[col.id] !== false);
       if (isVis) visibleCount++;
       const cells = document.querySelectorAll('.col-' + col.id);
       cells.forEach(el => {
@@ -864,8 +968,10 @@
     if (!container) return;
     container.innerHTML = '';
     COLUMNS_CONFIG.forEach(col => {
-      const isChecked = currentVisibleCols[col.id] !== false;
-      const isRequired = (col.id === 'fullName' || col.id === 'actions');
+      const isRequired = isColRequired(col);
+      // Required columns must always be checked
+      const isChecked = isRequired ? true : (currentVisibleCols[col.id] !== false);
+      currentVisibleCols[col.id] = isChecked;
 
       const label = document.createElement('label');
       label.className = `flex items-center gap-2.5 p-2 rounded-lg border text-xs cursor-pointer select-none transition-all ${
@@ -880,6 +986,7 @@
       input.disabled = isRequired;
       input.className = 'w-3.5 h-3.5 rounded text-primary focus:ring-primary cursor-pointer disabled:opacity-50';
       input.onchange = function() {
+        if (isRequired) return;
         toggleCol(col.id, input.checked);
         renderColumnCheckboxes();
       };
@@ -903,14 +1010,22 @@
   }
 
   function toggleCol(id, visible) {
-    currentVisibleCols[id] = visible;
+    if (isColRequired(id)) {
+      currentVisibleCols[id] = true;
+    } else {
+      currentVisibleCols[id] = visible;
+    }
     localStorage.setItem('sutawane_student_columns_v2', JSON.stringify(currentVisibleCols));
     applyColumnVisibility();
   }
 
   function selectAllColumns(val) {
     COLUMNS_CONFIG.forEach(col => {
-      currentVisibleCols[col.id] = val;
+      if (isColRequired(col)) {
+        currentVisibleCols[col.id] = true;
+      } else {
+        currentVisibleCols[col.id] = val;
+      }
     });
     localStorage.setItem('sutawane_student_columns_v2', JSON.stringify(currentVisibleCols));
     applyColumnVisibility();
@@ -919,7 +1034,11 @@
 
   function resetDefaultColumns() {
     COLUMNS_CONFIG.forEach(col => {
-      currentVisibleCols[col.id] = col.defaultVisible;
+      if (isColRequired(col)) {
+        currentVisibleCols[col.id] = true;
+      } else {
+        currentVisibleCols[col.id] = col.defaultVisible;
+      }
     });
     localStorage.setItem('sutawane_student_columns_v2', JSON.stringify(currentVisibleCols));
     applyColumnVisibility();
@@ -936,6 +1055,26 @@
     document.getElementById('columnModal').classList.add('hidden');
   }
 
+  function updateSuggestedRollNumber() {
+    const branchSelect = document.getElementById('admBranchSelect');
+    const sessionSelect = document.getElementById('admSessionSelect');
+    const rollInput = document.getElementById('admRollNumberInput');
+    if (!branchSelect || !rollInput) return;
+
+    const branchId = branchSelect.value;
+    const sessionId = sessionSelect ? sessionSelect.value : '';
+    if (!branchId) return;
+
+    fetch(`/api/next-roll-number/?branch_id=${encodeURIComponent(branchId)}&session_id=${encodeURIComponent(sessionId)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.roll_number) {
+          rollInput.value = data.roll_number;
+        }
+      })
+      .catch(err => console.error('Error fetching next roll number:', err));
+  }
+
   function openAdmissionModal() {
     // Set default due date +30 days
     const d = new Date();
@@ -943,6 +1082,11 @@
     const dateStr = d.toISOString().split('T')[0];
     const dueInput = document.getElementById('admDueDateInput');
     if (dueInput && !dueInput.value) { dueInput.value = dateStr; }
+
+    const rollInput = document.getElementById('admRollNumberInput');
+    if (rollInput && (!rollInput.value || rollInput.value.startsWith('SC-'))) {
+      updateSuggestedRollNumber();
+    }
 
     document.getElementById('admissionModal').classList.remove('hidden');
     if (window.lucide) { lucide.createIcons(); }
@@ -1135,6 +1279,27 @@
     if (container) container.innerHTML = '';
   }
 
+  // --- Table Page Size Controller ---
+  function updatePageSize(size) {
+    const hiddenInput = document.getElementById('hiddenFilterPageSize');
+    if (hiddenInput) {
+      hiddenInput.value = size;
+    }
+    const form = document.getElementById('studentsFilterForm');
+    if (form) {
+      if (window.htmx) {
+        htmx.trigger(form, 'submit');
+      } else {
+        form.submit();
+      }
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page_size', size);
+      url.searchParams.set('page', '1');
+      window.location.href = url.toString();
+    }
+  }
+
   function initRowClick() {
     const table = document.getElementById('studentsMainTable');
     if (!table) return;
@@ -1164,6 +1329,15 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     initColumns();
+    initRowClick();
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'new') {
+      openAdmissionModal();
+    }
+  });
+
+  document.body.addEventListener('htmx:afterSwap', function() {
+    applyColumnVisibility();
     initRowClick();
   });
 

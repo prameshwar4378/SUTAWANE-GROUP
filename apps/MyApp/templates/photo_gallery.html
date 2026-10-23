@@ -1,0 +1,765 @@
+{% extends 'public_base.html' %}
+{% load static %}
+
+{% block title %}Campus & Achievement Photo Gallery · Sutawane Group Vaijapur{% endblock %}
+{% block meta_desc %}Browse the visual chronicle of Sutawane Classes: modern smart classrooms, science labs, annual topper felicitation ceremonies, and academic seminars.{% endblock %}
+
+{% block content %}
+<!-- ==========================================================================
+     1. HERO HEADER WITH AMBIENT HALO
+     ========================================================================== -->
+<section class="modern-page-hero" id="top">
+  <!-- Atmospheric diffused glow halo -->
+  <div class="page-hero-halo" aria-hidden="true"></div>
+
+  <div class="modern-container">
+    <div class="modern-page-hero-wrap">
+      
+      <!-- Eyebrow Notification Pill -->
+      <a href="#masterGalleryShowcase" class="hero-notification-pill">
+        <span class="pill-badge-indigo">CAMPUS CHRONICLE</span>
+        <span class="pill-text-content">Interactive Visual Tour of Sutawane Classes Vaijapur</span>
+        <span class="pill-arrow-indicator">↓</span>
+      </a>
+
+      <!-- Page Title -->
+      <h1 class="modern-page-title">
+        Life at Sutawane Classes.<br>
+        <span class="gradient-text-indigo">Where Curiosity Meets Academic Excellence.</span>
+      </h1>
+
+      <!-- Subtitle Description -->
+      <p class="modern-page-desc">
+        Explore our vibrant learning spaces, air-conditioned digital smart halls, hands-on science laboratories, dedicated doubt counters, and annual ranker felicitation ceremonies.
+      </p>
+
+      <!-- Category Filter Pills Bar -->
+      <div class="modern-filter-bar">
+        <button type="button" class="modern-filter-btn active" data-gallery-filter="all">All Moments</button>
+        <button type="button" class="modern-filter-btn" data-gallery-filter="classroom">Smart Classrooms</button>
+        <button type="button" class="modern-filter-btn" data-gallery-filter="felicitation">Topper Felicitations</button>
+        <button type="button" class="modern-filter-btn" data-gallery-filter="labs">Science &amp; Labs</button>
+        <button type="button" class="modern-filter-btn" data-gallery-filter="seminars">Seminars &amp; Conclaves</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     2. IN-PAGE INTERACTIVE MASTER SHOWCASE SLIDER
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0; padding-bottom: 2.75rem;" id="masterGalleryShowcase">
+  <div class="modern-container">
+    
+    <div class="gallery-slider-master-wrapper">
+      <div class="gallery-master-stage">
+        
+        <!-- Master Stage Top Bar -->
+        <div class="master-stage-bar">
+          <div class="master-badge-group">
+            <span class="master-category-pill" id="masterCategoryPill">Felicitation Ceremony</span>
+            <span class="master-counter-pill" id="masterCounterPill">1 / 9</span>
+          </div>
+          
+          <div class="master-controls-bar">
+            <!-- Autoplay Toggle Button -->
+            <button type="button" class="btn-slider-mode" id="btnAutoSlide" onclick="toggleAutoSlide()" aria-label="Toggle auto slideshow">
+              <span id="autoSlideDot" style="width:8px;height:8px;border-radius:50%;background:#10B981;display:inline-block;box-shadow:0 0 8px rgba(16,185,129,0.8);"></span>
+              <span id="autoSlideLabel">Auto-Slide ON</span>
+            </button>
+            
+            <!-- Fullscreen Lightbox expand -->
+            <button type="button" class="btn-stage-fullscreen" onclick="openModernLightbox(currentMasterIndex)" title="Expand Fullscreen Lightbox" aria-label="Expand Fullscreen Lightbox">
+              ⤢
+            </button>
+          </div>
+        </div>
+
+        <!-- Master Slide Viewport -->
+        <div class="master-slide-viewport" id="masterSlideViewport">
+          <!-- Prev Arrow -->
+          <button type="button" class="master-nav-arrow master-arrow-prev" onclick="prevMasterPhoto()" aria-label="Previous Photo">‹</button>
+          
+          <!-- Image with smooth fade transition -->
+          <img id="masterSlideImg" class="master-slide-image" src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200&amp;auto=format&amp;fit=crop&amp;q=80" alt="Master Campus Preview">
+          
+          <!-- Next Arrow -->
+          <button type="button" class="master-nav-arrow master-arrow-next" onclick="nextMasterPhoto()" aria-label="Next Photo">›</button>
+
+          <!-- Caption Overlay -->
+          <div class="master-caption-overlay">
+            <h2 class="master-caption-title" id="masterCaptionTitle">Annual Toppers Award &amp; Felicitation Ceremony</h2>
+            <p class="master-caption-desc" id="masterCaptionDesc">Honoring State &amp; Taluka Rankers · Station Road Hall</p>
+          </div>
+        </div>
+
+        <!-- In-Place Clickable Thumbnail Strip -->
+        <div class="master-thumb-strip" id="masterThumbStrip" role="tablist" aria-label="Gallery photo thumbnails">
+          <!-- Dynamically generated or fallback rendered -->
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ==========================================================================
+     3. MODERN RESPONSIVE GALLERY GRID SECTION
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0; padding-bottom:5.5rem;">
+  <div class="modern-container">
+    
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem;">
+      <div>
+        <h2 style="font-size:1.45rem;font-weight:800;color:#0F172A;margin-bottom:0.25rem;">All Campus Highlights</h2>
+        <p style="font-size:0.875rem;color:#64748B;">Click any card below to preview in the master showcase above, or click ⤢ to expand.</p>
+      </div>
+      <div style="font-size:0.825rem;font-weight:700;color:#4F46E5;background:#EEF2FF;padding:0.35rem 0.85rem;border-radius:9999px;border:1px solid #C7D2FE;">
+        <span id="gridVisibleCount">9</span> Photos Visible
+      </div>
+    </div>
+
+    <div class="modern-gallery-grid" id="galleryGrid">
+
+      <!-- Item 1: Felicitation -->
+      <div class="modern-gallery-card" data-cat="felicitation" onclick="selectFromGrid(0)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Felicitation</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(0);" aria-label="Enlarge Annual Toppers Award">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Annual Toppers Award Ceremony" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">Annual Toppers Award &amp; Felicitation Ceremony</h3>
+          <span class="gallery-caption-sub">Honoring State &amp; Taluka Rankers · Station Road Hall</span>
+        </div>
+      </div>
+
+      <!-- Item 2: Smart Classroom -->
+      <div class="modern-gallery-card" data-cat="classroom" onclick="selectFromGrid(1)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Smart Classroom</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(1);" aria-label="Enlarge Air-Conditioned Digital Smart Hall">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Air-Conditioned Digital Smart Hall" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">Air-Conditioned Digital Smart Lecture Hall</h3>
+          <span class="gallery-caption-sub">Interactive Flat Panels &amp; Ergonomic Seating · Room 102</span>
+        </div>
+      </div>
+
+      <!-- Item 3: Science Lab -->
+      <div class="modern-gallery-card" data-cat="labs" onclick="selectFromGrid(2)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Science Labs</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(2);" aria-label="Enlarge Concept Demonstration Lab">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Concept Demonstration Lab" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">Hands-on Concept Demonstration Laboratory</h3>
+          <span class="gallery-caption-sub">Physics &amp; Chemistry Experimental Desks</span>
+        </div>
+      </div>
+
+      <!-- Item 4: Seminars -->
+      <div class="modern-gallery-card" data-cat="seminars" onclick="selectFromGrid(3)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Seminars</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(3);" aria-label="Enlarge State Ranker Strategy Masterclass">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="MHT-CET & NEET Strategy Seminar" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">State Ranker Strategy Masterclass &amp; Seminar</h3>
+          <span class="gallery-caption-sub">Guest Lecture by COEP &amp; GMC Alumni Mentors</span>
+        </div>
+      </div>
+
+      <!-- Item 5: Felicitation Gold Medals -->
+      <div class="modern-gallery-card" data-cat="felicitation" onclick="selectFromGrid(4)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Felicitation</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(4);" aria-label="Enlarge Gold Medal Presentation">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Gold Medal Presentation" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">Gold Medal Honors for 100% Board Passers</h3>
+          <span class="gallery-caption-sub">Prof. Sutawane presenting academic laurels</span>
+        </div>
+      </div>
+
+      <!-- Item 6: Study Library -->
+      <div class="modern-gallery-card" data-cat="classroom" onclick="selectFromGrid(5)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Study Library</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(5);" aria-label="Enlarge Quiet Reading Library">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Quiet Reading Library" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">Quiet Reference Library &amp; Self-Study Hall</h3>
+          <span class="gallery-caption-sub">Equipped with 10,000+ Entrance Reference Handbooks</span>
+        </div>
+      </div>
+
+      <!-- Item 7: Faculty Doubt Desk -->
+      <div class="modern-gallery-card" data-cat="classroom" onclick="selectFromGrid(6)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Doubt Desk</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(6);" aria-label="Enlarge Faculty Doubt Counter">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Doubt Clearance Counter" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">1-on-1 Dedicated Faculty Doubt Clearance Desk</h3>
+          <span class="gallery-caption-sub">Daily post-lecture personalized concept clarification</span>
+        </div>
+      </div>
+
+      <!-- Item 8: Biology Lab Models -->
+      <div class="modern-gallery-card" data-cat="labs" onclick="selectFromGrid(7)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Science Labs</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(7);" aria-label="Enlarge Biology 3D Model Lab">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1576086213369-97a306d36557?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Biology 3D Model" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">3D Medical Anatomy &amp; Botanical Models Lab</h3>
+          <span class="gallery-caption-sub">NEET-UG Target Biology visual mastery tools</span>
+        </div>
+      </div>
+
+      <!-- Item 9: Parent Orientation -->
+      <div class="modern-gallery-card" data-cat="seminars" onclick="selectFromGrid(8)">
+        <div class="gallery-thumb-container">
+          <span class="gallery-floating-badge">Seminars</span>
+          <button type="button" class="gallery-expand-button" onclick="event.stopPropagation(); openModernLightbox(8);" aria-label="Enlarge Parent Orientation Conclave">⤢</button>
+          <img class="gallery-card-image" src="https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Parent Orientation" loading="lazy">
+        </div>
+        <div class="gallery-card-meta">
+          <h3 class="gallery-caption-title">Annual Parent-Teacher Academic Conclave</h3>
+          <span class="gallery-caption-sub">Transparent student test performance review &amp; guidance</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     4. HIGH-PERFORMANCE FROSTED LIGHTBOX MODAL
+     ========================================================================== -->
+<div class="modern-lightbox-overlay" id="modernLightbox" role="dialog" aria-modal="true" aria-label="Photo View">
+  <div class="modern-lightbox-dialog">
+    
+    <!-- Top Action Bar -->
+    <div class="lightbox-top-bar">
+      <span class="lightbox-counter" id="lightboxCounter">Photo 1 of 9</span>
+      <button type="button" class="lightbox-close-btn" onclick="closeModernLightbox()" aria-label="Close photo view">×</button>
+    </div>
+
+    <!-- Image Stage with Next/Prev Arrows -->
+    <div class="lightbox-image-stage">
+      <button type="button" class="lightbox-nav-arrow nav-arrow-prev" onclick="prevLightboxPhoto(event)" aria-label="Previous photo">‹</button>
+      <img id="lightboxStageImg" class="lightbox-stage-img" src="" alt="Enlarged Campus View">
+      <button type="button" class="lightbox-nav-arrow nav-arrow-next" onclick="nextLightboxPhoto(event)" aria-label="Next photo">›</button>
+    </div>
+
+    <!-- Bottom Caption Bar -->
+    <div class="lightbox-footer-bar">
+      <div>
+        <h4 id="lightboxStageTitle" class="lightbox-caption-text"></h4>
+        <span id="lightboxStageSub" style="font-size:0.775rem;color:#64748B;"></span>
+      </div>
+      <button type="button" class="btn-taskharbor-primary" style="padding:0.45rem 1rem;font-size:0.75rem;" onclick="openInquiryModal(); closeModernLightbox();">
+        Book Campus Visit →
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Complete Photo Gallery Data
+  const galleryItemsData = [
+    {
+      id: 0,
+      cat: "felicitation",
+      catName: "Felicitation Ceremony",
+      src: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=240&auto=format&fit=crop&q=80",
+      title: "Annual Toppers Award & Felicitation Ceremony",
+      sub: "Honoring State & Taluka Rankers · Station Road Hall"
+    },
+    {
+      id: 1,
+      cat: "classroom",
+      catName: "Smart Classroom",
+      src: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=240&auto=format&fit=crop&q=80",
+      title: "Air-Conditioned Digital Smart Lecture Hall",
+      sub: "Interactive Flat Panels & Ergonomic Seating · Room 102"
+    },
+    {
+      id: 2,
+      cat: "labs",
+      catName: "Science Labs",
+      src: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=240&auto=format&fit=crop&q=80",
+      title: "Hands-on Concept Demonstration Laboratory",
+      sub: "Physics & Chemistry Experimental Desks"
+    },
+    {
+      id: 3,
+      cat: "seminars",
+      catName: "Seminars & Conclaves",
+      src: "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=240&auto=format&fit=crop&q=80",
+      title: "State Ranker Strategy Masterclass & Seminar",
+      sub: "Guest Lecture by COEP & GMC Alumni Mentors"
+    },
+    {
+      id: 4,
+      cat: "felicitation",
+      catName: "Felicitation Honors",
+      src: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=240&auto=format&fit=crop&q=80",
+      title: "Gold Medal Honors for 100% Board Passers",
+      sub: "Prof. Sutawane presenting academic laurels"
+    },
+    {
+      id: 5,
+      cat: "classroom",
+      catName: "Study Library",
+      src: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=240&auto=format&fit=crop&q=80",
+      title: "Quiet Reference Library & Self-Study Hall",
+      sub: "Equipped with 10,000+ Entrance Reference Handbooks"
+    },
+    {
+      id: 6,
+      cat: "classroom",
+      catName: "Doubt Clearance Desk",
+      src: "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=240&auto=format&fit=crop&q=80",
+      title: "1-on-1 Dedicated Faculty Doubt Clearance Desk",
+      sub: "Daily post-lecture personalized concept clarification"
+    },
+    {
+      id: 7,
+      cat: "labs",
+      catName: "3D Biology Lab",
+      src: "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=240&auto=format&fit=crop&q=80",
+      title: "3D Medical Anatomy & Botanical Models Lab",
+      sub: "NEET-UG Target Biology visual mastery tools"
+    },
+    {
+      id: 8,
+      cat: "seminars",
+      catName: "Academic Conclave",
+      src: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&auto=format&fit=crop&q=80",
+      thumb: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=240&auto=format&fit=crop&q=80",
+      title: "Annual Parent-Teacher Academic Conclave",
+      sub: "Transparent student test performance review & guidance"
+    }
+  ];
+
+  // State Management
+  let currentMasterIndex = 0;
+  let isAutoPlaying = true;
+  let autoPlayTimer = null;
+  let currentCategoryFilter = 'all';
+  const AUTO_PLAY_INTERVAL = 4500; // 4.5 seconds
+  const preloadedImages = [];
+
+  // DOM Elements
+  const masterSlideImg = document.getElementById('masterSlideImg');
+  const masterCategoryPill = document.getElementById('masterCategoryPill');
+  const masterCounterPill = document.getElementById('masterCounterPill');
+  const masterCaptionTitle = document.getElementById('masterCaptionTitle');
+  const masterCaptionDesc = document.getElementById('masterCaptionDesc');
+  const masterThumbStrip = document.getElementById('masterThumbStrip');
+  const autoSlideDot = document.getElementById('autoSlideDot');
+  const autoSlideLabel = document.getElementById('autoSlideLabel');
+  const masterSlideViewport = document.getElementById('masterSlideViewport');
+
+  // Lightbox Elements
+  const lightboxModal = document.getElementById('modernLightbox');
+  const stageImg = document.getElementById('lightboxStageImg');
+  const stageTitle = document.getElementById('lightboxStageTitle');
+  const stageSub = document.getElementById('lightboxStageSub');
+  const stageCounter = document.getElementById('lightboxCounter');
+
+  // Preload all gallery images immediately for instant, zero-lag transitions
+  function preloadAllImages() {
+    galleryItemsData.forEach((item, idx) => {
+      const img = new Image();
+      img.src = item.src;
+      preloadedImages[idx] = img;
+    });
+  }
+
+  // Helper: Get indices of photos matching the current filter
+  function getFilteredIndices() {
+    if (currentCategoryFilter === 'all') {
+      return galleryItemsData.map((_, i) => i);
+    }
+    const filtered = [];
+    galleryItemsData.forEach((item, idx) => {
+      if (item.cat === currentCategoryFilter) {
+        filtered.push(idx);
+      }
+    });
+    return filtered.length > 0 ? filtered : galleryItemsData.map((_, i) => i);
+  }
+
+  // 1. Render Master Thumbnail Strip
+  function renderMasterThumbnails() {
+    if (!masterThumbStrip) return;
+    masterThumbStrip.innerHTML = '';
+    
+    galleryItemsData.forEach((item, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `master-thumb-item ${idx === currentMasterIndex ? 'active' : ''}`;
+      btn.setAttribute('data-index', idx);
+      btn.setAttribute('data-cat', item.cat);
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', idx === currentMasterIndex ? 'true' : 'false');
+      btn.setAttribute('aria-label', `Show photo ${idx + 1}: ${item.title}`);
+      btn.onclick = (e) => {
+        e.preventDefault();
+        setMasterPhoto(idx);
+        restartAutoPlayTimer();
+      };
+
+      const img = document.createElement('img');
+      img.src = item.thumb || item.src;
+      img.alt = item.title;
+
+      btn.appendChild(img);
+      masterThumbStrip.appendChild(btn);
+    });
+  }
+
+  // 2. Set Master Photo In-Place with Guaranteed Small/Big Sync
+  function setMasterPhoto(index) {
+    if (index < 0 || index >= galleryItemsData.length) return;
+    currentMasterIndex = index;
+    const item = galleryItemsData[currentMasterIndex];
+
+    if (!item || !masterSlideImg) return;
+
+    const visibleIndices = getFilteredIndices();
+    const positionInFilter = visibleIndices.indexOf(currentMasterIndex);
+    const displayIndex = positionInFilter !== -1 ? positionInFilter + 1 : currentMasterIndex + 1;
+    const totalCount = visibleIndices.length;
+
+    // Immediately synchronize thumbnail strip active state
+    const thumbs = masterThumbStrip.querySelectorAll('.master-thumb-item');
+    thumbs.forEach((thumb, idx) => {
+      const isActive = (idx === currentMasterIndex);
+      thumb.classList.toggle('active', isActive);
+      thumb.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      if (isActive) {
+        thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    });
+
+    // Immediately synchronize text labels, counter, and caption
+    if (masterCategoryPill) {
+      masterCategoryPill.textContent = item.catName || item.cat.toUpperCase();
+    }
+    if (masterCounterPill) {
+      masterCounterPill.textContent = `${displayIndex} / ${totalCount}`;
+    }
+    if (masterCaptionTitle) {
+      masterCaptionTitle.textContent = item.title;
+    }
+    if (masterCaptionDesc) {
+      masterCaptionDesc.textContent = item.sub;
+    }
+
+    // Ensure Big Image ALWAYS updates immediately to match the active small thumbnail
+    const cachedObj = preloadedImages[index];
+    const isCachedReady = cachedObj && cachedObj.complete && cachedObj.naturalWidth > 0;
+
+    masterSlideImg.classList.add('sliding-out');
+
+    if (isCachedReady) {
+      // High-res image is already cached in memory: swap immediately with quick fade
+      setTimeout(() => {
+        if (currentMasterIndex === index) {
+          masterSlideImg.src = item.src;
+          masterSlideImg.alt = item.title;
+          masterSlideImg.classList.remove('sliding-out');
+        }
+      }, 70);
+    } else {
+      // Not yet in cache: use thumbnail image (which is already loaded in the DOM) as instant placeholder
+      // This completely prevents showing the previous slide's image!
+      masterSlideImg.src = item.thumb || item.src;
+      masterSlideImg.alt = item.title;
+      masterSlideImg.classList.remove('sliding-out');
+
+      // Once the high-res 1200px version finishes loading, upgrade cleanly
+      const highResLoader = new Image();
+      highResLoader.onload = () => {
+        if (currentMasterIndex === index) {
+          masterSlideImg.src = item.src;
+        }
+      };
+      highResLoader.onerror = () => {
+        // Fallback gracefully to thumbnail
+        if (currentMasterIndex === index) {
+          masterSlideImg.src = item.thumb || item.src;
+        }
+      };
+      highResLoader.src = item.src;
+    }
+  }
+
+  function nextMasterPhoto() {
+    const visibleIndices = getFilteredIndices();
+    if (visibleIndices.length === 0) return;
+    const currPos = visibleIndices.indexOf(currentMasterIndex);
+    const nextIdx = (currPos !== -1)
+      ? visibleIndices[(currPos + 1) % visibleIndices.length]
+      : visibleIndices[0];
+    setMasterPhoto(nextIdx);
+    restartAutoPlayTimer();
+  }
+
+  function prevMasterPhoto() {
+    const visibleIndices = getFilteredIndices();
+    if (visibleIndices.length === 0) return;
+    const currPos = visibleIndices.indexOf(currentMasterIndex);
+    const prevIdx = (currPos !== -1)
+      ? visibleIndices[(currPos - 1 + visibleIndices.length) % visibleIndices.length]
+      : visibleIndices[visibleIndices.length - 1];
+    setMasterPhoto(prevIdx);
+    restartAutoPlayTimer();
+  }
+
+  // 3. Auto-Slideshow Controller
+  function startAutoPlay() {
+    if (autoPlayTimer) clearInterval(autoPlayTimer);
+    autoPlayTimer = setInterval(() => {
+      // Advance to next photo unless lightbox modal is open
+      if (!lightboxModal || !lightboxModal.classList.contains('active')) {
+        const visibleIndices = getFilteredIndices();
+        if (visibleIndices.length <= 1) return;
+        const currPos = visibleIndices.indexOf(currentMasterIndex);
+        const nextIdx = (currPos !== -1)
+          ? visibleIndices[(currPos + 1) % visibleIndices.length]
+          : visibleIndices[0];
+        setMasterPhoto(nextIdx);
+      }
+    }, AUTO_PLAY_INTERVAL);
+  }
+
+  function stopAutoPlay() {
+    if (autoPlayTimer) {
+      clearInterval(autoPlayTimer);
+      autoPlayTimer = null;
+    }
+  }
+
+  function restartAutoPlayTimer() {
+    if (isAutoPlaying) {
+      startAutoPlay();
+    }
+  }
+
+  function toggleAutoSlide() {
+    isAutoPlaying = !isAutoPlaying;
+    if (isAutoPlaying) {
+      startAutoPlay();
+      if (autoSlideDot) {
+        autoSlideDot.style.background = '#10B981';
+        autoSlideDot.style.boxShadow = '0 0 8px rgba(16,185,129,0.8)';
+      }
+      if (autoSlideLabel) autoSlideLabel.textContent = 'Auto-Slide ON';
+    } else {
+      stopAutoPlay();
+      if (autoSlideDot) {
+        autoSlideDot.style.background = '#94A3B8';
+        autoSlideDot.style.boxShadow = 'none';
+      }
+      if (autoSlideLabel) autoSlideLabel.textContent = 'Auto-Slide PAUSED';
+    }
+  }
+
+  // Hover to pause auto-slide so user has complete control
+  if (masterSlideViewport) {
+    masterSlideViewport.addEventListener('mouseenter', () => {
+      if (isAutoPlaying) stopAutoPlay();
+    });
+    masterSlideViewport.addEventListener('mouseleave', () => {
+      if (isAutoPlaying) startAutoPlay();
+    });
+  }
+
+  if (masterThumbStrip) {
+    masterThumbStrip.addEventListener('mouseenter', () => {
+      if (isAutoPlaying) stopAutoPlay();
+    });
+    masterThumbStrip.addEventListener('mouseleave', () => {
+      if (isAutoPlaying) startAutoPlay();
+    });
+  }
+
+  // 4. Mobile Touch Gesture Handling (Swipe to slide photos in-place)
+  let touchStartX = 0;
+  let touchEndX = 0;
+  if (masterSlideViewport) {
+    masterSlideViewport.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    masterSlideViewport.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+  }
+
+  function handleSwipe() {
+    const diff = touchEndX - touchStartX;
+    if (Math.abs(diff) > 45) {
+      if (diff < 0) {
+        // Swiped Left -> Next
+        nextMasterPhoto();
+      } else {
+        // Swiped Right -> Prev
+        prevMasterPhoto();
+      }
+    }
+  }
+
+  // 5. Select from Grid -> Updates Master In-Place and Smoothly Scrolls Up
+  function selectFromGrid(index) {
+    setMasterPhoto(index);
+    restartAutoPlayTimer();
+    const showcase = document.getElementById('masterGalleryShowcase');
+    if (showcase) {
+      const topOffset = showcase.getBoundingClientRect().top + window.pageYOffset - 90;
+      window.scrollTo({ top: topOffset, behavior: 'smooth' });
+    }
+  }
+
+  // 6. Fullscreen Lightbox Integration
+  function openModernLightbox(index) {
+    currentMasterIndex = index;
+    updateLightboxContent();
+    lightboxModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModernLightbox() {
+    lightboxModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function updateLightboxContent() {
+    const item = galleryItemsData[currentMasterIndex];
+    if (item && stageImg) {
+      stageImg.src = item.src;
+      stageTitle.textContent = item.title;
+      stageSub.textContent = item.sub;
+      stageCounter.textContent = `Photo ${currentMasterIndex + 1} of ${galleryItemsData.length}`;
+    }
+  }
+
+  function nextLightboxPhoto(e) {
+    if (e) e.stopPropagation();
+    currentMasterIndex = (currentMasterIndex + 1) % galleryItemsData.length;
+    updateLightboxContent();
+    setMasterPhoto(currentMasterIndex);
+  }
+
+  function prevLightboxPhoto(e) {
+    if (e) e.stopPropagation();
+    currentMasterIndex = (currentMasterIndex - 1 + galleryItemsData.length) % galleryItemsData.length;
+    updateLightboxContent();
+    setMasterPhoto(currentMasterIndex);
+  }
+
+  // Lightbox backdrop click to close
+  if (lightboxModal) {
+    lightboxModal.addEventListener('click', (e) => {
+      if (e.target === lightboxModal) closeModernLightbox();
+    });
+  }
+
+  // Keyboard Navigation (Arrow Keys & Escape)
+  window.addEventListener('keydown', (e) => {
+    if (lightboxModal.classList.contains('active')) {
+      if (e.key === 'Escape') closeModernLightbox();
+      else if (e.key === 'ArrowRight') nextLightboxPhoto();
+      else if (e.key === 'ArrowLeft') prevLightboxPhoto();
+    } else {
+      if (e.key === 'ArrowRight') nextMasterPhoto();
+      else if (e.key === 'ArrowLeft') prevMasterPhoto();
+    }
+  });
+
+  // 7. Category Filter Logic
+  document.querySelectorAll('[data-gallery-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-gallery-filter]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filter = btn.getAttribute('data-gallery-filter');
+      currentCategoryFilter = filter;
+      const cards = document.querySelectorAll('.modern-gallery-card');
+      let visibleCount = 0;
+      let firstMatchIndex = -1;
+
+      // Filter grid cards
+      cards.forEach((card, idx) => {
+        const cardCat = card.getAttribute('data-cat');
+        if (filter === 'all' || cardCat === filter) {
+          card.style.display = 'flex';
+          setTimeout(() => { card.style.opacity = '1'; card.style.transform = ''; }, 10);
+          visibleCount++;
+          if (firstMatchIndex === -1) firstMatchIndex = idx;
+        } else {
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.96)';
+          setTimeout(() => { card.style.display = 'none'; }, 200);
+        }
+      });
+
+      // Filter thumbnail strip items
+      const thumbs = masterThumbStrip.querySelectorAll('.master-thumb-item');
+      thumbs.forEach((th) => {
+        const thumbCat = th.getAttribute('data-cat');
+        if (filter === 'all' || thumbCat === filter) {
+          th.style.display = 'block';
+          th.style.opacity = '';
+        } else {
+          th.style.display = 'none';
+        }
+      });
+
+      // Update visible count pill
+      const counterEl = document.getElementById('gridVisibleCount');
+      if (counterEl) counterEl.textContent = visibleCount;
+
+      // Switch master stage to the first matching item in this category
+      if (firstMatchIndex !== -1 && (filter !== 'all' || currentMasterIndex === 0)) {
+        setMasterPhoto(firstMatchIndex);
+      }
+    });
+  });
+
+  // Initialize Page
+  document.addEventListener('DOMContentLoaded', () => {
+    preloadAllImages();
+    renderMasterThumbnails();
+    setMasterPhoto(0);
+    startAutoPlay();
+  });
+</script>
+{% endblock %}

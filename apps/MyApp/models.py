@@ -291,8 +291,8 @@ class Installment(models.Model):
             return 'PARTIAL'
         if not self.due_date:
             return 'UPCOMING'
-        today = timezone.now().date()
-        due_d = self.due_date.date()
+        today = timezone.localdate()
+        due_d = timezone.localtime(self.due_date).date() if timezone.is_aware(self.due_date) else self.due_date.date()
         if today > due_d:
             return 'OVERDUE'
         if today == due_d:
@@ -395,7 +395,7 @@ class ReceiptCounter(models.Model):
     id = models.CharField(primary_key=True, max_length=36, default=generate_uuid, editable=False)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='receipt_counters', db_column='branchId')
     session = models.ForeignKey(AcademicSession, on_delete=models.CASCADE, related_name='receipt_counters', db_column='sessionId')
-    prefix = models.CharField(max_length=100)  # e.g. "SC/2026-27/NGP/REC-"
+    prefix = models.CharField(max_length=100)  # e.g. "2026-27-VAI-REC"
     last_number = models.IntegerField(default=0, db_column='lastNumber')
     updated_at = models.DateTimeField(auto_now=True, db_column='updatedAt')
 
@@ -404,7 +404,7 @@ class ReceiptCounter(models.Model):
         unique_together = ('branch', 'session')
 
     def __str__(self):
-        return f"{self.prefix}{self.last_number:05d}"
+        return f"{self.prefix}{self.last_number}"
 
 
 # -------------------------------------------------------------

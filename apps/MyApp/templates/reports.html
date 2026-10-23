@@ -5,7 +5,7 @@
 {% block title %}Financial &amp; Administrative Reports Suite — Sutawane Classes{% endblock %}
 
 {% block content %}
-<div class="space-y-6 w-full">
+<div class="space-y-6 w-full financial-report-print-container" id="printable-financial-report">
   <!-- Page Header -->
   <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 no-print">
     <div>
@@ -18,46 +18,8 @@
       </p>
     </div>
 
-    <!-- Global Toolbar & Scope Controls -->
-    <div class="flex flex-wrap items-center gap-2.5">
-      <!-- In-Page Branch Selector -->
-      <form method="GET" id="reportScopeForm" class="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="tab" value="{{ active_tab }}">
-        
-        <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
-          <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground"></i>
-          <select
-            name="branch_id"
-            onchange="document.getElementById('reportScopeForm').submit()"
-            class="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-foreground"
-            title="Filter reports by branch"
-          >
-            <option value="ALL" {% if selected_branch_id == 'ALL' %}selected{% endif %}>All Branches</option>
-            {% for b in branches %}
-              <option value="{{ b.id }}" {% if selected_branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- In-Page Session Selector -->
-        <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
-          <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-muted-foreground"></i>
-          <select
-            name="session_id"
-            onchange="document.getElementById('reportScopeForm').submit()"
-            class="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-foreground"
-            title="Filter reports by academic session"
-          >
-            <option value="ALL" {% if selected_session_id == 'ALL' %}selected{% endif %}>All Academic Sessions</option>
-            {% for s in sessions %}
-              <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
-                {{ s.name }}{% if s.is_current %} (Current){% endif %}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-      </form>
-
+    <!-- Actions Toolbar -->
+    <div class="flex items-center gap-2.5">
       <a
         href="{% url 'daily_reports' %}?mode=DAILY{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
         class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors"
@@ -65,36 +27,31 @@
         <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
         <span>Open Daily Statement</span>
       </a>
-
-      <button
-        type="button"
-        onclick="window.print()"
-        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs font-medium transition-colors cursor-pointer"
-        title="Print report on A4 paper"
-      >
-        <i data-lucide="printer" class="w-3.5 h-3.5"></i>
-        <span>Print Report</span>
-      </button>
     </div>
   </div>
 
   <!-- Print-Only Executive Header -->
-  <div class="hidden print:block border-b-2 border-[#28375C] pb-4 mb-4">
+  <div class="hidden print:block border-b-2 border-slate-800 pb-2.5 mb-2.5">
     <div class="flex justify-between items-start">
       <div>
-        <h1 class="text-xl font-black text-[#28375C] uppercase tracking-wide">
-          {{ institute_name|default:"SUTAWANE CLASSES" }}
-        </h1>
-        <p class="text-xs text-slate-600 mt-0.5">
+        <div class="flex items-center gap-2">
+          <h1 class="text-lg font-black text-slate-900 uppercase tracking-wide">
+            {{ institute_name|default:"SUTAWANE CLASSES VAIJAPUR" }}
+          </h1>
+          <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300">
+            OFFICIAL AUDIT REPORT
+          </span>
+        </div>
+        <p class="text-[10px] text-slate-600 mt-0.5 font-medium">
           Official Institutional Audit &amp; Performance Report • Printed on {{ printed_date }}
         </p>
       </div>
       <div class="text-right text-xs">
-        <p class="font-bold text-slate-900">
+        <p class="font-bold text-slate-900 text-xs">
           Session: {{ target_session.display_name|default:target_session.name|default:"Consolidated" }}
         </p>
-        <p class="text-slate-500">
-          Branch: {% if selected_branch_id == 'ALL' %}All Campuses{% else %}{% for b in branches %}{% if b.id == selected_branch_id %}{{ b.name }}{% endif %}{% endfor %}{% endif %}
+        <p class="text-slate-600 text-[10px]">
+          Campus / Branch: {% if selected_branch_id == 'ALL' %}All Campuses Combined{% else %}{% for b in branches %}{% if b.id == selected_branch_id %}{{ b.name }}{% endif %}{% endfor %}{% endif %}
         </p>
       </div>
     </div>
@@ -141,12 +98,12 @@
   {% if active_tab == 'SESSION_AUDIT' %}
   <div class="space-y-6">
     <!-- Session Overview Ribbon -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-xl border">
+    <div class="report-session-ribbon flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-xl border">
       <div>
         <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
           Target Academic Session
         </span>
-        <h2 class="text-lg font-bold text-foreground flex items-center gap-2 mt-0.5">
+        <h2 class="text-base sm:text-lg font-bold text-foreground flex items-center gap-2 mt-0.5">
           <span>{{ session_audit.session.displayName|default:session_audit.session.name }}</span>
           {% if session_audit.session.isCurrent %}
             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
@@ -184,99 +141,99 @@
     </div>
 
     <!-- 6 Key Financial & Enrollment KPI Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div class="report-kpi-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       <!-- Active Students -->
-      <div class="p-3 bg-card border rounded-xl shadow-xs">
-        <div class="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+      <div class="report-kpi-card p-3 bg-card border rounded-xl shadow-xs">
+        <div class="kpi-label text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
           <span>Enrollments</span>
-          <i data-lucide="users" class="w-3.5 h-3.5 text-blue-600"></i>
+          <i data-lucide="users" class="w-3.5 h-3.5 text-blue-600 print:hidden"></i>
         </div>
-        <div class="text-xl font-bold text-foreground mt-1">
+        <div class="kpi-value text-xl font-bold text-foreground mt-1">
           {{ session_audit.summary.activeAdmissions }}
         </div>
-        <p class="text-[10px] text-muted-foreground mt-0.5">
+        <p class="kpi-subtext text-[10px] text-muted-foreground mt-0.5">
           +{{ session_audit.summary.archivedAdmissions }} archived
         </p>
       </div>
 
       <!-- Agreed Fees -->
-      <div class="p-3 bg-card border rounded-xl shadow-xs">
-        <div class="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+      <div class="report-kpi-card p-3 bg-card border rounded-xl shadow-xs">
+        <div class="kpi-label text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
           <span>Agreed Fees</span>
-          <i data-lucide="indian-rupee" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <i data-lucide="indian-rupee" class="w-3.5 h-3.5 text-indigo-600 print:hidden"></i>
         </div>
-        <div class="text-xl font-bold text-foreground mt-1">
+        <div class="kpi-value text-xl font-bold text-foreground mt-1 font-mono">
           ₹{{ session_audit.summary.totalFeesAgreed|floatformat:0|intcomma }}
         </div>
-        <p class="text-[10px] text-muted-foreground mt-0.5">Committed revenue</p>
+        <p class="kpi-subtext text-[10px] text-muted-foreground mt-0.5">Committed revenue</p>
       </div>
 
       <!-- Total Collections -->
-      <div class="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-800 rounded-xl shadow-xs">
-        <div class="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+      <div class="report-kpi-card p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-800 rounded-xl shadow-xs">
+        <div class="kpi-label text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
           <span>Realized Fees</span>
-          <i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-600 print:hidden"></i>
         </div>
-        <div class="text-xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+        <div class="kpi-value text-xl font-black text-emerald-700 dark:text-emerald-300 mt-1 font-mono">
           ₹{{ session_audit.summary.totalCollections|floatformat:0|intcomma }}
         </div>
-        <p class="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 font-medium">
+        <p class="kpi-subtext text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 font-medium">
           {{ session_audit.summary.collectionEfficiency }}% collected
         </p>
       </div>
 
       <!-- Pending Dues -->
-      <div class="p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 rounded-xl shadow-xs">
-        <div class="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
+      <div class="report-kpi-card p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 rounded-xl shadow-xs">
+        <div class="kpi-label text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
           <span>Pending Dues</span>
-          <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-600"></i>
+          <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-600 print:hidden"></i>
         </div>
-        <div class="text-xl font-black text-amber-700 dark:text-amber-300 mt-1">
+        <div class="kpi-value text-xl font-black text-amber-700 dark:text-amber-300 mt-1 font-mono">
           ₹{{ session_audit.summary.totalPendingDues|floatformat:0|intcomma }}
         </div>
-        <p class="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 font-medium">
+        <p class="kpi-subtext text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 font-medium">
           Outstanding balance
         </p>
       </div>
 
       <!-- Total Expenses -->
-      <div class="p-3 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-800 rounded-xl shadow-xs">
-        <div class="text-[11px] font-bold text-rose-800 dark:text-rose-300 flex items-center justify-between">
+      <div class="report-kpi-card p-3 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-800 rounded-xl shadow-xs">
+        <div class="kpi-label text-[11px] font-bold text-rose-800 dark:text-rose-300 flex items-center justify-between">
           <span>Center Expenses</span>
-          <i data-lucide="trending-down" class="w-3.5 h-3.5 text-rose-600"></i>
+          <i data-lucide="trending-down" class="w-3.5 h-3.5 text-rose-600 print:hidden"></i>
         </div>
-        <div class="text-xl font-black text-rose-700 dark:text-rose-300 mt-1">
+        <div class="kpi-value text-xl font-black text-rose-700 dark:text-rose-300 mt-1 font-mono">
           ₹{{ session_audit.summary.totalExpenses|floatformat:0|intcomma }}
         </div>
-        <p class="text-[10px] text-rose-700/80 dark:text-rose-400/80 mt-0.5 font-medium">
+        <p class="kpi-subtext text-[10px] text-rose-700/80 dark:text-rose-400/80 mt-0.5 font-medium">
           Operational outflow
         </p>
       </div>
 
       <!-- Net Surplus / Balance -->
-      <div class="p-3 border rounded-xl shadow-xs {% if session_audit.summary.isSurplus %}bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700{% else %}bg-rose-50 dark:bg-rose-950/30 border-rose-400 dark:border-rose-700{% endif %}">
-        <div class="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+      <div class="report-kpi-card p-3 border rounded-xl shadow-xs {% if session_audit.summary.isSurplus %}bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700{% else %}bg-rose-50 dark:bg-rose-950/30 border-rose-400 dark:border-rose-700{% endif %}">
+        <div class="kpi-label text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
           <span>Net Surplus</span>
           {% if session_audit.summary.isSurplus %}
-            <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-600 print:hidden"></i>
           {% else %}
-            <i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-rose-600"></i>
+            <i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-rose-600 print:hidden"></i>
           {% endif %}
         </div>
-        <div class="text-xl font-black mt-1 {% if session_audit.summary.isSurplus %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+        <div class="kpi-value text-xl font-black mt-1 font-mono {% if session_audit.summary.isSurplus %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
           ₹{{ session_audit.summary.netSurplus|floatformat:0|intcomma }}
         </div>
-        <p class="text-[10px] text-muted-foreground mt-0.5 font-medium">
+        <p class="kpi-subtext text-[10px] text-muted-foreground mt-0.5 font-medium">
           Collections − Expenses
         </p>
       </div>
     </div>
 
     <!-- Section 1: Campus & Branch Performance Comparison -->
-    <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
-      <div class="py-3 px-4 border-b bg-muted/20 flex flex-row items-center justify-between">
+    <div class="report-section-card bg-card border rounded-xl shadow-xs overflow-hidden">
+      <div class="report-section-header py-3 px-4 border-b bg-muted/20 flex flex-row items-center justify-between">
         <h3 class="text-sm font-bold flex items-center gap-2">
-          <i data-lucide="building-2" class="w-4 h-4 text-primary"></i>
+          <i data-lucide="building-2" class="w-4 h-4 text-primary print:hidden"></i>
           <span>Campus &amp; Branch Performance Breakdown</span>
         </h3>
         <span class="text-xs text-muted-foreground">
@@ -284,7 +241,7 @@
         </span>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-xs">
+        <table class="report-table w-full text-xs">
           <thead>
             <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
               <th class="py-2.5 px-3 text-left font-semibold text-white">Branch Name</th>
@@ -341,17 +298,17 @@
     </div>
 
     <!-- Section 2: Standard & Course-wise Performance + Monthly Movement -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="report-side-by-side-grid grid grid-cols-1 lg:grid-cols-2 gap-4">
       <!-- Course Breakdown Table -->
-      <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
-        <div class="py-3 px-4 border-b bg-muted/20">
+      <div class="report-section-card bg-card border rounded-xl shadow-xs overflow-hidden">
+        <div class="report-section-header py-3 px-4 border-b bg-muted/20">
           <h3 class="text-sm font-bold flex items-center gap-2">
-            <i data-lucide="book-open" class="w-4 h-4 text-primary"></i>
+            <i data-lucide="book-open" class="w-4 h-4 text-primary print:hidden"></i>
             <span>Class / Course Revenue &amp; Recovery</span>
           </h3>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-xs">
+          <table class="report-table w-full text-xs">
             <thead>
               <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
                 <th class="py-2 px-3 text-left font-semibold text-white">Class / Course</th>
@@ -387,15 +344,15 @@
       </div>
 
       <!-- Monthly Trend Table -->
-      <div class="bg-card border rounded-xl shadow-xs overflow-hidden">
-        <div class="py-3 px-4 border-b bg-muted/20">
+      <div class="report-section-card bg-card border rounded-xl shadow-xs overflow-hidden">
+        <div class="report-section-header py-3 px-4 border-b bg-muted/20">
           <h3 class="text-sm font-bold flex items-center gap-2">
-            <i data-lucide="calendar" class="w-4 h-4 text-primary"></i>
+            <i data-lucide="calendar" class="w-4 h-4 text-primary print:hidden"></i>
             <span>Session Monthly Cash Movement</span>
           </h3>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-xs">
+          <table class="report-table w-full text-xs">
             <thead>
               <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
                 <th class="py-2 px-3 text-left font-semibold text-white">Month</th>
@@ -415,8 +372,8 @@
                     ₹{{ m.expenses|floatformat:0|intcomma }}
                   </td>
                   <td class="py-2 px-3 text-right font-black">
-                    <span class="{% if m.collections >= m.expenses %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
-                      ₹{{ m.collections|add:"0"|floatformat:0|intcomma }}
+                    <span class="{% if m.net >= 0 %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+                      {% if m.net >= 0 %}₹{{ m.net|floatformat:0|intcomma }}{% else %}-₹{{ m.net_abs|floatformat:0|intcomma }}{% endif %}
                     </span>
                   </td>
                 </tr>
@@ -432,6 +389,17 @@
         </div>
       </div>
     </div>
+
+    <!-- Print-Only Institutional Footer -->
+    <div class="hidden print:flex justify-between items-center text-[8.5px] text-slate-500 pt-2 border-t border-slate-300 mt-2">
+      <div>
+        <span>Sutawane Classes Management Software &bull; Confidential Executive Academic Session Audit</span>
+      </div>
+      <div>
+        <span>Generated: {{ printed_date }} &bull; Page 1 of 1</span>
+      </div>
+    </div>
+  </div>
   </div>
   {% endif %}
 
@@ -926,4 +894,21 @@
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function printFinancialReport() {
+    document.body.classList.add('printing-report');
+    window.print();
+  }
+
+  window.addEventListener('beforeprint', function() {
+    document.body.classList.add('printing-report');
+  });
+
+  window.addEventListener('afterprint', function() {
+    document.body.classList.remove('printing-report');
+  });
+</script>
 {% endblock %}

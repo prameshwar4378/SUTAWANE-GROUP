@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import json
 import time
@@ -12,8 +13,9 @@ from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count, Sum
 from django.conf import settings
+from django.core.paginator import Paginator
 
 from .models import (
     Branch, AcademicSession, Student, StudentAdmission,
@@ -34,6 +36,7 @@ from .whatsapp import (
 from .dues_export import export_dues_to_excel, export_dues_to_pdf
 from .expenses_export import export_expenses_to_excel, export_expenses_to_pdf
 from .students_export import export_students_to_excel, export_students_to_pdf
+from .payments_export import export_payments_to_excel, export_payments_to_pdf
 import calendar
 from .reports_export import (
     export_session_audit_excel,
@@ -96,7 +99,39 @@ def can_manage_system(request):
 
 def landing_view(request):
     """Public product introduction; private application routes remain below."""
+    user_id = request.session.get('user_id')
+    if user_id:
+        user = User.objects.filter(id=user_id, is_active=True).first()
+        if user:
+            if user.is_developer:
+                return redirect('developer_portal')
+            return redirect('dashboard')
     return render(request, 'landing.html')
+
+
+def public_batches_view(request):
+    """Public Showcase of Batches & Structured Academic Programs."""
+    return render(request, 'batches.html')
+
+
+def public_photo_gallery_view(request):
+    """Public Showcase of Campus & Achievement Photos."""
+    return render(request, 'photo_gallery.html')
+
+
+def public_video_gallery_view(request):
+    """Public Showcase of Video Lectures & Topper Interviews."""
+    return render(request, 'video_gallery.html')
+
+
+def public_about_us_view(request):
+    """Public Showcase of Institutional Heritage, Director Vision & Faculty."""
+    return render(request, 'about_us.html')
+
+
+def public_contact_us_view(request):
+    """Public Contact Desk & Campus Directory."""
+    return render(request, 'contact_us.html')
 
 def login_view(request):
     """
@@ -188,6 +223,7 @@ def login_view(request):
                     'license': license_status,
                     'entered_email': email,
                     'next_url': next_url,
+                    'active_tab': 'developer',
                 })
 
             success, msg = verify_developer_otp(email, otp_code)
@@ -197,6 +233,7 @@ def login_view(request):
                     'license': license_status,
                     'entered_email': email,
                     'next_url': next_url,
+                    'active_tab': 'developer',
                 })
 
             # Developer verified, fetch or ensure developer user exists
@@ -216,11 +253,14 @@ def login_view(request):
             request.session['user_role'] = dev_user.role
             request.session['user_name'] = dev_user.name
             messages.success(request, "Developer authentication successful. Access granted.")
-            return redirect('developer_portal')
+            explicit_next = request.POST.get('next', '').strip() or request.GET.get('next', '').strip()
+            target_url = explicit_next if explicit_next and explicit_next not in ('/login/', '/app/') else 'developer_portal'
+            return redirect(target_url)
 
     return render(request, 'login.html', {
         'license': license_status,
         'next_url': next_url,
+        'active_tab': request.GET.get('tab', 'owner'),
     })
 
 
@@ -251,6 +291,54 @@ def api_developer_send_otp_view(request):
     if success:
         return JsonResponse({'success': True, 'message': msg})
     return JsonResponse({'success': False, 'error': msg})
+
+
+@require_POST
+def api_developer_verify_otp_view(request):
+    """
+    Asynchronously verifies developer OTP and authenticates developer session.
+    """
+    try:
+        body = json.loads(request.body.decode('utf-8'))
+        email = body.get('email', '').strip().lower()
+        otp_code = str(body.get('otp_code', '')).strip()
+        next_url = body.get('next', '').strip()
+    except Exception:
+        email = request.POST.get('email', '').strip().lower()
+        otp_code = str(request.POST.get('otp_code', '')).strip()
+        next_url = request.POST.get('next', '').strip()
+
+    if not email or not otp_code:
+        return JsonResponse({'success': False, 'error': 'Please enter both developer email and 6-digit verification code.'})
+
+    success, msg = verify_developer_otp(email, otp_code)
+    if not success:
+        return JsonResponse({'success': False, 'error': msg})
+
+    # Ensure developer user exists
+    dev_user = User.objects.filter(role='DEVELOPER').first()
+    if not dev_user:
+        dev_hash, dev_salt = hash_password('developer@123')
+        dev_user = User.objects.create(
+            username='developer',
+            name='Software Developer',
+            password=dev_hash,
+            salt=dev_salt,
+            role='DEVELOPER',
+            is_active=True,
+        )
+
+    request.session['user_id'] = str(dev_user.id)
+    request.session['user_role'] = dev_user.role
+    request.session['user_name'] = dev_user.name
+    messages.success(request, "Developer authentication successful. Access granted.")
+
+    redirect_url = next_url if next_url and next_url != '/login/' else '/developer-portal/'
+    return JsonResponse({
+        'success': True,
+        'message': 'Developer authentication successful.',
+        'redirect_url': redirect_url
+    })
 
 
 # -------------------------------------------------------------------
@@ -374,7 +462,7 @@ def clean_referer_url(referer, strip_params=None):
     so that switching branch/session doesn't carry over stale in-page GET filters.
     """
     if not referer:
-        return '/'
+        return '/app/'
     try:
         parsed = urlparse(referer)
         qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -382,9 +470,12 @@ def clean_referer_url(referer, strip_params=None):
             for p in strip_params:
                 qs.pop(p, None)
         new_query = urlencode(qs, doseq=True)
-        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+        path = parsed.path
+        if path == '/' or not path:
+            path = '/app/'
+        return urlunparse((parsed.scheme, parsed.netloc, path, parsed.params, new_query, parsed.fragment))
     except Exception:
-        return '/'
+        return '/app/'
 
 
 def get_active_scope(request):
@@ -570,7 +661,7 @@ def dashboard_view(request):
 
         m_coll = sum(p.total_amount for p in m_coll_filter)
         m_exp = sum(e.amount for e in m_exp_filter)
-        max_trend_val = max(max_trend_val, m_coll, m_exp)
+        max_trend_val = max(float(max_trend_val), float(m_coll), float(m_exp))
 
         monthly_trend.append({
             'month': m_label,
@@ -587,9 +678,10 @@ def dashboard_view(request):
     trend_has_data = (trend_total_collections > 0 or trend_total_expenses > 0)
 
     # Normalized percentages for responsive SVG/CSS chart
+    max_trend_float = float(max_trend_val) if max_trend_val else 1.0
     for mt in monthly_trend:
-        mt['coll_pct'] = round((mt['collections'] / max_trend_val) * 85, 1) if max_trend_val > 0 else 0
-        mt['exp_pct'] = round((mt['expenses'] / max_trend_val) * 85, 1) if max_trend_val > 0 else 0
+        mt['coll_pct'] = round((mt['collections'] / max_trend_float) * 85, 1) if max_trend_float > 0 else 0
+        mt['exp_pct'] = round((mt['expenses'] / max_trend_float) * 85, 1) if max_trend_float > 0 else 0
 
     # 8. Live Recent Transactions Feed (Latest 10 Actions)
     recent_payments = Payment.objects.select_related('student', 'branch').all()
@@ -691,7 +783,6 @@ def dashboard_view(request):
             'total_expected_fees': total_expected_fees,
             'total_collected_fees': total_collected_fees,
             'total_pending_fees': total_pending_fees,
-            'collection_rate': round((total_collected_fees / total_expected_fees) * 100, 1) if total_expected_fees else 0,
         },
         'dues': {
             'due_today_count': due_today_count,
@@ -822,7 +913,7 @@ def quick_search_api_view(request):
     results = []
     for adm in admissions[:15]:
         st = adm.student
-        net_payable = adm.fee_plan.net_payable if hasattr(adm, 'fee_plan') else 0.0
+        net_payable = adm.fee_plan.net_payable if hasattr(adm, 'fee_plan') else MONEY_ZERO
         paid = sum(p.total_amount for p in adm.payments.filter(is_reversed=False))
         pending = max(MONEY_ZERO, net_payable - paid)
 
@@ -857,6 +948,100 @@ def generate_student_code():
             return code
 
 
+def extract_branch_code(branch) -> str:
+    """
+    Extracts a clean, short branch code (e.g., 'VAI', 'CC', 'EB', 'MAIN').
+    Strips test suffixes like '_TEST_STEP14_REPORTS' and ensures uppercase alphanumeric.
+    """
+    if not branch:
+        return 'MAIN'
+
+    code = getattr(branch, 'code', None)
+    if code and str(code).strip():
+        c = str(code).strip().upper()
+        if '_' in c:
+            c = c.split('_')[0]
+        c = re.sub(r'[^A-Z0-9]', '', c)
+        if c:
+            return c[:6]
+
+    name = getattr(branch, 'name', None)
+    if name and str(name).strip():
+        n = str(name).strip().upper()
+        if '_' in n:
+            n = n.split('_')[0]
+        n = re.sub(r'[^A-Z0-9]', '', n)
+        if n:
+            return n[:4]
+
+    return 'MAIN'
+
+
+def generate_next_roll_number(branch=None, session=None) -> str:
+    """
+    Generates a sequential short roll number in format: <branchcode>-<rollnumber>
+    e.g. VAI-1, VAI-2, CC-1
+    """
+    if not branch:
+        branch = (
+            Branch.objects.filter(is_active=True).order_by('name').first()
+            or Branch.objects.first()
+        )
+    if not branch:
+        return "SC-1"
+
+    branch_code = extract_branch_code(branch)
+    qs = StudentAdmission.objects.filter(branch=branch)
+    session_rolls = set(qs.filter(session=session).values_list('roll_number', flat=True)) if session else set()
+
+    max_num = 0
+    pattern = re.compile(rf'^{re.escape(branch_code)}-(\d+)$', re.IGNORECASE)
+    for roll in qs.values_list('roll_number', flat=True):
+        if roll:
+            m = pattern.match(str(roll).strip())
+            if m:
+                try:
+                    num = int(m.group(1))
+                    if num > max_num:
+                        max_num = num
+                except ValueError:
+                    pass
+
+    next_num = max_num + 1
+    while f"{branch_code}-{next_num}" in session_rolls:
+        next_num += 1
+
+    return f"{branch_code}-{next_num}"
+
+
+def api_next_roll_number_view(request):
+    """
+    Returns the next auto-suggested roll number in short branchcode-rollnumber format (e.g. VAI-1).
+    Query parameters:
+    - branch_id: UUID or ID of the selected branch
+    - session_id: UUID or ID of the selected session (optional)
+    """
+    branch_id = request.GET.get('branch_id')
+    session_id = request.GET.get('session_id')
+
+    branch = None
+    if branch_id and branch_id != 'ALL':
+        branch = Branch.objects.filter(id=branch_id).first()
+    if not branch:
+        scope_b_id, _, scope_b, _ = get_active_scope(request)
+        branch = scope_b or Branch.objects.filter(is_active=True).first()
+
+    session = None
+    if session_id and session_id != 'ALL':
+        session = AcademicSession.objects.filter(id=session_id).first()
+
+    suggested_roll = generate_next_roll_number(branch, session)
+    return JsonResponse({
+        'roll_number': suggested_roll,
+        'branch_code': extract_branch_code(branch),
+    })
+
+
 def students_list_view(request):
     """
     Student Directory, Search, Advanced Filtering, and Admission Workflow matching StudentsPage.tsx.
@@ -877,8 +1062,8 @@ def students_list_view(request):
             total_fees_str = request.POST.get('total_fees', '').strip()
             due_date_str = request.POST.get('due_date', '').strip()
 
-            if not full_name or not roll_number or not parent_phone:
-                messages.error(request, "Full name, roll number, and parent phone are required.")
+            if not full_name or not parent_phone:
+                messages.error(request, "Full student name and parent phone are required.")
                 return redirect('students_list')
 
             scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
@@ -902,6 +1087,10 @@ def students_list_view(request):
             if not session:
                 messages.error(request, "No academic session found. Please configure a session first.")
                 return redirect('students_list')
+
+            # Auto-generate short sequential roll number if not provided (e.g. VAI-1)
+            if not roll_number:
+                roll_number = generate_next_roll_number(branch, session)
 
             # Check roll number uniqueness within this branch + session
             if StudentAdmission.objects.filter(branch=branch, session=session, roll_number=roll_number).exists():
@@ -937,44 +1126,45 @@ def students_list_view(request):
                         dest.write(chunk)
                 photo_url = f"/media/photos/{filename}"
 
-            # Create Student
-            student = Student.objects.create(
-                student_code=generate_student_code(),
-                full_name=full_name,
-                parent_phone=parent_phone,
-                student_phone=student_phone,
-                address=address,
-                photo_url=photo_url,
-            )
+            with transaction.atomic():
+                # Create Student
+                student = Student.objects.create(
+                    student_code=generate_student_code(),
+                    full_name=full_name,
+                    parent_phone=parent_phone,
+                    student_phone=student_phone,
+                    address=address,
+                    photo_url=photo_url,
+                )
 
-            # Create StudentAdmission
-            admission = StudentAdmission.objects.create(
-                student=student,
-                branch=branch,
-                session=session,
-                roll_number=roll_number,
-                standard=standard or 'Class 10',
-                admission_date=timezone.now(),
-                is_active=True,
-            )
+                # Create StudentAdmission
+                admission = StudentAdmission.objects.create(
+                    student=student,
+                    branch=branch,
+                    session=session,
+                    roll_number=roll_number,
+                    standard=standard or 'Class 10',
+                    admission_date=timezone.now(),
+                    is_active=True,
+                )
 
-            # Create FeePlan
-            fee_plan = FeePlan.objects.create(
-                admission=admission,
-                session=session,
-                total_fees=total_fees,
-                total_discount=0.0,
-                net_payable=total_fees,
-            )
+                # Create FeePlan
+                fee_plan = FeePlan.objects.create(
+                    admission=admission,
+                    session=session,
+                    total_fees=total_fees,
+                    total_discount=MONEY_ZERO,
+                    net_payable=total_fees,
+                )
 
-            # Create initial Installment
-            Installment.objects.create(
-                fee_plan=fee_plan,
-                installment_no=1,
-                label='Session Fee',
-                due_date=due_datetime,
-                amount_due=total_fees,
-            )
+                # Create initial Installment
+                Installment.objects.create(
+                    fee_plan=fee_plan,
+                    installment_no=1,
+                    label='Session Fee',
+                    due_date=due_datetime,
+                    amount_due=total_fees,
+                )
 
             messages.success(request, f"Student '{student.full_name}' admitted successfully into {branch.name} ({admission.standard})!")
             return redirect('student_detail', student_id=student.id)
@@ -1027,6 +1217,18 @@ def students_list_view(request):
     # GET: Filter and assemble student list
     branch_id, session_id, active_branch, active_session = get_active_scope(request)
 
+    try:
+        page_size = int(request.GET.get('page_size', 25))
+        if page_size not in (10, 25, 50, 100):
+            page_size = 25
+    except (TypeError, ValueError):
+        page_size = 25
+
+    try:
+        page_num = int(request.GET.get('page', 1))
+    except (TypeError, ValueError):
+        page_num = 1
+
     standard_filter = request.GET.get('standard', 'ALL')
     status_filter = request.GET.get('status', 'true')
     fee_status_filter = request.GET.get('fee_status', 'ALL')
@@ -1077,7 +1279,7 @@ def students_list_view(request):
     for adm in admissions_qs:
         st = adm.student
         plan = getattr(adm, 'fee_plan', None)
-        tot_fees = plan.net_payable if plan else 0.0
+        tot_fees = plan.net_payable if plan else MONEY_ZERO
         pd_fees = sum(p.total_amount for p in adm.payments.all() if not p.is_reversed)
         pen_fees = max(MONEY_ZERO, tot_fees - pd_fees)
 
@@ -1086,7 +1288,13 @@ def students_list_view(request):
         if adm.session_id and session_id != 'ALL':
             prev_dues_qs = prev_dues_qs.filter(current_session_id=adm.session_id)
         prev_dues = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_qs), MONEY_ZERO)
-        ov_pending = pen_fees + prev_dues
+
+        # Overall consolidated pending dues across all academic sessions of this student
+        st_all_admissions = st.admissions.all()
+        ov_pending = sum(
+            max(MONEY_ZERO, (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO) - sum((p.total_amount for p in a.payments.all() if not p.is_reversed), MONEY_ZERO))
+            for a in st_all_admissions
+        ) + sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in st.previous_dues.all()), MONEY_ZERO)
 
         # Fee status
         if pen_fees <= 0 and tot_fees > 0:
@@ -1112,7 +1320,7 @@ def students_list_view(request):
             active_count += 1
             total_session_fees += tot_fees
             total_session_pending += pen_fees
-            total_overall_pending += ov_pending
+            total_overall_pending += (pen_fees + prev_dues)
         else:
             archived_count += 1
 
@@ -1184,15 +1392,25 @@ def students_list_view(request):
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
 
+    paginator = Paginator(students_data, page_size)
+    try:
+        page_obj = paginator.get_page(page_num)
+    except Exception:
+        page_obj = paginator.get_page(1)
+
     courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
     branches = Branch.objects.filter(is_active=True).order_by('name')
     sessions = AcademicSession.objects.filter(isActive=True).order_by('-start_date')
 
-    # Auto-generate a suggested roll number for the admission modal
-    suggested_roll = f"SC-{datetime.now().strftime('%y')}{len(students_data) + 1:03d}"
+    # Auto-generate a suggested roll number for the admission modal in format: branchcode-rollnumber (e.g. VAI-1)
+    target_branch = active_branch or branches.first()
+    suggested_roll = generate_next_roll_number(target_branch, active_session)
 
     context = {
-        'students_data': students_data,
+        'students_data': page_obj,
+        'page_obj': page_obj,
+        'total_count': total_count,
+        'paginator': paginator,
         'metrics': {
             'total_count': total_count,
             'active_count': active_count,
@@ -1213,6 +1431,8 @@ def students_list_view(request):
             'status': status_filter,
             'fee_status': fee_status_filter,
             'q': search_q,
+            'page_size': page_size,
+            'page': page_num,
         }
     }
     return render(request, 'students.html', context)
@@ -1288,9 +1508,18 @@ def student_detail_view(request, student_id):
                             pass
 
                 filepath = os.path.join(photos_dir, filename)
-                with open(filepath, 'wb+') as dest:
-                    for chunk in photo_file.chunks():
-                        dest.write(chunk)
+                try:
+                    from PIL import Image, ImageOps
+                    img = Image.open(photo_file)
+                    img = ImageOps.exif_transpose(img)
+                    img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    img.save(filepath, 'JPEG', quality=88, optimize=True)
+                except Exception:
+                    with open(filepath, 'wb+') as dest:
+                        for chunk in photo_file.chunks():
+                            dest.write(chunk)
                 student.photo_url = f"/media/photos/{filename}"
                 student.save()
                 messages.success(request, "Student photograph uploaded successfully!")
@@ -1337,18 +1566,20 @@ def student_detail_view(request, student_id):
 
         # 6. Delete Student
         elif action == 'delete':
-            for adm in student.admissions.all():
-                if hasattr(adm, 'fee_plan'):
-                    fp = adm.fee_plan
-                    for inst in fp.installments.all():
-                        inst.allocations.all().delete()
-                    fp.installments.all().delete()
-                    fp.discounts.all().delete()
-                    fp.delete()
-                adm.payments.all().delete()
-            student.previous_dues.all().delete()
-            student.payments.all().delete()
-            student.admissions.all().delete()
+            with transaction.atomic():
+                for adm in student.admissions.all():
+                    if hasattr(adm, 'fee_plan'):
+                        fp = adm.fee_plan
+                        for inst in fp.installments.all():
+                            inst.allocations.all().delete()
+                        fp.installments.all().delete()
+                        fp.discounts.all().delete()
+                        fp.delete()
+                    adm.payments.all().delete()
+                student.previous_dues.all().delete()
+                student.payments.all().delete()
+                student.admissions.all().delete()
+                student.delete()
             if student.photo_url and student.photo_url.startswith('/media/'):
                 old_path = os.path.join(settings.MEDIA_ROOT, student.photo_url.replace('/media/', '', 1))
                 if os.path.exists(old_path):
@@ -1356,7 +1587,6 @@ def student_detail_view(request, student_id):
                         os.remove(old_path)
                     except Exception:
                         pass
-            student.delete()
             messages.success(request, "Student and all linked records permanently deleted.")
             return redirect('students_list')
 
@@ -1384,7 +1614,7 @@ def student_detail_view(request, student_id):
     admissions_list = list(admissions)
     for adm in admissions_list:
         fp = getattr(adm, 'fee_plan', None)
-        adm_payable = float(fp.net_payable) if fp and fp.net_payable else 0.0
+        adm_payable = fp.net_payable if fp and fp.net_payable else MONEY_ZERO
         adm_payments = [p for p in adm.payments.all() if not p.is_reversed]
         adm_paid = sum((p.total_amount for p in adm_payments), MONEY_ZERO)
         adm_pending = max(MONEY_ZERO, adm_payable - adm_paid)
@@ -1397,21 +1627,36 @@ def student_detail_view(request, student_id):
 
     # Fee summary for current admission
     fee_plan = getattr(current_adm, 'fee_plan', None) if current_adm else None
-    total_fees = fee_plan.total_fees if fee_plan else 0.0
-    total_discount = fee_plan.total_discount if fee_plan else 0.0
-    net_payable = fee_plan.net_payable if fee_plan else 0.0
+    total_fees = fee_plan.total_fees if fee_plan else MONEY_ZERO
+    total_discount = fee_plan.total_discount if fee_plan else MONEY_ZERO
+    net_payable = fee_plan.net_payable if fee_plan else MONEY_ZERO
 
     session_payments = current_adm.payments.filter(is_reversed=False).order_by('-payment_date') if current_adm else []
     total_paid = sum(p.total_amount for p in session_payments)
     session_pending = max(MONEY_ZERO, net_payable - total_paid)
 
-    # Previous session dues belong to the session into which they were carried.
+    # Consolidated financial calculation across ALL academic sessions for this student
+    all_previous_dues = student.previous_dues.select_related('original_session', 'current_session')
+    all_prev_total = sum((d.outstanding_amount for d in all_previous_dues), MONEY_ZERO)
+    all_prev_collected = sum((d.collected_amount for d in all_previous_dues), MONEY_ZERO)
+    all_previous_dues_pending = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in all_previous_dues), MONEY_ZERO)
+
+    lifetime_total_fees = sum((adm.adm_payable for adm in admissions_list), MONEY_ZERO) + all_prev_total
+    lifetime_paid_fees = sum((adm.adm_paid for adm in admissions_list), MONEY_ZERO) + all_prev_collected
+    lifetime_pending_fees = sum((adm.adm_pending for adm in admissions_list), MONEY_ZERO) + all_previous_dues_pending
+
+    # True consolidated overall pending across all academic sessions & historical dues
+    overall_pending = lifetime_pending_fees
+
+    # Previous session dues for the currently selected session view (if any legacy record)
     previous_due_session_id = current_adm.session_id if current_adm else scope_s_id
-    previous_dues = student.previous_dues.select_related('original_session', 'current_session')
+    previous_dues = all_previous_dues
     if previous_due_session_id and previous_due_session_id != 'ALL':
         previous_dues = previous_dues.filter(current_session_id=previous_due_session_id)
     previous_dues_pending = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in previous_dues), MONEY_ZERO)
-    overall_pending = session_pending + previous_dues_pending
+
+    # Dues in all other academic sessions outside the current view
+    other_sessions_pending = max(MONEY_ZERO, overall_pending - session_pending)
 
     # Installment schedule
     installments_data = []
@@ -1443,7 +1688,11 @@ def student_detail_view(request, student_id):
     sessions = AcademicSession.objects.filter(isActive=True).order_by('-start_date')
     branches = Branch.objects.filter(is_active=True).order_by('name')
 
-    paid_percentage = round((total_paid / net_payable * 100), 1) if net_payable > 0 else (100.0 if total_paid > 0 else 0.0)
+    paid_percentage = round((float(total_paid) / float(net_payable) * 100), 1) if net_payable and float(net_payable) > 0 else (100.0 if total_paid and float(total_paid) > 0 else 0.0)
+    pending_percentage = round(max(0.0, 100.0 - float(paid_percentage)), 1)
+
+    overall_paid_percentage = round((float(lifetime_paid_fees) / float(lifetime_total_fees) * 100), 1) if lifetime_total_fees and float(lifetime_total_fees) > 0 else (100.0 if lifetime_paid_fees and float(lifetime_paid_fees) > 0 else 0.0)
+    overall_pending_percentage = round(max(0.0, 100.0 - float(overall_paid_percentage)), 1)
 
     context = {
         'student': student,
@@ -1455,9 +1704,16 @@ def student_detail_view(request, student_id):
             'net_payable': net_payable,
             'total_paid': total_paid,
             'session_pending': session_pending,
+            'other_sessions_pending': other_sessions_pending,
             'previous_dues_pending': previous_dues_pending,
             'overall_pending': overall_pending,
+            'lifetime_total_fees': lifetime_total_fees,
+            'lifetime_paid_fees': lifetime_paid_fees,
+            'lifetime_pending_fees': lifetime_pending_fees,
             'paid_percentage': paid_percentage,
+            'pending_percentage': pending_percentage,
+            'overall_paid_percentage': overall_paid_percentage,
+            'overall_pending_percentage': overall_pending_percentage,
         },
         'installments_data': installments_data,
         'payments': all_payments,
@@ -1501,8 +1757,8 @@ def student_promotion_preview_view(request, student_id):
 
     # Dues calculation from current admission
     fee_plan = getattr(current_adm, 'fee_plan', None) if current_adm else None
-    total_fees = fee_plan.net_payable if fee_plan else 0.0
-    paid = sum(p.total_amount for p in current_adm.payments.filter(is_reversed=False)) if current_adm else 0.0
+    total_fees = fee_plan.net_payable if fee_plan else MONEY_ZERO
+    paid = sum((p.total_amount for p in current_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if current_adm else MONEY_ZERO
     current_pending_due = max(MONEY_ZERO, total_fees - paid)
 
     # Sessions
@@ -1522,14 +1778,22 @@ def student_promotion_preview_view(request, student_id):
         is_already_promoted = student.admissions.filter(session=target_session).exists()
 
     suggested_standard = suggest_next_standard(current_adm.standard if current_adm else '')
-    suggested_roll = f"{current_adm.roll_number}-N" if current_adm else "SC-101-N"
+    branches = Branch.objects.filter(is_active=True).order_by('name')
+    target_branch = current_adm.branch if current_adm else (branches.first() if branches else None)
+
+    # Clean short roll number: branchcode-rollnumber (e.g. VAI-1)
+    if current_adm and current_adm.roll_number and not current_adm.roll_number.startswith('SC-') and not current_adm.roll_number.endswith('-N'):
+        if target_session and not StudentAdmission.objects.filter(branch=target_branch, session=target_session, roll_number=current_adm.roll_number).exists():
+            suggested_roll = current_adm.roll_number
+        else:
+            suggested_roll = generate_next_roll_number(target_branch, target_session)
+    else:
+        suggested_roll = generate_next_roll_number(target_branch, target_session)
 
     courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
     standard_in_courses = courses.filter(name=suggested_standard).exists()
     matched_course = courses.filter(name=suggested_standard).first()
     suggested_fees = matched_course.default_fee if (matched_course and matched_course.default_fee) else (total_fees if total_fees > 0 else 30000.0)
-
-    branches = Branch.objects.filter(is_active=True).order_by('name')
 
     context = {
         'student': student,
@@ -1553,7 +1817,7 @@ def student_promotion_preview_view(request, student_id):
             'studentCode': student.student_code,
             'currentStandard': current_adm.standard if current_adm else '',
             'currentRollNumber': current_adm.roll_number if current_adm else '',
-            'currentPendingDue': current_pending_due,
+            'currentPendingDue': float(current_pending_due),
             'suggestedStandard': suggested_standard,
             'suggestedRoll': suggested_roll,
             'suggestedFees': suggested_fees,
@@ -1588,12 +1852,18 @@ def promote_student_view(request, student_id):
     prev_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.order_by('-created_at').first()
     branch_id = target_branch_id or (prev_adm.branch_id if prev_adm else None)
 
+    target_branch_obj = Branch.objects.filter(id=branch_id).first() if branch_id else None
+    target_session = AcademicSession.objects.filter(id=target_session_id, isActive=True).first() if target_session_id else None
+
+    # Auto-generate short sequential roll number if not provided (e.g. VAI-1)
+    if not new_roll_number and target_branch_obj and target_session:
+        new_roll_number = generate_next_roll_number(target_branch_obj, target_session)
+
     # Validation
     error_msg = None
     if not target_session_id or not target_standard or not new_roll_number:
         error_msg = 'Target academic session, promoted class, and new roll number are required.'
 
-    target_session = AcademicSession.objects.filter(id=target_session_id, isActive=True).first() if target_session_id else None
     if not target_session:
         error_msg = 'Selected target academic session not found.'
 
@@ -1609,8 +1879,8 @@ def promote_student_view(request, student_id):
             courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
             branches = Branch.objects.filter(is_active=True).order_by('name')
             fee_plan = getattr(prev_adm, 'fee_plan', None) if prev_adm else None
-            total_fees = fee_plan.net_payable if fee_plan else 0.0
-            paid = sum(p.total_amount for p in prev_adm.payments.filter(is_reversed=False)) if prev_adm else 0.0
+            total_fees = fee_plan.net_payable if fee_plan else MONEY_ZERO
+            paid = sum((p.total_amount for p in prev_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if prev_adm else MONEY_ZERO
             current_pending_due = max(MONEY_ZERO, total_fees - paid)
             context = {
                 'student': student,
@@ -1632,31 +1902,16 @@ def promote_student_view(request, student_id):
         return redirect('student_detail', student_id=student.id)
 
     # Compute previous pending dues strictly from previous admission
-    prev_plan_fees = prev_adm.fee_plan.net_payable if (prev_adm and hasattr(prev_adm, 'fee_plan')) else 0.0
-    prev_paid = sum(p.total_amount for p in prev_adm.payments.filter(is_reversed=False)) if prev_adm else 0.0
+    prev_plan_fees = prev_adm.fee_plan.net_payable if (prev_adm and hasattr(prev_adm, 'fee_plan')) else MONEY_ZERO
+    prev_paid = sum((p.total_amount for p in prev_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if prev_adm else MONEY_ZERO
     prev_pending_due = max(MONEY_ZERO, prev_plan_fees - prev_paid)
 
     with transaction.atomic():
         previous_due_recorded = MONEY_ZERO
-        # 1. Record PreviousSessionDue if carry forward enabled and balance exists
-        if carry_forward_due and prev_pending_due > 0 and prev_adm:
-            existing_due = PreviousSessionDue.objects.filter(
-                student=student,
-                original_session=prev_adm.session,
-                current_session=target_session,
-            ).first()
-            if not existing_due:
-                PreviousSessionDue.objects.create(
-                    student=student,
-                    original_session=prev_adm.session,
-                    current_session=target_session,
-                    outstanding_amount=prev_pending_due,
-                    collected_amount=0.0,
-                    description=due_notes or f"Outstanding fee balance carried forward from {prev_adm.session.name} ({prev_adm.standard})",
-                )
-                previous_due_recorded = prev_pending_due
+        # Independent session accounting: Previous session dues remain strictly on the previous
+        # admission fee plan without creating synthetic duplicate PreviousSessionDue records.
 
-        # 2. Create new StudentAdmission in target session
+        # 1. Create new StudentAdmission in target session
         new_admission = StudentAdmission.objects.create(
             student=student,
             branch_id=branch_id,
@@ -1667,16 +1922,16 @@ def promote_student_view(request, student_id):
             is_active=True,
         )
 
-        # 3. Create fresh FeePlan for target session
+        # 2. Create fresh FeePlan for target session
         new_fee_plan = FeePlan.objects.create(
             admission=new_admission,
             session=target_session,
             total_fees=new_total_fees,
-            total_discount=0.0,
+            total_discount=MONEY_ZERO,
             net_payable=new_total_fees,
         )
 
-        # 4. Create flexible open installment
+        # 3. Create flexible open installment
         Installment.objects.create(
             fee_plan=new_fee_plan,
             installment_no=1,
@@ -1721,8 +1976,8 @@ def batch_promote_modal_view(request):
             continue
         adm = st.admissions.filter(is_active=True).order_by('-created_at').first() or st.admissions.order_by('-created_at').first()
         fee_plan = getattr(adm, 'fee_plan', None) if adm else None
-        total_f = fee_plan.net_payable if fee_plan else 0.0
-        paid = sum(p.total_amount for p in adm.payments.filter(is_reversed=False)) if adm else 0.0
+        total_f = fee_plan.net_payable if fee_plan else MONEY_ZERO
+        paid = sum((p.total_amount for p in adm.payments.filter(is_reversed=False)), MONEY_ZERO) if adm else MONEY_ZERO
         pending = max(MONEY_ZERO, total_f - paid)
         total_dues_across_selected += pending
 
@@ -1806,33 +2061,22 @@ def batch_promote_view(request):
 
         branch_id = prev_adm.branch_id if (not target_branch_id or target_branch_id == 'KEEP') else target_branch_id
 
-        # Unique roll number generation
-        base_roll = prev_adm.roll_number
-        new_roll = base_roll
-        if StudentAdmission.objects.filter(branch_id=branch_id, session=target_session, roll_number=new_roll).exists():
-            new_roll = f"{base_roll}-{str(int(time.time() * 1000))[-3:]}"
+        # Unique roll number generation in short format: branchcode-rollnumber (e.g. VAI-1)
+        target_branch = Branch.objects.filter(id=branch_id).first()
+        base_roll = prev_adm.roll_number if prev_adm else None
+        if base_roll and not base_roll.startswith('SC-') and not base_roll.endswith('-N') and not StudentAdmission.objects.filter(branch_id=branch_id, session=target_session, roll_number=base_roll).exists():
+            new_roll = base_roll
+        else:
+            new_roll = generate_next_roll_number(target_branch, target_session)
 
         # Calculate previous dues
-        prev_fees = prev_adm.fee_plan.net_payable if hasattr(prev_adm, 'fee_plan') else 0.0
-        prev_paid = sum(p.total_amount for p in prev_adm.payments.filter(is_reversed=False))
+        prev_fees = prev_adm.fee_plan.net_payable if hasattr(prev_adm, 'fee_plan') else MONEY_ZERO
+        prev_paid = sum((p.total_amount for p in prev_adm.payments.filter(is_reversed=False)), MONEY_ZERO)
         prev_pending = max(MONEY_ZERO, prev_fees - prev_paid)
 
         with transaction.atomic():
-            if carry_forward_dues and prev_pending > 0:
-                existing_due = PreviousSessionDue.objects.filter(
-                    student=student,
-                    original_session=prev_adm.session,
-                    current_session=target_session,
-                ).first()
-                if not existing_due:
-                    PreviousSessionDue.objects.create(
-                        student=student,
-                        original_session=prev_adm.session,
-                        current_session=target_session,
-                        outstanding_amount=prev_pending,
-                        collected_amount=0.0,
-                        description=f"Batch carry forward balance from {prev_adm.session.name}",
-                    )
+            # Independent session accounting: Previous session dues remain strictly on the previous
+            # admission fee plan without creating synthetic duplicate PreviousSessionDue records.
 
             new_adm = StudentAdmission.objects.create(
                 student=student,
@@ -1848,7 +2092,7 @@ def batch_promote_view(request):
                 admission=new_adm,
                 session=target_session,
                 total_fees=default_total_fees,
-                total_discount=0.0,
+                total_discount=MONEY_ZERO,
                 net_payable=default_total_fees,
             )
 
@@ -2068,25 +2312,87 @@ def number_to_words_inr(amount: float) -> str:
     return f"Rupees {words} Only"
 
 
+def extract_academic_year(session) -> str:
+    """
+    Extracts a clean academic year string in YYYY-YY format (e.g., '2026-27').
+    Handles '2026-27', '2026-2027', '2026-27_TEST_STEP14_REPORTS', etc.
+    """
+    if session:
+        # 1. Match from session.name
+        name_str = str(getattr(session, 'name', '') or '').strip()
+        m = re.search(r'(\d{4})[-/](\d{2,4})', name_str)
+        if m:
+            y1, y2 = m.group(1), m.group(2)
+            if len(y2) == 4:
+                y2 = y2[-2:]
+            return f"{y1}-{y2}"
+
+        # 2. Match from session.display_name
+        disp_str = str(getattr(session, 'display_name', '') or '').strip()
+        m = re.search(r'(\d{4})[-/](\d{2,4})', disp_str)
+        if m:
+            y1, y2 = m.group(1), m.group(2)
+            if len(y2) == 4:
+                y2 = y2[-2:]
+            return f"{y1}-{y2}"
+
+        # 3. Match from session.start_date
+        s_date = getattr(session, 'start_date', None)
+        if s_date:
+            try:
+                y = s_date.year
+                return f"{y}-{str(y + 1)[-2:]}"
+            except Exception:
+                pass
+
+    now = timezone.now()
+    y = now.year
+    return f"{y}-{str(y + 1)[-2:]}"
+
+
 def generate_sequential_receipt_number(branch, session) -> str:
     """
-    Thread-safe atomic sequential receipt number generator matching SC/{SESSION}/{BRANCH}/REC-XXXXX.
+    Thread-safe atomic sequential receipt number generator.
+    Format: academicyear-branchcode-receipt number
+    Example: 2026-27-VAI-REC1
     """
-    branch_code = branch.code if branch and branch.code else 'MAIN'
-    session_name = session.name if session and session.name else '2026-27'
-    prefix = f"SC/{session_name}/{branch_code}/REC-"
-
-    with transaction.atomic():
-        counter, _ = ReceiptCounter.objects.select_for_update().get_or_create(
-            branch=branch,
-            session=session,
-            defaults={'prefix': prefix, 'last_number': 0}
+    if not branch:
+        branch = Branch.objects.filter(is_active=True).first() or Branch.objects.first()
+    if not session:
+        session = (
+            AcademicSession.objects.filter(is_current=True, isActive=True).first()
+            or AcademicSession.objects.filter(isActive=True).first()
+            or AcademicSession.objects.first()
         )
-        counter.last_number += 1
-        counter.prefix = prefix
-        counter.save()
-        seq = f"{counter.last_number:05d}"
-        return f"{prefix}{seq}"
+
+    academic_year = extract_academic_year(session)
+    branch_code = extract_branch_code(branch)
+    prefix = f"{academic_year}-{branch_code}-REC"
+
+    if branch and session:
+        with transaction.atomic():
+            counter, _ = ReceiptCounter.objects.select_for_update().get_or_create(
+                branch=branch,
+                session=session,
+                defaults={'prefix': prefix, 'last_number': 0}
+            )
+            while True:
+                counter.last_number += 1
+                receipt_no = f"{prefix}{counter.last_number}"
+                if not Payment.objects.filter(receipt_number=receipt_no).exists():
+                    break
+
+            counter.prefix = prefix
+            counter.save()
+            return receipt_no
+    else:
+        # Fallback when no Branch/Session entity exists in database
+        seq = Payment.objects.count() + 1
+        while True:
+            receipt_no = f"{prefix}{seq}"
+            if not Payment.objects.filter(receipt_number=receipt_no).exists():
+                return receipt_no
+            seq += 1
 
 
 def fee_collect_view(request):
@@ -2222,7 +2528,7 @@ def fee_collect_view(request):
                 return redirect('fee_collect')
 
             fee_plan = getattr(target_adm, 'fee_plan', None)
-            net_payable = fee_plan.net_payable if fee_plan else 0.0
+            net_payable = fee_plan.net_payable if fee_plan else MONEY_ZERO
             already_paid = sum(p.total_amount for p in target_adm.payments.filter(is_reversed=False))
             pending_due = max(MONEY_ZERO, net_payable - already_paid)
 
@@ -2232,10 +2538,13 @@ def fee_collect_view(request):
 
             if fee_plan:
                 installment_capacity = sum(
-                    max(MONEY_ZERO, inst.amount_due - sum(
-                        a.allocated_amount
-                        for a in inst.allocations.filter(payment__is_reversed=False)
-                    , MONEY_ZERO))
+                    max(
+                        MONEY_ZERO,
+                        inst.amount_due - sum(
+                            (a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)),
+                            MONEY_ZERO,
+                        ),
+                    )
                     for inst in fee_plan.installments.all()
                 )
                 if amount > installment_capacity + Decimal('0.005'):
@@ -2317,13 +2626,18 @@ def fee_collect_view(request):
     selected_student = None
     target_admission = None
     target_previous_due = None
+    all_admissions = []
     installments_data = []
     fee_summary = {
         'total_fees': 0.0,
         'paid_fees': 0.0,
         'pending_fees': 0.0,
+        'other_sessions_pending': 0.0,
         'previous_dues_pending': 0.0,
         'overall_pending': 0.0,
+        'lifetime_total_fees': 0.0,
+        'lifetime_paid_fees': 0.0,
+        'lifetime_pending_fees': 0.0,
     }
     amount_in_words = ''
 
@@ -2345,6 +2659,23 @@ def fee_collect_view(request):
             if not target_admission:
                 target_admission = selected_student.admissions.filter(is_active=True).order_by('-created_at').first() or selected_student.admissions.first()
 
+            # Multi-session tab switcher data
+            admissions_qs = selected_student.admissions.select_related('branch', 'session', 'fee_plan').prefetch_related(
+                'payments', 'fee_plan__installments'
+            ).order_by('-created_at')
+            all_admissions = list(admissions_qs)
+            for adm in all_admissions:
+                adm_fp = getattr(adm, 'fee_plan', None)
+                adm_tot = adm_fp.net_payable if adm_fp and adm_fp.net_payable else MONEY_ZERO
+                adm_payments = [p for p in adm.payments.all() if not p.is_reversed]
+                adm_paid = sum((p.total_amount for p in adm_payments), MONEY_ZERO)
+                adm_pend = max(MONEY_ZERO, adm_tot - adm_paid)
+                adm.adm_total = adm_tot
+                adm.adm_paid = adm_paid
+                adm.adm_pending = adm_pend
+                adm.is_selected = bool(target_admission and adm.id == target_admission.id)
+                adm.is_latest = bool(all_admissions and adm == all_admissions[0])
+
             if previous_due_id:
                 previous_due_filter = {'id': previous_due_id}
                 if target_admission:
@@ -2354,29 +2685,30 @@ def fee_collect_view(request):
                 target_previous_due = selected_student.previous_dues.filter(**previous_due_filter).first()
 
             fp = getattr(target_admission, 'fee_plan', None) if target_admission else None
-            tot_f = fp.net_payable if fp else 0.0
-            paid_f = sum(p.total_amount for p in target_admission.payments.filter(is_reversed=False)) if target_admission else 0.0
+            tot_f = fp.net_payable if fp else MONEY_ZERO
+            paid_f = sum((p.total_amount for p in target_admission.payments.filter(is_reversed=False)), MONEY_ZERO) if target_admission else MONEY_ZERO
             pend_f = max(MONEY_ZERO, tot_f - paid_f)
 
-            prev_dues_qs = selected_student.previous_dues.all()
-            previous_due_session_id = target_admission.session_id if target_admission else scope_s_id
-            if previous_due_session_id and previous_due_session_id != 'ALL':
-                prev_dues_qs = prev_dues_qs.filter(current_session_id=previous_due_session_id)
-            prev_pending_sum = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_qs), MONEY_ZERO)
+            # Pure session-based calculation: each session strictly manages its own fees
+            other_sessions_pending = sum((adm.adm_pending for adm in all_admissions if target_admission and adm.id != target_admission.id), MONEY_ZERO)
+            lifetime_total_fees = sum((adm.adm_total for adm in all_admissions), MONEY_ZERO)
+            lifetime_paid_fees = sum((adm.adm_paid for adm in all_admissions), MONEY_ZERO)
+            lifetime_pending_fees = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO)
 
             fee_summary = {
                 'total_fees': tot_f,
                 'paid_fees': paid_f,
                 'pending_fees': pend_f,
-                'previous_dues_pending': prev_pending_sum,
-                'overall_pending': pend_f + prev_pending_sum,
+                'other_sessions_pending': other_sessions_pending,
+                'previous_dues_pending': other_sessions_pending,  # alias for backward-compatibility
+                'overall_pending': lifetime_pending_fees,
+                'lifetime_total_fees': lifetime_total_fees,
+                'lifetime_paid_fees': lifetime_paid_fees,
+                'lifetime_pending_fees': lifetime_pending_fees,
             }
 
             if not prefill_amount:
-                if target_previous_due:
-                    rem = max(MONEY_ZERO, target_previous_due.outstanding_amount - target_previous_due.collected_amount)
-                    prefill_amount = str(int(rem)) if rem > 0 else ''
-                elif pend_f > 0:
+                if pend_f > 0:
                     prefill_amount = str(int(pend_f))
 
             if prefill_amount:
@@ -2451,11 +2783,96 @@ def fee_collect_view(request):
             Q(admission__standard__icontains=q_search)
         )
 
-    all_payments = list(payments_qs[:200])
+    # Server-Side Column Sorting
+    sort_by = request.GET.get('sort', '').lower()
+    sort_dir = request.GET.get('dir', 'desc').lower()
+    sort_map = {
+        'receipt': 'receipt_number',
+        'date': 'payment_date',
+        'student': 'student__full_name',
+        'roll': 'admission__roll_number',
+        'class': 'admission__standard',
+        'branch': 'branch__name',
+        'mode': 'payment_mode',
+        'amount': 'total_amount',
+        'status': 'is_reversed',
+    }
+    if sort_by in sort_map:
+        field = sort_map[sort_by]
+        prefix = '-' if sort_dir == 'desc' else ''
+        payments_qs = payments_qs.order_by(f"{prefix}{field}")
+    else:
+        payments_qs = payments_qs.order_by('-payment_date', '-created_at')
 
-    today_date = timezone.now().date()
-    total_collected_sum = sum(p.total_amount for p in payments_qs if not p.is_reversed)
-    today_collected_sum = sum(p.total_amount for p in payments_qs if not p.is_reversed and p.payment_date.date() == today_date)
+    # Export handling (Excel / PDF)
+    export_type = request.GET.get('export', '').lower()
+    if export_type in ('excel', 'pdf'):
+        export_payments = list(payments_qs)
+        branch_name_label = 'All Branches'
+        if filter_branch and filter_branch != 'ALL':
+            b_match = Branch.objects.filter(id=filter_branch).first()
+            if b_match:
+                branch_name_label = b_match.name
+
+        session_name_label = 'All Sessions'
+        if filter_session and filter_session != 'ALL':
+            s_match = AcademicSession.objects.filter(id=filter_session).first()
+            if s_match:
+                session_name_label = s_match.name
+
+        today_str = timezone.now().strftime("%d_%b_%Y")
+        meta = {
+            'branch_name': branch_name_label,
+            'session_name': session_name_label,
+        }
+
+        if export_type == 'excel':
+            excel_bytes = export_payments_to_excel(export_payments, meta)
+            filename = f"Fee_Collections_Ledger_{branch_name_label.replace(' ', '_')}_{today_str}.xlsx"
+            response = HttpResponse(
+                excel_bytes,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        elif export_type == 'pdf':
+            pdf_bytes = export_payments_to_pdf(export_payments, meta)
+            filename = f"Fee_Collections_Ledger_{branch_name_label.replace(' ', '_')}_{today_str}.pdf"
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+    try:
+        page_size = int(request.GET.get('page_size', 25))
+        if page_size not in (10, 25, 50, 100):
+            page_size = 25
+    except (TypeError, ValueError):
+        page_size = 25
+
+    try:
+        page_num = int(request.GET.get('page', 1))
+    except (TypeError, ValueError):
+        page_num = 1
+
+    paginator = Paginator(payments_qs, page_size)
+    try:
+        page_obj = paginator.get_page(page_num)
+    except Exception:
+        page_obj = paginator.get_page(1)
+
+    local_now = timezone.localtime()
+    local_today = local_now.date()
+    start_of_today = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_today = local_now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    total_collected_sum = sum((p.total_amount for p in payments_qs.filter(is_reversed=False)), MONEY_ZERO)
+    today_payments_qs = payments_qs.filter(
+        is_reversed=False
+    ).filter(
+        Q(payment_date__range=[start_of_today, end_of_today]) | Q(payment_date__date=local_today)
+    ).distinct()
+    today_collected_sum = sum((p.total_amount for p in today_payments_qs), MONEY_ZERO)
     total_receipts_count = payments_qs.count()
     reversed_receipts_count = payments_qs.filter(is_reversed=True).count()
 
@@ -2465,12 +2882,15 @@ def fee_collect_view(request):
         'student_id': student_id,
         'target_admission': target_admission,
         'target_previous_due': target_previous_due,
+        'all_admissions': all_admissions,
         'prefill_amount': prefill_amount,
         'confirm_duplicate': confirm_duplicate,
         'amount_in_words': amount_in_words,
         'fee_summary': fee_summary,
         'installments_data': installments_data,
-        'payments': all_payments,
+        'payments': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
         'open_receipt_id': open_receipt_id,
         'kpis': {
             'total_collected': total_collected_sum,
@@ -2488,6 +2908,10 @@ def fee_collect_view(request):
             'session_id': filter_session,
             'date_from': date_from,
             'date_to': date_to,
+            'sort': sort_by,
+            'dir': sort_dir,
+            'page_size': page_size,
+            'page': page_num,
         },
     }
     return render(request, 'fee_collect.html', context)
@@ -2495,12 +2919,149 @@ def fee_collect_view(request):
 
 def collect_fee_modal_view(request, student_id):
     """
-    Renders standalone Collect Fee modal dialog via HTMX.
-    Matches React CollectFeeModal.tsx.
+    Renders and processes standalone Collect Fee modal dialog via HTMX directly on Student Profile.
+    Does NOT redirect away from student profile.
+    Maintains pure independent session accounting.
     """
     student = get_object_or_404(Student, id=student_id)
+
+    # Multi-session data for student
+    admissions_qs = student.admissions.select_related('branch', 'session', 'fee_plan').prefetch_related(
+        'payments', 'fee_plan__installments'
+    ).order_by('-created_at')
+    all_admissions = list(admissions_qs)
+
+    for adm in all_admissions:
+        adm_fp = getattr(adm, 'fee_plan', None)
+        adm_tot = adm_fp.net_payable if adm_fp and adm_fp.net_payable else MONEY_ZERO
+        adm_payments = [p for p in adm.payments.all() if not p.is_reversed]
+        adm_paid = sum((p.total_amount for p in adm_payments), MONEY_ZERO)
+        adm.adm_total = adm_tot
+        adm.adm_paid = adm_paid
+        adm.adm_pending = max(MONEY_ZERO, adm_tot - adm_paid)
+
+    if request.method == 'POST':
+        admission_id = request.POST.get('admission_id')
+        target_adm = None
+        if admission_id:
+            target_adm = student.admissions.filter(id=admission_id).first()
+        if not target_adm:
+            target_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.first()
+
+        for adm in all_admissions:
+            adm.is_selected = bool(target_adm and adm.id == target_adm.id)
+
+        fee_plan = getattr(target_adm, 'fee_plan', None) if target_adm else None
+        tot_f = fee_plan.net_payable if fee_plan else MONEY_ZERO
+        already_paid = sum((p.total_amount for p in target_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if target_adm else MONEY_ZERO
+        pending_due = max(MONEY_ZERO, tot_f - already_paid)
+
+        other_sessions_pending = sum((adm.adm_pending for adm in all_admissions if target_adm and adm.id != target_adm.id), MONEY_ZERO)
+        overall_pending = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO)
+
+        amount_str = request.POST.get('amount', '').strip()
+        payment_mode = request.POST.get('payment_mode', 'UPI')
+        reference_number = request.POST.get('reference_number', '').strip() or None
+        payment_date_str = request.POST.get('payment_date', '').strip()
+        next_due_date_str = request.POST.get('next_due_date', '').strip() or None
+        notes = request.POST.get('notes', '').strip() or None
+
+        form_error = None
+        amount = MONEY_ZERO
+        try:
+            amount = Decimal(amount_str)
+            if amount <= MONEY_ZERO:
+                form_error = "Payment amount must be greater than zero."
+        except Exception:
+            form_error = "Please enter a valid numeric payment amount."
+
+        if not form_error and amount > pending_due + Decimal('0.005'):
+            form_error = f"Amount ₹{amount:,.0f} exceeds pending session due of ₹{pending_due:,.0f} for {target_adm.session.name}."
+
+        parsed_payment_date = timezone.now()
+        if not form_error and payment_date_str:
+            try:
+                parsed_payment_date = parse_form_date(payment_date_str)
+            except ValueError as exc:
+                form_error = str(exc)
+
+        if form_error:
+            context = {
+                'student': student,
+                'current_admission': target_adm,
+                'all_admissions': all_admissions,
+                'agreed_fees': tot_f,
+                'paid_fees': already_paid,
+                'pending_fees': pending_due,
+                'other_sessions_pending': other_sessions_pending,
+                'overall_pending': overall_pending,
+                'amount_to_pay': amount_str,
+                'form_error': form_error,
+            }
+            return render(request, 'modals/collect_fee_modal.html', context)
+
+        next_due_datetime = None
+        if next_due_date_str:
+            try:
+                next_due_datetime = parse_form_date(next_due_date_str)
+            except ValueError:
+                pass
+
+        with transaction.atomic():
+            receipt_no = generate_sequential_receipt_number(target_adm.branch, target_adm.session)
+            payment = Payment.objects.create(
+                student=student,
+                branch=target_adm.branch,
+                session=target_adm.session,
+                admission=target_adm,
+                receipt_number=receipt_no,
+                total_amount=amount,
+                payment_mode=payment_mode,
+                payment_date=parsed_payment_date,
+                reference_number=reference_number,
+                notes=notes,
+            )
+
+            # Allocate across installments using FIFO
+            if fee_plan:
+                remaining_amount = amount
+                for inst in fee_plan.installments.all().order_by('installment_no'):
+                    if remaining_amount <= 0:
+                        break
+                    inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
+                    needed = max(MONEY_ZERO, inst.amount_due - inst_paid)
+                    if needed > 0:
+                        alloc_now = min(remaining_amount, needed)
+                        PaymentAllocation.objects.create(
+                            payment=payment,
+                            installment=inst,
+                            allocated_amount=alloc_now,
+                        )
+                        remaining_amount -= alloc_now
+
+                # Update next due date if specified
+                if next_due_datetime and (pending_due - amount) > 0:
+                    for inst in fee_plan.installments.all().order_by('installment_no'):
+                        inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
+                        if inst.amount_due > inst_paid:
+                            inst.due_date = next_due_datetime
+                            inst.save()
+                            break
+
+        remaining_after = max(MONEY_ZERO, pending_due - amount)
+        context = {
+            'student': student,
+            'current_admission': target_adm,
+            'all_admissions': all_admissions,
+            'payment': payment,
+            'amount_paid': amount,
+            'remaining_after': remaining_after,
+            'success': True,
+        }
+        return render(request, 'modals/collect_fee_modal.html', context)
+
+    # GET Request
     admission_id = request.GET.get('admission_id')
-    previous_due_id = request.GET.get('previous_due_id')
     initial_amount = request.GET.get('amount')
 
     target_adm = None
@@ -2509,33 +3070,30 @@ def collect_fee_modal_view(request, student_id):
     if not target_adm:
         target_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.first()
 
-    target_prev_due = None
-    if previous_due_id:
-        target_prev_due = student.previous_dues.filter(id=previous_due_id).first()
+    for adm in all_admissions:
+        adm.is_selected = bool(target_adm and adm.id == target_adm.id)
 
     fp = getattr(target_adm, 'fee_plan', None) if target_adm else None
-    tot_f = fp.net_payable if fp else 0.0
-    paid_f = sum(p.total_amount for p in target_adm.payments.filter(is_reversed=False)) if target_adm else 0.0
-        pend_f = max(MONEY_ZERO, tot_f - paid_f)
+    tot_f = fp.net_payable if fp else MONEY_ZERO
+    paid_f = sum((p.total_amount for p in target_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if target_adm else MONEY_ZERO
+    pend_f = max(MONEY_ZERO, tot_f - paid_f)
 
-    prev_dues_qs = student.previous_dues.all()
-        prev_pending_sum = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_qs), MONEY_ZERO)
+    other_sessions_pending = sum((adm.adm_pending for adm in all_admissions if target_adm and adm.id != target_adm.id), MONEY_ZERO)
+    overall_pending = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO)
 
     amount_to_pay = initial_amount
-    if not amount_to_pay:
-        if target_prev_due:
-            amount_to_pay = max(MONEY_ZERO, target_prev_due.outstanding_amount - target_prev_due.collected_amount)
-        else:
-            amount_to_pay = pend_f
+    if not amount_to_pay or amount_to_pay == '0':
+        amount_to_pay = pend_f
 
     context = {
         'student': student,
         'current_admission': target_adm,
-        'all_admissions': student.admissions.all(),
-        'previous_dues': prev_dues_qs,
-        'target_previous_due': target_prev_due,
+        'all_admissions': all_admissions,
+        'agreed_fees': tot_f,
+        'paid_fees': paid_f,
         'pending_fees': pend_f,
-        'overall_pending': pend_f + prev_pending_sum,
+        'other_sessions_pending': other_sessions_pending,
+        'overall_pending': overall_pending,
         'amount_to_pay': amount_to_pay,
     }
     return render(request, 'modals/collect_fee_modal.html', context)
@@ -2570,7 +3128,7 @@ def api_student_fee_search_view(request):
 
     results = []
     for adm in admissions[:15]:
-        tot = adm.fee_plan.net_payable if hasattr(adm, 'fee_plan') else 0.0
+        tot = adm.fee_plan.net_payable if hasattr(adm, 'fee_plan') else MONEY_ZERO
         paid = sum(p.total_amount for p in adm.payments.filter(is_reversed=False))
         pending = max(MONEY_ZERO, tot - paid)
         results.append({
@@ -2639,6 +3197,7 @@ def payment_receipt_modal_view(request, payment_id):
         'remaining_balance': remaining_balance,
         'amount_in_words': amount_in_words,
         'whatsapp_url': whatsapp_url,
+        'institute_settings': get_institute_settings_dict(),
     }
     return render(request, 'modals/fee_receipt_modal.html', context)
 
@@ -2700,6 +3259,7 @@ def payment_receipt_print_view(request, payment_id):
         'current_mode': current_mode,
         'autoprint': autoprint,
         'whatsapp_url': whatsapp_url,
+        'institute_settings': get_institute_settings_dict(),
     }
     return render(request, 'receipt_print.html', context)
 
@@ -2777,8 +3337,17 @@ def fees_dues_view(request):
     end_date_str = request.GET.get('end_date', '').strip()
     sort_field = request.GET.get('sort', 'dueDate')
     sort_direction = request.GET.get('direction', 'asc').lower()
-    page_size = int(request.GET.get('page_size', 25))
-    page_num = int(request.GET.get('page', 1))
+    try:
+        page_size = int(request.GET.get('page_size', 25))
+        if page_size not in (10, 25, 50, 100):
+            page_size = 25
+    except (TypeError, ValueError):
+        page_size = 25
+
+    try:
+        page_num = int(request.GET.get('page', 1))
+    except (TypeError, ValueError):
+        page_num = 1
     export_type = request.GET.get('export', '').lower()
 
     # 3. Query Admissions
@@ -3259,12 +3828,136 @@ def expenses_list_view(request):
 
         elif action == 'create_category':
             cat_name = request.POST.get('category_name', '').strip()
-            if cat_name:
-                ExpenseCategory.objects.get_or_create(
-                    name__iexact=cat_name,
-                    defaults={'name': cat_name, 'is_active': True}
+            is_ajax = (
+                request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+                'application/json' in request.headers.get('Accept', '') or
+                request.content_type == 'application/json'
+            )
+            if not cat_name:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Category name cannot be empty.'}, status=400)
+                messages.error(request, 'Category name cannot be empty.')
+                return redirect('expenses_list')
+
+            existing = ExpenseCategory.objects.filter(name__iexact=cat_name).first()
+            if existing:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': f"Category '{existing.name}' already exists."}, status=400)
+                messages.warning(request, f"Category '{existing.name}' already exists.")
+                return redirect('expenses_list')
+
+            cat = ExpenseCategory.objects.create(
+                name=cat_name,
+                is_active=True,
+                sort_order=ExpenseCategory.objects.count() + 1
+            )
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': f"Category '{cat.name}' created successfully.",
+                    'category': {
+                        'id': str(cat.id),
+                        'name': cat.name,
+                        'expense_count': 0,
+                        'expense_total': 0.0,
+                        'is_active': cat.is_active,
+                    }
+                })
+            messages.success(request, f"Category '{cat.name}' created successfully.")
+            return redirect('expenses_list')
+
+        elif action == 'update_category':
+            category_id = request.POST.get('category_id')
+            cat_name = request.POST.get('category_name', '').strip()
+            is_ajax = (
+                request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+                'application/json' in request.headers.get('Accept', '') or
+                request.content_type == 'application/json'
+            )
+
+            if not category_id:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Category ID is required.'}, status=400)
+                messages.error(request, 'Category ID is required.')
+                return redirect('expenses_list')
+
+            if not cat_name:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Category name cannot be empty.'}, status=400)
+                messages.error(request, 'Category name cannot be empty.')
+                return redirect('expenses_list')
+
+            cat = get_object_or_404(ExpenseCategory, id=category_id)
+
+            existing = ExpenseCategory.objects.filter(name__iexact=cat_name).exclude(id=category_id).first()
+            if existing:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': f"Another category named '{existing.name}' already exists."}, status=400)
+                messages.error(request, f"Another category named '{existing.name}' already exists.")
+                return redirect('expenses_list')
+
+            old_name = cat.name
+            cat.name = cat_name
+            cat.save()
+
+            exp_count = cat.expenses.count()
+            exp_total = sum((e.amount for e in cat.expenses.all()), Decimal('0.00'))
+
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': f"Category updated to '{cat.name}' successfully. (Updated across {exp_count} voucher(s))",
+                    'category': {
+                        'id': str(cat.id),
+                        'name': cat.name,
+                        'expense_count': exp_count,
+                        'expense_total': float(exp_total),
+                        'is_active': cat.is_active,
+                    }
+                })
+            messages.success(request, f"Category '{old_name}' updated to '{cat.name}' successfully.")
+            return redirect('expenses_list')
+
+        elif action == 'delete_category':
+            category_id = request.POST.get('category_id')
+            is_ajax = (
+                request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+                'application/json' in request.headers.get('Accept', '') or
+                request.content_type == 'application/json'
+            )
+
+            if not category_id:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Category ID is required.'}, status=400)
+                messages.error(request, 'Category ID is required.')
+                return redirect('expenses_list')
+
+            cat = get_object_or_404(ExpenseCategory, id=category_id)
+            exp_count = cat.expenses.count()
+
+            # Rule requested by user: If anyone records the particular category, they will NOT be able to delete!
+            if exp_count > 0:
+                exp_total = sum((e.amount for e in cat.expenses.all()), Decimal('0.00'))
+                err_msg = (
+                    f"Cannot delete category '{cat.name}': It is linked to {exp_count} recorded expense voucher(s) "
+                    f"totaling ₹{exp_total:,.0f}. To preserve audit ledgers, categories with existing expenses cannot be deleted. "
+                    f"You can update or rename it instead."
                 )
-                messages.success(request, f"Category '{cat_name}' added successfully.")
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': err_msg, 'cannot_delete': True, 'expense_count': exp_count}, status=400)
+                messages.error(request, err_msg)
+                return redirect('expenses_list')
+
+            cat_name = cat.name
+            cat.delete()
+
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': f"Category '{cat_name}' permanently deleted.",
+                    'deleted_id': category_id,
+                })
+            messages.success(request, f"Category '{cat_name}' permanently deleted.")
             return redirect('expenses_list')
 
     # 2. Extract Query Parameters
@@ -3410,7 +4103,7 @@ def expenses_list_view(request):
         c_name = e['category_name']
         c_id = e['category_id']
         if c_name not in cat_map:
-            cat_map[c_name] = {'id': c_id, 'name': c_name, 'total': 0.0, 'count': 0}
+            cat_map[c_name] = {'id': c_id, 'name': c_name, 'total': MONEY_ZERO, 'count': 0}
         cat_map[c_name]['total'] += e['amount']
         cat_map[c_name]['count'] += 1
 
@@ -3469,7 +4162,10 @@ def expenses_list_view(request):
         end_date_str
     )
 
-    categories_list = ExpenseCategory.objects.filter(is_active=True).order_by('sort_order', 'name')
+    categories_list = ExpenseCategory.objects.annotate(
+        expense_count=Count('expenses'),
+        expense_total=Sum('expenses__amount')
+    ).order_by('sort_order', 'name')
     branches_list = Branch.objects.filter(is_active=True).order_by('name')
 
     context = {
@@ -3559,8 +4255,9 @@ def financial_reports_view(request):
 
         total_fees_agreed = sum(
             (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None 
-             else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else 0.0))
-            for a in active_admissions
+             else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)
+             for a in active_admissions),
+            MONEY_ZERO
         )
 
         pay_qs = Payment.objects.filter(
@@ -3572,9 +4269,9 @@ def financial_reports_view(request):
         if selected_branch_id != 'ALL':
             pay_qs = pay_qs.filter(branch_id=selected_branch_id)
         payments = list(pay_qs)
-        total_collections = sum(p.total_amount for p in payments)
+        total_collections = sum((p.total_amount for p in payments), MONEY_ZERO)
         total_pending_dues = max(MONEY_ZERO, total_fees_agreed - total_collections)
-        collection_efficiency = round((total_collections / total_fees_agreed * 100), 1) if total_fees_agreed > 0 else 0.0
+        collection_efficiency = round((float(total_collections) / float(total_fees_agreed) * 100), 1) if total_fees_agreed and float(total_fees_agreed) > 0 else 0.0
 
         exp_qs = Expense.objects.filter(
             expense_date__gte=target_session.start_date,
@@ -3583,7 +4280,7 @@ def financial_reports_view(request):
         if selected_branch_id != 'ALL':
             exp_qs = exp_qs.filter(branch_id=selected_branch_id)
         session_expenses = list(exp_qs)
-        total_expenses = sum(e.amount for e in session_expenses)
+        total_expenses = sum((e.amount for e in session_expenses), MONEY_ZERO)
 
         net_surplus = total_collections - total_expenses
         is_surplus = net_surplus >= 0
@@ -3593,15 +4290,16 @@ def financial_reports_view(request):
             b_adms = [a for a in active_admissions if a.branch_id == b.id]
             b_fees = sum(
                 (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
-                 else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else 0.0))
-                for a in b_adms
+                 else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)
+                 for a in b_adms),
+                MONEY_ZERO
             )
             b_pays = [p for p in payments if p.branch_id == b.id]
-            b_col = sum(p.total_amount for p in b_pays)
-            b_exp = sum(e.amount for e in session_expenses if e.branch_id == b.id)
+            b_col = sum((p.total_amount for p in b_pays), MONEY_ZERO)
+            b_exp = sum((e.amount for e in session_expenses if e.branch_id == b.id), MONEY_ZERO)
             b_dues = max(MONEY_ZERO, b_fees - b_col)
             b_net = b_col - b_exp
-            b_rate = round((b_col / b_fees * 100), 1) if b_fees > 0 else 0.0
+            b_rate = round((float(b_col) / float(b_fees) * 100), 1) if b_fees and float(b_fees) > 0 else 0.0
 
             branch_breakdown.append({
                 'branchId': b.id,
@@ -3621,10 +4319,10 @@ def financial_reports_view(request):
         for a in active_admissions:
             std = a.standard or 'General'
             if std not in std_map:
-                std_map[std] = {'studentCount': 0, 'totalFees': 0.0, 'collected': 0.0}
+                std_map[std] = {'studentCount': 0, 'totalFees': MONEY_ZERO, 'collected': MONEY_ZERO}
             std_map[std]['studentCount'] += 1
             f_amt = (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
-                     else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else 0.0))
+                     else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO))
             std_map[std]['totalFees'] += f_amt
 
         for p in payments:
@@ -3637,7 +4335,7 @@ def financial_reports_view(request):
             s_fees = s_info['totalFees']
             s_col = s_info['collected']
             s_dues = max(MONEY_ZERO, s_fees - s_col)
-            s_rate = round((s_col / s_fees * 100), 1) if s_fees > 0 else 0.0
+            s_rate = round((float(s_col) / float(s_fees) * 100), 1) if s_fees and float(s_fees) > 0 else 0.0
             standard_breakdown.append({
                 'standard': std,
                 'studentCount': s_info['studentCount'],
@@ -3663,8 +4361,8 @@ def financial_reports_view(request):
                 m_trend_map[k] = {
                     'monthKey': k,
                     'monthLabel': f"{month_names[m-1]} {y}",
-                    'collections': 0.0,
-                    'expenses': 0.0,
+                    'collections': MONEY_ZERO,
+                    'expenses': MONEY_ZERO,
                 }
                 if m == 12:
                     cur_dt = cur_dt.replace(year=y+1, month=1, day=1)
@@ -3680,6 +4378,10 @@ def financial_reports_view(request):
             k = f"{e.expense_date.year}-{e.expense_date.month:02d}"
             if k in m_trend_map:
                 m_trend_map[k]['expenses'] += e.amount
+
+        for item in m_trend_map.values():
+            item['net'] = item['collections'] - item['expenses']
+            item['net_abs'] = abs(item['net'])
 
         monthly_trend = list(m_trend_map.values())
 
@@ -3718,18 +4420,18 @@ def financial_reports_view(request):
         p_modes_qs = p_modes_qs.filter(session_id=selected_session_id)
 
     mode_map = {
-        'CASH': {'amount': 0.0, 'count': 0},
-        'UPI': {'amount': 0.0, 'count': 0},
-        'BANK_TRANSFER': {'amount': 0.0, 'count': 0},
-        'CHEQUE': {'amount': 0.0, 'count': 0},
-        'OTHER': {'amount': 0.0, 'count': 0},
+        'CASH': {'amount': MONEY_ZERO, 'count': 0},
+        'UPI': {'amount': MONEY_ZERO, 'count': 0},
+        'BANK_TRANSFER': {'amount': MONEY_ZERO, 'count': 0},
+        'CHEQUE': {'amount': MONEY_ZERO, 'count': 0},
+        'OTHER': {'amount': MONEY_ZERO, 'count': 0},
     }
     tot_col_modes = MONEY_ZERO
     tot_txns_modes = 0
     for p in p_modes_qs:
         m_key = (p.payment_mode or 'OTHER').upper()
         if m_key not in mode_map:
-            mode_map[m_key] = {'amount': 0.0, 'count': 0}
+            mode_map[m_key] = {'amount': MONEY_ZERO, 'count': 0}
         mode_map[m_key]['amount'] += p.total_amount
         mode_map[m_key]['count'] += 1
         tot_col_modes += p.total_amount
@@ -3737,8 +4439,8 @@ def financial_reports_view(request):
 
     modes_list = []
     for m_key, m_info in mode_map.items():
-        pct = round((m_info['amount'] / tot_col_modes * 100), 1) if tot_col_modes > 0 else 0.0
-        avg = round(m_info['amount'] / m_info['count'], 2) if m_info['count'] > 0 else 0.0
+        pct = round((float(m_info['amount']) / float(tot_col_modes) * 100), 1) if tot_col_modes and float(tot_col_modes) > 0 else 0.0
+        avg = round(float(m_info['amount']) / m_info['count'], 2) if m_info['count'] > 0 else 0.0
         modes_list.append({
             'mode': m_key,
             'label': m_key.replace('_', ' '),
@@ -3768,7 +4470,7 @@ def financial_reports_view(request):
         c_id = e.category_id or 'uncategorized'
         c_name = e.category.name if e.category else 'General Operations'
         if c_id not in cat_map:
-            cat_map[c_id] = {'categoryId': c_id, 'categoryName': c_name, 'amount': 0.0, 'count': 0}
+            cat_map[c_id] = {'categoryId': c_id, 'categoryName': c_name, 'amount': MONEY_ZERO, 'count': 0}
         cat_map[c_id]['amount'] += e.amount
         cat_map[c_id]['count'] += 1
         tot_exp_cats += e.amount
@@ -3776,8 +4478,8 @@ def financial_reports_view(request):
 
     categories_list = []
     for c_id, c_info in cat_map.items():
-        pct = round((c_info['amount'] / tot_exp_cats * 100), 1) if tot_exp_cats > 0 else 0.0
-        avg = round(c_info['amount'] / c_info['count'], 2) if c_info['count'] > 0 else 0.0
+        pct = round((float(c_info['amount']) / float(tot_exp_cats) * 100), 1) if tot_exp_cats and float(tot_exp_cats) > 0 else 0.0
+        avg = round(float(c_info['amount']) / c_info['count'], 2) if c_info['count'] > 0 else 0.0
         categories_list.append({
             'categoryId': c_id,
             'categoryName': c_info['categoryName'],
@@ -3891,7 +4593,15 @@ def daily_reports_view(request):
     selected_branch_id = request.GET.get('branch_id') or scope_b_id
     selected_session_id = request.GET.get('session_id') or scope_s_id
 
-    active_mode = request.GET.get('mode', 'DAILY').upper()
+    modes_list = [m.upper() for m in request.GET.getlist('mode') if m]
+    active_mode = 'DAILY'
+    for m in modes_list:
+        if m in ('MONTHLY', 'CUSTOM'):
+            active_mode = m
+            break
+    else:
+        if modes_list:
+            active_mode = modes_list[0]
     if active_mode not in ('DAILY', 'MONTHLY', 'CUSTOM'):
         active_mode = 'DAILY'
 
@@ -3967,9 +4677,9 @@ def daily_reports_view(request):
     payments = list(pay_qs)
     expenses = list(exp_qs)
 
-    total_collections = sum(p.total_amount for p in payments)
+    total_collections = sum((p.total_amount for p in payments), MONEY_ZERO)
     collections_count = len(payments)
-    total_expenses = sum(e.amount for e in expenses)
+    total_expenses = sum((e.amount for e in expenses), MONEY_ZERO)
     expenses_count = len(expenses)
     net_movement = total_collections - total_expenses
     is_profit = net_movement >= 0
@@ -3979,7 +4689,7 @@ def daily_reports_view(request):
     for p in payments:
         m = p.payment_mode or 'OTHER'
         if m not in collections_by_mode:
-            collections_by_mode[m] = {'amount': 0.0, 'count': 0}
+            collections_by_mode[m] = {'amount': MONEY_ZERO, 'count': 0}
         collections_by_mode[m]['amount'] += p.total_amount
         collections_by_mode[m]['count'] += 1
 
@@ -3987,7 +4697,7 @@ def daily_reports_view(request):
     for e in expenses:
         m = e.payment_mode or 'OTHER'
         if m not in expenses_by_mode:
-            expenses_by_mode[m] = {'amount': 0.0, 'count': 0}
+            expenses_by_mode[m] = {'amount': MONEY_ZERO, 'count': 0}
         expenses_by_mode[m]['amount'] += e.amount
         expenses_by_mode[m]['count'] += 1
 
@@ -3995,7 +4705,7 @@ def daily_reports_view(request):
     for e in expenses:
         cat = e.category.name if e.category else 'General Expense'
         if cat not in expenses_by_category:
-            expenses_by_category[cat] = {'amount': 0.0, 'count': 0}
+            expenses_by_category[cat] = {'amount': MONEY_ZERO, 'count': 0}
         expenses_by_category[cat]['amount'] += e.amount
         expenses_by_category[cat]['count'] += 1
 
@@ -4080,10 +4790,12 @@ def daily_reports_view(request):
     # EXPORT HANDLING
     export_type = request.GET.get('export')
     branch_name_label = 'All Branches'
+    branch_logo = None
     if selected_branch_id != 'ALL':
         b_match = Branch.objects.filter(id=selected_branch_id).first()
         if b_match:
             branch_name_label = b_match.name
+            branch_logo = b_match.logo_url
 
     session_name_label = 'All Sessions'
     if selected_session_id != 'ALL':
@@ -4107,6 +4819,8 @@ def daily_reports_view(request):
             'period_label': period_label,
             'branch_name': branch_name_label,
             'session_name': session_name_label,
+            'branch_logo': branch_logo,
+            'date_str': period_label,
         })
         resp = HttpResponse(content, content_type='application/pdf')
         clean_name = period_label.replace(':', '').replace(' ', '_').replace('/', '-')
@@ -4290,24 +5004,87 @@ def branches_list_view(request):
     return render(request, 'branches.html', context)
 
 
+def check_academic_session_overlap(start_d, end_d, exclude_session_id=None):
+    """
+    Checks if [start_d, end_d] overlaps with any existing active AcademicSession.
+    Two date intervals [S1, E1] and [S2, E2] overlap if: S1 <= E2 and E1 >= S2.
+    Returns (has_overlap, list_of_overlapping_sessions)
+    """
+    qs = AcademicSession.objects.filter(isActive=True)
+    if exclude_session_id:
+        qs = qs.exclude(id=exclude_session_id)
+
+    overlapping = []
+    for other in qs:
+        o_start = timezone.localtime(other.start_date).date() if timezone.is_aware(other.start_date) else other.start_date.date()
+        o_end = timezone.localtime(other.end_date).date() if timezone.is_aware(other.end_date) else other.end_date.date()
+        if start_d <= o_end and end_d >= o_start:
+            overlapping.append({
+                'session': other,
+                'start_date': o_start,
+                'end_date': o_end,
+                'name': other.display_name or other.name,
+            })
+    return bool(overlapping), overlapping
+
+
 def sessions_list_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'create':
             name = request.POST.get('name', '').strip()
             display_name = request.POST.get('display_name', '').strip()
-            start_date_str = request.POST.get('start_date')
-            end_date_str = request.POST.get('end_date')
+            start_date_str = request.POST.get('start_date', '').strip()
+            end_date_str = request.POST.get('end_date', '').strip()
             is_current = request.POST.get('is_current') == 'on'
+
+            if not name:
+                messages.error(request, "Session code / key is required (e.g. 2026-27).")
+                return redirect('sessions_list')
+
+            if AcademicSession.objects.filter(name__iexact=name).exists():
+                messages.error(request, f"Academic session code '{name}' already exists. Please choose a unique code.")
+                return redirect('sessions_list')
+
+            if not start_date_str or not end_date_str:
+                messages.error(request, "Both Start Date and End Date are required.")
+                return redirect('sessions_list')
+
+            try:
+                start_d = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                end_d = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                messages.error(request, "Invalid date format. Please select valid dates.")
+                return redirect('sessions_list')
+
+            if start_d >= end_d:
+                messages.error(request, "Invalid date range: Start Date must be strictly before End Date.")
+                return redirect('sessions_list')
+
+            has_overlap, overlaps = check_academic_session_overlap(start_d, end_d)
+            if has_overlap:
+                conflict_details = ", ".join([
+                    f"'{o['name']}' ({o['start_date'].strftime('%d %b %Y')} to {o['end_date'].strftime('%d %b %Y')})"
+                    for o in overlaps
+                ])
+                messages.error(
+                    request,
+                    f"Date overlap error: The selected range ({start_d.strftime('%d %b %Y')} to {end_d.strftime('%d %b %Y')}) "
+                    f"overlaps with existing active session(s): {conflict_details}. Academic sessions cannot have overlapping dates."
+                )
+                return redirect('sessions_list')
 
             if is_current:
                 AcademicSession.objects.filter(is_current=True).update(is_current=False)
 
+            start_dt = timezone.make_aware(datetime.combine(start_d, datetime.min.time()))
+            end_dt = timezone.make_aware(datetime.combine(end_d, datetime.max.time().replace(microsecond=0)))
+
             session = AcademicSession.objects.create(
                 name=name,
                 display_name=display_name or f"Academic Year {name}",
-                start_date=f"{start_date_str} 00:00:00.000000",
-                end_date=f"{end_date_str} 23:59:59.000000",
+                start_date=start_dt,
+                end_date=end_dt,
                 is_current=is_current,
                 isActive=True,
             )
@@ -4319,11 +5096,55 @@ def sessions_list_view(request):
         elif action == 'update':
             session_id = request.POST.get('session_id')
             session = get_object_or_404(AcademicSession, id=session_id)
-            session.name = request.POST.get('name', '').strip()
-            session.display_name = request.POST.get('display_name', '').strip()
-            start_date_str = request.POST.get('start_date')
-            end_date_str = request.POST.get('end_date')
+            name = request.POST.get('name', '').strip()
+            display_name = request.POST.get('display_name', '').strip()
+            start_date_str = request.POST.get('start_date', '').strip()
+            end_date_str = request.POST.get('end_date', '').strip()
             is_current = request.POST.get('is_current') == 'on'
+
+            if not name:
+                messages.error(request, "Session code / key is required.")
+                return redirect('sessions_list')
+
+            if AcademicSession.objects.filter(name__iexact=name).exclude(id=session.id).exists():
+                messages.error(request, f"Academic session code '{name}' is already in use by another session.")
+                return redirect('sessions_list')
+
+            if not start_date_str or not end_date_str:
+                messages.error(request, "Both Start Date and End Date are required.")
+                return redirect('sessions_list')
+
+            try:
+                start_d = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                end_d = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                messages.error(request, "Invalid date format. Please select valid dates.")
+                return redirect('sessions_list')
+
+            if start_d >= end_d:
+                messages.error(request, "Invalid date range: Start Date must be strictly before End Date.")
+                return redirect('sessions_list')
+
+            has_overlap, overlaps = check_academic_session_overlap(start_d, end_d, exclude_session_id=session.id)
+            if has_overlap:
+                conflict_details = ", ".join([
+                    f"'{o['name']}' ({o['start_date'].strftime('%d %b %Y')} to {o['end_date'].strftime('%d %b %Y')})"
+                    for o in overlaps
+                ])
+                messages.error(
+                    request,
+                    f"Date overlap error: The selected range ({start_d.strftime('%d %b %Y')} to {end_d.strftime('%d %b %Y')}) "
+                    f"overlaps with existing active session(s): {conflict_details}. Academic sessions cannot have overlapping dates."
+                )
+                return redirect('sessions_list')
+
+            start_dt = timezone.make_aware(datetime.combine(start_d, datetime.min.time()))
+            end_dt = timezone.make_aware(datetime.combine(end_d, datetime.max.time().replace(microsecond=0)))
+
+            session.name = name
+            session.display_name = display_name or f"Academic Year {name}"
+            session.start_date = start_dt
+            session.end_date = end_dt
 
             if is_current and not session.is_current:
                 AcademicSession.objects.filter(is_current=True).update(is_current=False)
@@ -4331,11 +5152,6 @@ def sessions_list_view(request):
                 request.session['selected_session_id'] = str(session.id)
             elif not is_current and session.is_current:
                 session.is_current = False
-
-            if start_date_str:
-                session.start_date = f"{start_date_str} 00:00:00.000000"
-            if end_date_str:
-                session.end_date = f"{end_date_str} 23:59:59.000000"
 
             session.save()
             messages.success(request, f"Academic session '{session.display_name}' updated successfully.")
@@ -4354,15 +5170,70 @@ def sessions_list_view(request):
         elif action == 'toggle_status':
             session_id = request.POST.get('session_id')
             session = get_object_or_404(AcademicSession, id=session_id)
+
+            if not session.isActive:
+                s_start = timezone.localtime(session.start_date).date() if timezone.is_aware(session.start_date) else session.start_date.date()
+                s_end = timezone.localtime(session.end_date).date() if timezone.is_aware(session.end_date) else session.end_date.date()
+                has_overlap, overlaps = check_academic_session_overlap(s_start, s_end, exclude_session_id=session.id)
+                if has_overlap:
+                    conflict_details = ", ".join([
+                        f"'{o['name']}' ({o['start_date'].strftime('%d %b %Y')} to {o['end_date'].strftime('%d %b %Y')})"
+                        for o in overlaps
+                    ])
+                    messages.error(
+                        request,
+                        f"Cannot activate session '{session.display_name or session.name}': Its date range "
+                        f"({s_start.strftime('%d %b %Y')} to {s_end.strftime('%d %b %Y')}) overlaps with active session(s): {conflict_details}. "
+                        f"Please edit the dates before activating."
+                    )
+                    return redirect('sessions_list')
+
             session.isActive = not session.isActive
             session.save()
-            messages.success(request, f"Academic session status updated.")
+            status_text = "activated" if session.isActive else "deactivated"
+            messages.success(request, f"Academic session '{session.display_name or session.name}' {status_text} successfully.")
             return redirect('sessions_list')
 
-    sessions = AcademicSession.objects.all().order_by('-start_date')
+        elif action == 'delete':
+            session_id = request.POST.get('session_id')
+            session = get_object_or_404(AcademicSession, id=session_id)
+            if session.is_current:
+                messages.error(request, "Cannot delete the currently active operational session. Switch active session first.")
+                return redirect('sessions_list')
+
+            st_count = StudentAdmission.objects.filter(session=session).count()
+            if st_count > 0:
+                messages.error(request, f"Cannot delete session '{session.display_name}': It has {st_count} enrolled students. Sessions with student records cannot be deleted.")
+                return redirect('sessions_list')
+
+            disp = session.display_name or session.name
+            session.delete()
+            messages.success(request, f"Academic session '{disp}' deleted successfully.")
+            return redirect('sessions_list')
+
+    sessions = list(AcademicSession.objects.all().order_by('-start_date'))
     sessions_data = []
     current_session = None
     current_session_students = 0
+
+    # Calculate date overlaps among all sessions for conflict flagging
+    conflicting_session_ids = set()
+    conflict_map = {}
+    for i, s1 in enumerate(sessions):
+        if not s1.isActive:
+            continue
+        s1_start = timezone.localtime(s1.start_date).date() if timezone.is_aware(s1.start_date) else s1.start_date.date()
+        s1_end = timezone.localtime(s1.end_date).date() if timezone.is_aware(s1.end_date) else s1.end_date.date()
+        for j, s2 in enumerate(sessions):
+            if i == j or not s2.isActive:
+                continue
+            s2_start = timezone.localtime(s2.start_date).date() if timezone.is_aware(s2.start_date) else s2.start_date.date()
+            s2_end = timezone.localtime(s2.end_date).date() if timezone.is_aware(s2.end_date) else s2.end_date.date()
+            if s1_start <= s2_end and s1_end >= s2_start:
+                conflicting_session_ids.add(s1.id)
+                if s1.id not in conflict_map:
+                    conflict_map[s1.id] = []
+                conflict_map[s1.id].append(s2.display_name or s2.name)
 
     for s in sessions:
         st_count = StudentAdmission.objects.filter(session=s, is_active=True).count()
@@ -4372,12 +5243,32 @@ def sessions_list_view(request):
         sessions_data.append({
             'session': s,
             'students_count': st_count,
+            'has_overlap_conflict': s.id in conflicting_session_ids,
+            'conflicting_with': ", ".join(conflict_map.get(s.id, [])),
         })
+
+    # JSON serialization for client-side instant validation
+    sessions_json = json.dumps([
+        {
+            'id': str(s.id),
+            'name': s.name,
+            'displayName': s.display_name or s.name,
+            'startDate': timezone.localtime(s.start_date).strftime('%Y-%m-%d') if timezone.is_aware(s.start_date) else s.start_date.strftime('%Y-%m-%d'),
+            'endDate': timezone.localtime(s.end_date).strftime('%Y-%m-%d') if timezone.is_aware(s.end_date) else s.end_date.strftime('%Y-%m-%d'),
+            'startDateFormatted': timezone.localtime(s.start_date).strftime('%d %b %Y') if timezone.is_aware(s.start_date) else s.start_date.strftime('%d %b %Y'),
+            'endDateFormatted': timezone.localtime(s.end_date).strftime('%d %b %Y') if timezone.is_aware(s.end_date) else s.end_date.strftime('%d %b %Y'),
+            'isActive': s.isActive,
+            'isCurrent': s.is_current,
+        }
+        for s in sessions
+    ])
 
     context = {
         'sessions_data': sessions_data,
         'current_session': current_session,
         'current_session_students': current_session_students,
+        'sessions_json': sessions_json,
+        'total_conflicts_count': len(conflicting_session_ids),
     }
     return render(request, 'sessions.html', context)
 

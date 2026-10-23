@@ -27,6 +27,21 @@
     </button>
   </div>
 
+  {% if total_conflicts_count > 0 %}
+  <!-- Date Overlap Conflict Alert Banner -->
+  <div class="p-3.5 rounded-xl border border-amber-500/40 bg-amber-50/80 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 flex items-start gap-3">
+    <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+      <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+    </div>
+    <div class="flex-1">
+      <h3 class="text-xs font-bold leading-tight">Attention: Date Overlap Detected Among Configured Sessions</h3>
+      <p class="text-xs text-amber-800 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+        {{ total_conflicts_count }} session(s) highlighted below have overlapping date ranges. Academic sessions must have strictly non-overlapping dates. Please edit the conflicting sessions to resolve date overlap.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Summary Stats -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div class="p-4 rounded-xl border bg-card text-card-foreground shadow-2xs flex items-center justify-between">
@@ -103,7 +118,16 @@
               </div>
             </td>
             <td class="p-3.5 font-mono text-muted-foreground">
-              {{ s.start_date|date:"d M Y" }} &rarr; {{ s.end_date|date:"d M Y" }}
+              <div class="font-medium text-foreground">
+                {{ s.start_date|date:"d M Y" }} &rarr; {{ s.end_date|date:"d M Y" }}
+              </div>
+              {% if item.has_overlap_conflict %}
+                <div class="mt-1">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700" title="Overlaps with: {{ item.conflicting_with }}">
+                    <i data-lucide="alert-triangle" class="w-3 h-3 text-amber-600"></i> Date Overlap Conflict
+                  </span>
+                </div>
+              {% endif %}
             </td>
             <td class="p-3.5 text-center">
               {% if s.isActive %}
@@ -144,6 +168,15 @@
               >
                 <i data-lucide="edit-2" class="w-3 h-3 inline mr-1"></i>Edit
               </button>
+
+              <button
+                type="button"
+                onclick="openDeleteSessionModal('{{ s.id }}', '{{ s.display_name|escapejs }}', '{{ s.name|escapejs }}', '{{ s.start_date|date:'d M Y' }}', '{{ s.end_date|date:'d M Y' }}', {{ s.is_current|lower }}, {{ item.students_count }})"
+                class="px-2.5 py-1 text-xs font-semibold rounded-md border {% if not s.is_current and item.students_count == 0 %}border-rose-300 dark:border-rose-800 bg-background hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400{% else %}border-slate-200 dark:border-slate-800 bg-background/50 text-slate-400 hover:text-slate-600 hover:border-slate-300 opacity-70 hover:opacity-100{% endif %} transition-colors cursor-pointer shadow-2xs"
+                title="{% if s.is_current %}Cannot delete: Active operational session{% elif item.students_count > 0 %}Cannot delete: {{ item.students_count }} student(s) enrolled{% else %}Delete academic session{% endif %}"
+              >
+                <i data-lucide="trash-2" class="w-3 h-3 inline mr-1"></i>Delete
+              </button>
             </td>
           </tr>
           {% endwith %}
@@ -162,22 +195,31 @@
 </div>
 
 <!-- Modal: Add / Edit Session -->
-<div id="session-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden items-center justify-center p-4">
-  <div class="bg-card text-card-foreground border rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+<div id="session-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden items-center justify-center p-4" onclick="if (event.target === this) closeModal('session-modal');">
+  <div class="bg-card text-card-foreground border rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
     <div class="p-4 border-b flex items-center justify-between bg-muted/20">
       <h3 id="session-modal-title" class="text-sm font-bold flex items-center gap-1.5">
         <i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600"></i>
         <span>Add Academic Session</span>
       </h3>
-      <button type="button" onclick="closeModal('session-modal')" class="text-muted-foreground hover:text-foreground">
+      <button type="button" onclick="closeModal('session-modal')" class="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors cursor-pointer">
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
     </div>
 
-    <form method="POST" action="{% url 'sessions_list' %}" class="p-5 space-y-4">
+    <form id="session-form" method="POST" action="{% url 'sessions_list' %}" class="p-5 space-y-4">
       {% csrf_token %}
       <input type="hidden" id="session-action-input" name="action" value="create">
       <input type="hidden" id="session-id-input" name="session_id" value="">
+
+      <!-- Real-Time Interactive Error Alert Box -->
+      <div id="session-validation-error" class="hidden p-3 rounded-lg border border-rose-500/40 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs flex items-start gap-2.5">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5 text-rose-600"></i>
+        <div class="flex-1">
+          <p class="font-bold text-xs" id="session-validation-error-title">Date Overlap Error</p>
+          <p id="session-validation-error-msg" class="mt-0.5 leading-relaxed font-medium"></p>
+        </div>
+      </div>
 
       <div class="space-y-1">
         <label class="text-xs font-semibold text-foreground">Session Code / Key *</label>
@@ -186,9 +228,11 @@
           id="session-name-input"
           name="name"
           required
+          oninput="validateSessionForm()"
           placeholder="e.g. 2026-27"
           class="w-full h-8 text-xs rounded-lg border border-input bg-background px-3 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
         />
+        <p class="text-[10px] text-muted-foreground">Unique identifier used for receipt numbers and student records.</p>
       </div>
 
       <div class="space-y-1">
@@ -211,6 +255,8 @@
             id="session-start-input"
             name="start_date"
             required
+            oninput="validateSessionForm()"
+            onchange="validateSessionForm()"
             class="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 font-mono focus:outline-none"
           />
         </div>
@@ -222,6 +268,8 @@
             id="session-end-input"
             name="end_date"
             required
+            oninput="validateSessionForm()"
+            onchange="validateSessionForm()"
             class="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 font-mono focus:outline-none"
           />
         </div>
@@ -233,7 +281,7 @@
             type="checkbox"
             id="session-current-input"
             name="is_current"
-            class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+            class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
           />
           <span class="text-xs font-medium text-foreground">Set as Current Active Academic Session</span>
         </label>
@@ -243,13 +291,14 @@
         <button
           type="button"
           onclick="closeModal('session-modal')"
-          class="px-3 py-1.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted"
+          class="px-3 py-1.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted cursor-pointer transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
-          class="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer"
+          id="session-submit-btn"
+          class="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer transition-all"
         >
           Save Session
         </button>
@@ -258,7 +307,260 @@
   </div>
 </div>
 
+<!-- Modal: Delete Academic Session Confirmation & Protected Status Dialog -->
+<div
+  id="delete-session-modal"
+  data-modal
+  class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden items-center justify-center p-4"
+  onclick="if (event.target === this) closeModal('delete-session-modal');"
+>
+  <div class="bg-card text-card-foreground border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150" style="max-width: 480px;">
+    <!-- Modal Header -->
+    <div class="p-4 sm:p-5 border-b border-border flex items-start justify-between gap-3 bg-muted/20">
+      <div class="flex items-start gap-3">
+        <!-- Dynamic Icon Circle -->
+        <div id="delModalIconCircle" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border shadow-xs bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-900/60">
+          <i id="delModalIcon" data-lucide="trash-2" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 id="delModalTitle" class="text-base font-bold text-foreground leading-snug">
+            Delete Academic Session
+          </h3>
+          <p id="delModalSubtitle" class="text-xs text-muted-foreground mt-0.5">
+            Permanent action • Cannot be undone
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onclick="closeModal('delete-session-modal')"
+        class="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+        title="Close dialog"
+      >
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Modal Content Body -->
+    <div class="p-5 space-y-4">
+      <!-- Session Overview Card -->
+      <div class="p-3.5 rounded-xl border border-border bg-muted/30 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Session Details</span>
+          <span id="delSessionCodeBadge" class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-background border border-border text-foreground shadow-2xs">
+            2028-29
+          </span>
+        </div>
+        <p id="delSessionDisplayName" class="text-sm font-bold text-foreground">
+          Academic Year 2028-29
+        </p>
+        <div class="flex items-center gap-2 text-xs text-muted-foreground font-mono pt-1.5 border-t border-border/60">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-muted-foreground shrink-0"></i>
+          <span id="delSessionDates">01 Jun 2028 → 31 May 2029</span>
+        </div>
+      </div>
+
+      <!-- Case 1: Safe Deletion Confirmation Box (students == 0 and not current) -->
+      <div id="delSafeBox" class="p-3.5 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 rounded-xl space-y-1.5 text-xs">
+        <div class="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-400">
+          <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
+          <span>Confirm Permanent Deletion</span>
+        </div>
+        <p class="text-[11.5px] leading-relaxed text-rose-800/90 dark:text-rose-300/90">
+          Are you sure you want to permanently delete this academic session? There are <strong>0 student admissions</strong> or financial records attached to it. This action cannot be reversed.
+        </p>
+      </div>
+
+      <!-- Case 2: Protected - Active Operational Session -->
+      <div id="delActiveWarningBox" class="hidden p-3.5 bg-amber-50/95 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-900/60 text-amber-900 dark:text-amber-300 rounded-xl space-y-2 text-xs">
+        <div class="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-400">
+          <i data-lucide="shield-alert" class="w-4 h-4 flex-shrink-0 text-amber-600"></i>
+          <span>Active Operational Session Protected</span>
+        </div>
+        <p class="text-[11.5px] leading-relaxed">
+          This session is currently designated as the <strong>Active Operational Session</strong>. To delete this session, please first set another academic session as active using the <strong>Set Active</strong> button.
+        </p>
+      </div>
+
+      <!-- Case 3: Protected - Student Admissions Linked -->
+      <div id="delEnrolledWarningBox" class="hidden p-3.5 bg-amber-50/95 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-900/60 text-amber-900 dark:text-amber-300 rounded-xl space-y-2 text-xs">
+        <div class="flex items-center justify-between gap-2 border-b border-amber-200/80 dark:border-amber-900/40 pb-2">
+          <div class="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-400">
+            <i data-lucide="shield-alert" class="w-4 h-4 flex-shrink-0 text-amber-600"></i>
+            <span>Student Admissions Linked</span>
+          </div>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100">
+            <span id="delEnrolledCountBadge">0</span> Enrolled
+          </span>
+        </div>
+        <p class="text-[11.5px] leading-relaxed">
+          This academic session cannot be deleted because student enrollments, fee installment structures, and payment receipts are permanently tied to it.
+        </p>
+        <div class="p-2.5 rounded-lg bg-background/80 border border-amber-200/90 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 leading-normal">
+          <strong>Recommended:</strong> Historical academic sessions must remain in the database for financial audit, receipts ledger, and student records.
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="p-4 sm:p-5 border-t border-border flex items-center justify-end gap-2.5 bg-muted/20">
+      <!-- Safe Delete Form Buttons -->
+      <div id="delSafeActions" class="flex items-center gap-2">
+        <button
+          type="button"
+          onclick="closeModal('delete-session-modal')"
+          class="px-3.5 py-2 text-xs font-medium rounded-lg border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <form method="POST" action="{% url 'sessions_list' %}" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="session_id" id="deleteSessionIdInput" value="">
+          <button
+            type="submit"
+            class="px-4 py-2 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Delete Academic Session</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Protected Session Close Button -->
+      <div id="delProtectedActions" class="hidden">
+        <button
+          type="button"
+          onclick="closeModal('delete-session-modal')"
+          class="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer shadow-xs"
+        >
+          Understood
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+  const existingSessions = {{ sessions_json|safe }};
+
+  function formatShortDate(dStr) {
+    if (!dStr) return '';
+    try {
+      const parts = dStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    } catch (e) {}
+    return dStr;
+  }
+
+  function validateSessionForm() {
+    const errorBox = document.getElementById('session-validation-error');
+    const errorTitle = document.getElementById('session-validation-error-title');
+    const errorMsg = document.getElementById('session-validation-error-msg');
+    const submitBtn = document.getElementById('session-submit-btn');
+
+    const nameInput = document.getElementById('session-name-input');
+    const startInput = document.getElementById('session-start-input');
+    const endInput = document.getElementById('session-end-input');
+    const currentId = document.getElementById('session-id-input').value;
+
+    const code = nameInput ? nameInput.value.trim() : '';
+    const startDate = startInput ? startInput.value : '';
+    const endDate = endInput ? endInput.value : '';
+
+    // Reset input highlight borders
+    if (nameInput) nameInput.classList.remove('border-rose-500', 'focus:ring-rose-500');
+    if (startInput) startInput.classList.remove('border-rose-500', 'focus:ring-rose-500');
+    if (endInput) endInput.classList.remove('border-rose-500', 'focus:ring-rose-500');
+
+    // 1. Unique Code Validation
+    if (code && existingSessions) {
+      const dup = existingSessions.find(s => s.id !== currentId && s.name.toLowerCase() === code.toLowerCase());
+      if (dup) {
+        showError(
+          "Duplicate Session Code",
+          "Session code '" + code + "' is already in use by session '" + (dup.displayName || dup.name) + "'. Please choose a unique code."
+        );
+        if (nameInput) nameInput.classList.add('border-rose-500', 'focus:ring-rose-500');
+        return false;
+      }
+    }
+
+    // 2. Date Chronology Validation
+    if (startDate && endDate) {
+      if (startDate >= endDate) {
+        showError(
+          "Invalid Date Range",
+          "Start Date must be strictly before End Date (" + formatShortDate(startDate) + " ≥ " + formatShortDate(endDate) + ")."
+        );
+        if (startInput) startInput.classList.add('border-rose-500', 'focus:ring-rose-500');
+        if (endInput) endInput.classList.add('border-rose-500', 'focus:ring-rose-500');
+        return false;
+      }
+
+      // 3. Date Overlap Validation against existing active sessions
+      if (existingSessions) {
+        for (const s of existingSessions) {
+          if (currentId && s.id === currentId) continue;
+          if (!s.isActive) continue;
+
+          // Two intervals [A, B] and [C, D] overlap if A <= D and B >= C
+          if (startDate <= s.endDate && endDate >= s.startDate) {
+            showError(
+              "Date Overlap Error",
+              "The selected range (" + formatShortDate(startDate) + " → " + formatShortDate(endDate) + ") overlaps with active session '" + (s.displayName || s.name) + "' (" + (s.startDateFormatted || s.startDate) + " → " + (s.endDateFormatted || s.endDate) + "). Academic sessions cannot have overlapping dates."
+            );
+            if (startInput) startInput.classList.add('border-rose-500', 'focus:ring-rose-500');
+            if (endInput) endInput.classList.add('border-rose-500', 'focus:ring-rose-500');
+            return false;
+          }
+        }
+      }
+    }
+
+    // All valid
+    clearError();
+    return true;
+
+    function showError(title, msg) {
+      if (errorBox) {
+        errorBox.classList.remove('hidden');
+        if (errorTitle) errorTitle.textContent = title;
+        if (errorMsg) errorMsg.textContent = msg;
+        if (window.lucide) lucide.createIcons();
+      }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+    }
+
+    function clearError() {
+      if (errorBox) {
+        errorBox.classList.add('hidden');
+        if (errorMsg) errorMsg.textContent = '';
+      }
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+  }
+
+  // Intercept form submit to guarantee client-side prevention
+  const sessionForm = document.getElementById('session-form');
+  if (sessionForm) {
+    sessionForm.addEventListener('submit', function(e) {
+      if (!validateSessionForm()) {
+        e.preventDefault();
+        return false;
+      }
+    });
+  }
+
   function openAddSessionModal() {
     document.getElementById('session-modal-title').innerHTML = '<i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600 inline"></i> <span>Add Academic Session</span>';
     document.getElementById('session-action-input').value = 'create';
@@ -268,7 +570,9 @@
     document.getElementById('session-start-input').value = '';
     document.getElementById('session-end-input').value = '';
     document.getElementById('session-current-input').checked = false;
+    validateSessionForm();
     openModal('session-modal');
+    if (window.lucide) lucide.createIcons();
   }
 
   function openEditSessionModal(id, name, displayName, start, end, isCurrent) {
@@ -280,7 +584,61 @@
     document.getElementById('session-start-input').value = start;
     document.getElementById('session-end-input').value = end;
     document.getElementById('session-current-input').checked = isCurrent;
+    validateSessionForm();
     openModal('session-modal');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function openDeleteSessionModal(id, displayName, code, startDate, endDate, isCurrent, studentsCount) {
+    document.getElementById('deleteSessionIdInput').value = id;
+    document.getElementById('delSessionDisplayName').textContent = displayName || code;
+    document.getElementById('delSessionCodeBadge').textContent = code;
+    document.getElementById('delSessionDates').textContent = (startDate || '') + (startDate && endDate ? ' → ' : '') + (endDate || '');
+
+    const iconCircle = document.getElementById('delModalIconCircle');
+    const icon = document.getElementById('delModalIcon');
+    const title = document.getElementById('delModalTitle');
+    const subtitle = document.getElementById('delModalSubtitle');
+
+    const safeBox = document.getElementById('delSafeBox');
+    const activeBox = document.getElementById('delActiveWarningBox');
+    const enrolledBox = document.getElementById('delEnrolledWarningBox');
+    const safeActions = document.getElementById('delSafeActions');
+    const protectedActions = document.getElementById('delProtectedActions');
+
+    // Reset visibility
+    safeBox.classList.add('hidden');
+    activeBox.classList.add('hidden');
+    enrolledBox.classList.add('hidden');
+    safeActions.classList.add('hidden');
+    protectedActions.classList.add('hidden');
+
+    if (isCurrent) {
+      title.textContent = 'Cannot Delete Active Session';
+      subtitle.textContent = 'Protected operational session';
+      iconCircle.className = 'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border shadow-xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900/60';
+      icon.setAttribute('data-lucide', 'shield-alert');
+      activeBox.classList.remove('hidden');
+      protectedActions.classList.remove('hidden');
+    } else if (studentsCount > 0) {
+      title.textContent = 'Cannot Delete Academic Session';
+      subtitle.textContent = 'Protected historical records';
+      iconCircle.className = 'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border shadow-xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900/60';
+      icon.setAttribute('data-lucide', 'shield-alert');
+      document.getElementById('delEnrolledCountBadge').textContent = studentsCount;
+      enrolledBox.classList.remove('hidden');
+      protectedActions.classList.remove('hidden');
+    } else {
+      title.textContent = 'Delete Academic Session';
+      subtitle.textContent = 'Permanent action • Cannot be undone';
+      iconCircle.className = 'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border shadow-xs bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-900/60';
+      icon.setAttribute('data-lucide', 'trash-2');
+      safeBox.classList.remove('hidden');
+      safeActions.classList.remove('hidden');
+    }
+
+    openModal('delete-session-modal');
+    if (window.lucide) lucide.createIcons();
   }
 </script>
 {% endblock %}

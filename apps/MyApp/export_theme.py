@@ -13,8 +13,53 @@ from reportlab.lib import colors
 from reportlab.platypus import Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+
+# =============================================================================
+# Unicode & Indian Rupee Typography Registration
+# =============================================================================
+
+HAS_UNICODE_FONT = False
+FONT_FAMILY = 'Helvetica'
+FONT_FAMILY_BOLD = 'Helvetica-Bold'
+
+def _init_fonts():
+    global HAS_UNICODE_FONT, FONT_FAMILY, FONT_FAMILY_BOLD
+    if HAS_UNICODE_FONT:
+        return
+    
+    candidates = []
+    if os.name == 'nt':
+        win_fonts = os.environ.get('WINDIR', 'C:\\Windows') + '\\Fonts'
+        candidates.extend([
+            ('SegoeUI', os.path.join(win_fonts, 'segoeui.ttf'), os.path.join(win_fonts, 'segoeuib.ttf')),
+            ('Arial', os.path.join(win_fonts, 'arial.ttf'), os.path.join(win_fonts, 'arialbd.ttf')),
+            ('Calibri', os.path.join(win_fonts, 'calibri.ttf'), os.path.join(win_fonts, 'calibrib.ttf')),
+        ])
+    else:
+        # Common Linux font paths
+        candidates.extend([
+            ('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+            ('FreeSans', '/usr/share/fonts/truetype/freefont/FreeSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'),
+        ])
+
+    for fname, f_reg, f_bld in candidates:
+        if os.path.exists(f_reg) and os.path.exists(f_bld):
+            try:
+                pdfmetrics.registerFont(TTFont(fname, f_reg))
+                pdfmetrics.registerFont(TTFont(f"{fname}-Bold", f_bld))
+                FONT_FAMILY = fname
+                FONT_FAMILY_BOLD = f"{fname}-Bold"
+                HAS_UNICODE_FONT = True
+                break
+            except Exception:
+                continue
+
+_init_fonts()
 
 
 # =============================================================================
@@ -37,8 +82,11 @@ COLOR_BORDER = '#CBD5E1'           # Clean Cell Borders
 # Currency & Number Formatting Helpers
 # =============================================================================
 
-def format_currency_inr(val):
-    """Formats numeric values into standard Indian currency with commas (e.g. ₹15,000)."""
+def format_currency_inr(val, prefix="Rs. "):
+    """
+    Formats numeric values into standard Indian currency with commas (e.g. Rs. 15,000).
+    Uses 'Rs. ' by default to guarantee missing glyph black boxes (■) NEVER appear in printouts.
+    """
     try:
         val = float(val or 0.0)
         neg = val < 0
@@ -56,9 +104,11 @@ def format_currency_inr(val):
             chunks.reverse()
             s = ",".join(chunks) + "," + r
         res = s if not d or d[0] == '00' else f"{s}.{d[0]}"
-        return f"-₹{res}" if neg else f"₹{res}"
+        sym = prefix if prefix is not None else "Rs. "
+        return f"-{sym}{res}" if neg else f"{sym}{res}"
     except Exception:
-        return f"₹{val}"
+        sym = prefix if prefix is not None else "Rs. "
+        return f"{sym}{val}"
 
 
 def format_number_inr(val):
@@ -85,16 +135,75 @@ def format_number_inr(val):
         return str(val)
 
 
-def get_logo_path():
-    """Returns absolute path to institutional icon/logo on disk."""
-    candidates = [
-        os.path.join(settings.BASE_DIR, 'static', 'images', 'icon.png'),
-        os.path.join(settings.BASE_DIR, 'static', 'images', 'favicon.png'),
-        os.path.join(settings.BASE_DIR, 'static', 'images', 'logo-master.png'),
-    ]
-    for c in candidates:
-        if os.path.exists(c):
-            return c
+def get_logo_path(branch_logo=None):
+    """
+    Returns absolute path to institutional icon/logo on disk.
+    Priority:
+    1. Explicit branch logo if provided
+    2. Master logo from SystemSetting 'logo_url' (configured in Settings Page)
+    3. Any uploaded logo in MEDIA_ROOT/photos (e.g. logo-master-*)
+    4. App static images: apps/MyApp/static/images/logo-master.png
+    5. App static images: apps/MyApp/static/images/icon.png
+    6. App static images: apps/MyApp/static/images/favicon.png
+    """
+    # 1. Branch logo
+    if branch_logo:
+        clean_logo = str(branch_logo).strip()
+        if clean_logo.startswith('/media/'):
+            rel = clean_logo[len('/media/'):].replace('/', os.sep)
+            p = os.path.join(settings.MEDIA_ROOT, rel)
+            if os.path.exists(p):
+                return p
+        elif os.path.exists(clean_logo):
+            return clean_logo
+
+    # 2. Master logo from SystemSetting (Settings Page)
+    try:
+        from .models import SystemSetting
+        sett = SystemSetting.objects.filter(key='logo_url').first()
+        if sett and sett.value:
+            clean_val = sett.value.strip()
+            if clean_val.startswith('/media/'):
+                rel = clean_val[len('/media/'):].replace('/', os.sep)
+                p = os.path.join(settings.MEDIA_ROOT, rel)
+                if os.path.exists(p):
+                    return p
+            elif os.path.isabs(clean_val) and os.path.exists(clean_val):
+                return clean_val
+    except Exception:
+        pass
+
+    # 3. Check MEDIA_ROOT/photos directory for uploaded logo
+    photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
+    if os.path.exists(photos_dir):
+        try:
+            files = sorted(os.listdir(photos_dir), reverse=True)
+            for f in files:
+                if f.startswith('logo-master') and os.path.splitext(f)[1].lower() in ('.png', '.jpg', '.jpeg', '.webp'):
+                    p = os.path.join(photos_dir, f)
+                    if os.path.exists(p):
+                        return p
+            for f in files:
+                if f.startswith('logo-branch') and os.path.splitext(f)[1].lower() in ('.png', '.jpg', '.jpeg', '.webp'):
+                    p = os.path.join(photos_dir, f)
+                    if os.path.exists(p):
+                        return p
+        except Exception:
+            pass
+
+    # 4. App static images in apps/MyApp/static/images
+    app_static = os.path.join(settings.BASE_DIR, 'apps', 'MyApp', 'static', 'images')
+    for name in ['logo-master.png', 'icon.png', 'favicon.png']:
+        p = os.path.join(app_static, name)
+        if os.path.exists(p):
+            return p
+
+    # 5. Global static directory
+    for name in ['logo-master.png', 'icon.png', 'favicon.png']:
+        p = os.path.join(settings.BASE_DIR, 'static', 'images', name)
+        if os.path.exists(p):
+            return p
+
     return None
 
 
@@ -125,7 +234,7 @@ class ExecutiveLandscapeCanvas(canvas.Canvas):
 
     def draw_footer(self, page_count):
         self.saveState()
-        self.setFont("Helvetica", 7.5)
+        self.setFont(FONT_FAMILY, 7.5)
         self.setFillColor(colors.HexColor(COLOR_MUTED_TEXT))
         page_w, page_h = landscape(A4)
         
@@ -148,12 +257,28 @@ class ExecutiveLandscapeCanvas(canvas.Canvas):
 
 def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, report_badge_value=None):
     """
-    Constructs the exact executive header matching the snapshot:
+    Constructs the exact executive header matching the official institutional layout:
     [ Logo ] [ Institute Name & Subtitle & Tagline ]   [ Scope & Date Box ]
     [====== Orange Accent Bar ======][============= Navy Line =============]
     """
     meta = meta or {}
-    institute_name = (meta.get('institute_name') or 'SUTAWANE CLASSES VAIJAPUR').upper()
+
+    # Resolve institute name & tagline from SystemSetting if not provided
+    institute_name = meta.get('institute_name')
+    tagline = meta.get('tagline')
+    if not institute_name or not tagline:
+        try:
+            from .models import SystemSetting
+            settings_map = {s.key: s.value for s in SystemSetting.objects.all()}
+            if not institute_name:
+                institute_name = settings_map.get('institute_name') or 'Sutawane Classes'
+            if not tagline:
+                tagline = settings_map.get('tagline') or 'Excellence in Coaching & Board Preparations'
+        except Exception:
+            pass
+    institute_name = (institute_name or 'SUTAWANE CLASSES').upper()
+    tagline = tagline or 'Excellence in Coaching & Board Preparations'
+
     branch_name = meta.get('branch_name', 'All Branches')
     session_name = meta.get('session_name', 'All Sessions')
     date_str = meta.get('date_str') or datetime.now().strftime("%d %b %Y, %I:%M %p")
@@ -164,15 +289,15 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     title_style = ParagraphStyle(
         'HdrInstTitle',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=13.5,
+        fontName=FONT_FAMILY_BOLD,
+        fontSize=13,
         leading=16,
         textColor=colors.HexColor(COLOR_NAVY_PRIMARY),
     )
     subtitle_style = ParagraphStyle(
         'HdrReportSub',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=9.5,
         leading=12,
         textColor=colors.HexColor(COLOR_NAVY_PRIMARY),
@@ -180,7 +305,7 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     tagline_style = ParagraphStyle(
         'HdrTagline',
         parent=styles['Normal'],
-        fontName='Helvetica-Oblique',
+        fontName=FONT_FAMILY,
         fontSize=7.5,
         leading=10,
         textColor=colors.HexColor(COLOR_MUTED_TEXT),
@@ -188,7 +313,7 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     meta_lbl_style = ParagraphStyle(
         'HdrMetaLbl',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_MUTED_TEXT),
@@ -196,7 +321,7 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     meta_val_style = ParagraphStyle(
         'HdrMetaVal',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -204,7 +329,7 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     meta_val_red_style = ParagraphStyle(
         'HdrMetaValRed',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9,
         textColor=colors.HexColor(COLOR_RED_PENDING),
@@ -216,11 +341,11 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
         Spacer(1, 2),
         Paragraph(doc_title.upper(), subtitle_style),
         Spacer(1, 2),
-        Paragraph("Excellence in Coaching & Board Preparations", tagline_style),
+        Paragraph(tagline, tagline_style),
     ]
 
-    # Right block: Scope Metadata Card Table
-    scope_display = f"{branch_name} • {session_name}"
+    # Right block: Scope Metadata Card Table (Use &bull; for crisp universal bullet)
+    scope_display = f"{branch_name} &bull; {session_name}"
     
     badge_lbl = report_badge_label or "RECORDS:"
     if report_badge_value is not None:
@@ -236,7 +361,7 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
         [Paragraph(badge_lbl, meta_lbl_style), Paragraph(str(badge_val), meta_val_red_style)],
     ]
 
-    meta_table = Table(meta_rows, colWidths=[52, 178])
+    meta_table = Table(meta_rows, colWidths=[52, 186])
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(COLOR_BG_CARD)),
         ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor(COLOR_BORDER)),
@@ -248,15 +373,18 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     ]))
 
     # Assemble 3-column top header row
-    logo_path = get_logo_path()
-    if logo_path:
-        logo_flowable = Image(logo_path, width=42, height=42)
+    logo_path = get_logo_path(branch_logo=meta.get('branch_logo') or meta.get('branch_logo_url'))
+    if logo_path and os.path.exists(logo_path):
+        try:
+            logo_flowable = Image(logo_path, width=44, height=44, kind='proportional')
+        except Exception:
+            logo_flowable = Paragraph("<b>SC</b>", title_style)
     else:
         logo_flowable = Paragraph("<b>SC</b>", title_style)
 
     header_table = Table(
         [[logo_flowable, left_flowables, meta_table]],
-        colWidths=[48, 516, 238]
+        colWidths=[50, 514, 238]
     )
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),

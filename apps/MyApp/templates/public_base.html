@@ -1,0 +1,467 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ institute_name|default:'Sutawane Classes' }} · Premier Coaching Institute{% endblock %}</title>
+  <meta name="description" content="{% block meta_desc %}Sutawane Classes - Premier Coaching Institute in Vaijapur for 8th-10th State Board, 11th-12th Science (PCB/PCM), MHT-CET, NEET, JEE & Commerce excellence.{% endblock %}">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+  
+  <!-- Plus Jakarta Sans Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Modern Light SaaS & Education Stylesheet -->
+  <link rel="stylesheet" href="{% static 'css/modern_portal.css' %}">
+  
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="modern-body">
+
+  <!-- Ambient Light Background with Grid & Pastel Glow Orbs -->
+  <div class="modern-ambient-bg" aria-hidden="true">
+    <div class="ambient-grid"></div>
+    <div class="ambient-glow-left"></div>
+    <div class="ambient-glow-right"></div>
+  </div>
+
+  <!-- 1. Top Announcement Bar -->
+  <div style="background:#F8FAFC;border-bottom:1px solid #E2E8F0;font-size:0.8125rem;padding:0.45rem 1rem;position:relative;z-index:101;">
+    <div class="modern-container" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+      <div style="display:inline-flex;align-items:center;gap:0.5rem;font-weight:600;color:#334155;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563EB;box-shadow:0 0 8px rgba(37,99,235,0.6);"></span>
+        <span>Admissions Open 2026–2027 · Limited Seats Per Batch</span>
+      </div>
+      <div style="display:inline-flex;align-items:center;gap:1.5rem;color:#64748B;font-weight:500;">
+        <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:0.35rem;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          <span>{{ institute_settings.phone|default:'+91 98765 43210' }}</span>
+        </a>
+        <span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:#CBD5E1;"></span>
+        <span>Station Road, Vaijapur</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modern Sticky Navigation Bar -->
+  <header class="modern-header" id="modernHeader">
+    <div class="modern-container">
+      <div class="modern-header-inner">
+        <!-- Brand Logo / Identity -->
+        <a href="{% url 'landing' %}" class="modern-brand" aria-label="Sutawane Classes Home">
+          <div class="modern-logo-box">
+            {% if active_logo_url %}
+              <img src="{{ active_logo_url }}" alt="Sutawane Classes Logo">
+            {% else %}
+              <span>SC</span>
+            {% endif %}
+          </div>
+          <div>
+            <div class="modern-brand-name">{{ institute_name|default:'Sutawane Classes' }}</div>
+            <div class="modern-brand-tag">Academy of Excellence · Vaijapur</div>
+          </div>
+        </a>
+
+        <!-- Desktop Navigation Menu -->
+        <nav class="modern-nav-links" aria-label="Main Navigation">
+          <a href="{% url 'landing' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'landing' %}active{% endif %}">Home</a>
+          <a href="{% url 'public_batches' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_batches' %}active{% endif %}">Batches</a>
+          
+          <!-- Gallery Dropdown (Click to toggle submenu) -->
+          <div class="modern-nav-dropdown" id="galleryDropdown">
+            <button type="button" class="modern-nav-dropdown-btn {% if request.resolver_match.url_name in 'public_photo_gallery,public_video_gallery' %}active{% endif %}" id="galleryDropdownBtn" aria-expanded="false" aria-haspopup="true">
+              <span>Gallery</span>
+              <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="modern-submenu" id="gallerySubmenu">
+              <a href="{% url 'public_photo_gallery' %}" class="modern-submenu-item {% if request.resolver_match.url_name == 'public_photo_gallery' %}active{% endif %}">
+                <div class="submenu-icon-box">📷</div>
+                <div class="submenu-text">
+                  <span class="submenu-title">Photo Gallery</span>
+                  <span class="submenu-desc">Campus facilities, events & toppers</span>
+                </div>
+              </a>
+              <a href="{% url 'public_video_gallery' %}" class="modern-submenu-item {% if request.resolver_match.url_name == 'public_video_gallery' %}active{% endif %}">
+                <div class="submenu-icon-box">🎥</div>
+                <div class="submenu-text">
+                  <span class="submenu-title">Video Gallery</span>
+                  <span class="submenu-desc">Faculty lectures & student experiences</span>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <a href="{% url 'public_about_us' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_about_us' %}active{% endif %}">About Us</a>
+          <a href="{% url 'public_contact_us' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_contact_us' %}active{% endif %}">Contact Us</a>
+        </nav>
+
+        <!-- Header Actions: Login + Amber CTA Pill -->
+        <div class="modern-header-actions">
+          {% if request.session.user_id %}
+            <a href="{% url 'dashboard' %}" class="btn-nav-login" title="Open ERP Workspace">Open ERP ↗</a>
+          {% else %}
+            <a href="{% url 'login' %}" class="btn-nav-login" title="Staff / Student Login">Login</a>
+          {% endif %}
+
+          <button type="button" class="btn-header-trial" onclick="openInquiryModal()">
+            <span>Start Free Trial</span>
+            <span style="font-weight:800;font-size:1.1rem;line-height:1;">→</span>
+          </button>
+
+          <!-- Mobile Hamburger Toggle -->
+          <button class="modern-menu-btn" id="mobileMenuBtn" aria-label="Open mobile menu">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 3. Modern Mobile Drawer -->
+  <div class="modern-mobile-drawer" id="mobileDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="modern-brand">
+        <div class="modern-logo-box" style="width:36px;height:36px;font-size:1rem;">SC</div>
+        <div>
+          <div class="modern-brand-name" style="font-size:1.05rem;">Sutawane Classes</div>
+          <div class="modern-brand-tag" style="font-size:0.7rem;">Vaijapur</div>
+        </div>
+      </div>
+      <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Close menu">&times;</button>
+    </div>
+
+    <nav class="drawer-nav-list">
+      <a href="{% url 'landing' %}" class="drawer-nav-item {% if request.resolver_match.url_name == 'landing' %}active{% endif %}">
+        <span>Home</span>
+        <span>→</span>
+      </a>
+      <a href="{% url 'public_batches' %}" class="drawer-nav-item {% if request.resolver_match.url_name == 'public_batches' %}active{% endif %}">
+        <span>Batches & Programs</span>
+        <span>→</span>
+      </a>
+
+      <!-- Mobile Gallery Accordion Submenu -->
+      <div class="drawer-accordion-group {% if request.resolver_match.url_name in 'public_photo_gallery,public_video_gallery' %}open{% endif %}" id="mobileGalleryGroup">
+        <button type="button" class="drawer-accordion-btn {% if request.resolver_match.url_name in 'public_photo_gallery,public_video_gallery' %}active{% endif %}" id="mobileGalleryBtn">
+          <span>Gallery</span>
+          <svg class="drawer-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="drawer-accordion-body" id="mobileGalleryBody">
+          <a href="{% url 'public_photo_gallery' %}" class="drawer-subitem {% if request.resolver_match.url_name == 'public_photo_gallery' %}active{% endif %}">
+            <span>📷 Photo Gallery</span>
+            <span>→</span>
+          </a>
+          <a href="{% url 'public_video_gallery' %}" class="drawer-subitem {% if request.resolver_match.url_name == 'public_video_gallery' %}active{% endif %}">
+            <span>🎥 Video Gallery</span>
+            <span>→</span>
+          </a>
+        </div>
+      </div>
+
+      <a href="{% url 'public_about_us' %}" class="drawer-nav-item {% if request.resolver_match.url_name == 'public_about_us' %}active{% endif %}">
+        <span>About Us & Faculty</span>
+        <span>→</span>
+      </a>
+      <a href="{% url 'public_contact_us' %}" class="drawer-nav-item {% if request.resolver_match.url_name == 'public_contact_us' %}active{% endif %}">
+        <span>Contact Us</span>
+        <span>→</span>
+      </a>
+    </nav>
+
+    <div class="drawer-footer">
+      <button type="button" class="btn-modern-amber" style="width:100%;justify-content:center;" onclick="openInquiryModal(); closeMobileDrawer();">
+        <span class="btn-icon-circle">✦</span>
+        <span>Book Free Demo Lecture</span>
+        <span class="btn-arrow-circle">→</span>
+      </button>
+
+      {% if request.session.user_id %}
+        <a href="{% url 'dashboard' %}" class="btn-modern-navy" style="width:100%;justify-content:center;text-align:center;">
+          <span>Open ERP Workspace ↗</span>
+        </a>
+      {% else %}
+        <a href="{% url 'login' %}" class="btn-modern-navy" style="width:100%;justify-content:center;text-align:center;">
+          <span>Staff / Student Login ↗</span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Main Content Block -->
+  <main id="mainContent">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- 4. Modern Dark Creative Footer -->
+  <footer class="modern-footer">
+    <div class="footer-ambient-glow" aria-hidden="true"></div>
+    <div class="modern-container">
+      <div class="footer-top-grid">
+        <!-- Col 1: Brand & Mission -->
+        <div>
+          <a href="{% url 'landing' %}" class="modern-brand" style="margin-bottom:1.25rem;">
+            <div class="modern-logo-box" style="box-shadow:0 0 20px rgba(37,99,235,0.4);">SC</div>
+            <div>
+              <div class="footer-brand-title">{{ institute_name|default:'Sutawane Group of Education' }}</div>
+              <div class="footer-brand-tag">Academy of Excellence · Vaijapur</div>
+            </div>
+          </a>
+          <p class="footer-desc-text">
+            Transforming students of Vaijapur and Marathwada into state rankers since 2011 with rigorous conceptual teaching, precision test series, and dedicated 1-on-1 mentorship.
+          </p>
+          <div class="footer-iso-badge">
+            <span style="color:#FBBF24;">★</span>
+            <span>ISO 9001:2015 Standards of Quality Education</span>
+          </div>
+        </div>
+
+        <!-- Col 2: Navigation Links -->
+        <div>
+          <h4 class="footer-col-title">
+            <span class="title-dot"></span>
+            <span>Navigation</span>
+          </h4>
+          <ul class="footer-nav-list">
+            <li><a href="{% url 'landing' %}"><span>→</span> Home</a></li>
+            <li><a href="{% url 'public_batches' %}"><span>→</span> Batches & Programs</a></li>
+            <li><a href="{% url 'public_photo_gallery' %}"><span>→</span> Campus Photo Gallery</a></li>
+            <li><a href="{% url 'public_video_gallery' %}"><span>→</span> Video Gallery & Lectures</a></li>
+            <li><a href="{% url 'public_about_us' %}"><span>→</span> About Us & Faculty</a></li>
+            <li><a href="{% url 'public_contact_us' %}"><span>→</span> Contact Us</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Academic Batches -->
+        <div>
+          <h4 class="footer-col-title">
+            <span class="title-dot"></span>
+            <span>Batches & Streams</span>
+          </h4>
+          <ul class="footer-nav-list">
+            <li><a href="{% url 'public_batches' %}?stream=science"><span>⚡</span> 11th & 12th Science (PCB/PCM)</a></li>
+            <li><a href="{% url 'public_batches' %}?stream=entrance"><span>🎯</span> MHT-CET Target Batch</a></li>
+            <li><a href="{% url 'public_batches' %}?stream=entrance"><span>🔬</span> NEET / JEE Rankers Track</a></li>
+            <li><a href="{% url 'public_batches' %}?stream=foundation"><span>📘</span> 10th State Board Foundation</a></li>
+            <li><a href="{% url 'public_batches' %}?stream=foundation"><span>📐</span> 8th & 9th Concept Builder</a></li>
+            <li><a href="{% url 'public_batches' %}?stream=commerce"><span>📈</span> 11th & 12th Commerce</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Contact Desk -->
+        <div>
+          <h4 class="footer-col-title">
+            <span class="title-dot"></span>
+            <span>Main Campus Desk</span>
+          </h4>
+          <div class="footer-campus-card">
+            <div class="footer-campus-item">
+              <span class="icon">📍</span>
+              <span><strong>Address:</strong> Station Road, Near Bus Stand, Vaijapur, Chhatrapati Sambhajinagar, Maharashtra 423701.</span>
+            </div>
+            <div class="footer-campus-item">
+              <span class="icon">📞</span>
+              <span><strong>Helpline:</strong> <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="footer-helpline-link">{{ institute_settings.phone|default:'+91 98765 43210' }}</a></span>
+            </div>
+            <div class="footer-campus-item">
+              <span class="icon">⏱️</span>
+              <span><strong>Hours:</strong> Mon – Sat: 7:30 AM – 8:00 PM<br>Sun: 8:00 AM – 1:00 PM</span>
+            </div>
+            <button type="button" class="btn-modern-amber" style="width:100%;justify-content:center;padding:0.75rem 1rem;font-size:0.9rem;box-shadow:0 8px 24px rgba(245,158,11,0.45);margin-top:0.25rem;" onclick="openInquiryModal()">
+              <span>Inquire for Admission</span>
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom-row">
+        <div>
+          © {% now "Y" %} Sutawane Group of Education. All Rights Reserved. Crafted for Academic Excellence.
+        </div>
+        <div style="display:flex;align-items:center;gap:1.5rem;">
+          <a href="{% url 'login' %}" class="footer-login-link">Staff / Admin Login ↗</a>
+          <span style="color:rgba(255,255,255,0.2);">•</span>
+          <a href="#top" class="footer-top-link">Back to Top ↑</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 5. Floating WhatsApp Help Button (Green Pill matching Screenshots) -->
+  <div class="floating-whatsapp-help">
+    <a href="https://wa.me/917776824564?text=Hello%20Sutawane%20Classes,%20I%20would%20like%20to%20inquire%20about%20admissions%20and%20batches." target="_blank" rel="noopener noreferrer" class="btn-help-whatsapp" title="Instant WhatsApp Support">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+      <span>Help</span>
+    </a>
+  </div>
+
+  <!-- 6. Modern Admission / Counseling Modal -->
+  <div class="modern-modal-overlay" id="inquiryModal">
+    <div class="modern-modal-card">
+      <button type="button" class="modal-close-btn" onclick="closeInquiryModal()">&times;</button>
+      
+      <div class="text-center" style="margin-bottom:1.5rem;">
+        <span class="modern-badge">✦ Admissions Counseling 2026–27</span>
+        <h3 style="font-size:1.75rem;font-weight:800;color:var(--text-dark);margin-bottom:0.5rem;">Book Free Academic Counseling</h3>
+        <p style="font-size:0.9rem;color:var(--text-muted);">
+          Speak directly with our senior mentors for batch selection & scholarship details.
+        </p>
+      </div>
+
+      <form id="publicInquiryForm" class="modern-form" onsubmit="handleInquirySubmit(event)">
+        <div class="modern-form-row">
+          <div class="modern-form-group">
+            <label class="modern-form-label" for="inq_student_name">Student Full Name *</label>
+            <input type="text" id="inq_student_name" class="modern-input" name="student_name" required placeholder="e.g. Aditya Sharma">
+          </div>
+          <div class="modern-form-group">
+            <label class="modern-form-label" for="inq_phone">Parent / Student Mobile *</label>
+            <input type="tel" id="inq_phone" class="modern-input" name="phone" required placeholder="e.g. 9876543210">
+          </div>
+        </div>
+
+        <div class="modern-form-row">
+          <div class="modern-form-group">
+            <label class="modern-form-label" for="inq_standard">Class / Batch Interested *</label>
+            <select id="inq_standard" class="modern-select" name="standard" required>
+              <option value="" disabled selected>Select Desired Batch</option>
+              <option value="11th Science (PCB/PCM)">11th Science (Board + CET/NEET/JEE)</option>
+              <option value="12th Science Target Batch">12th Science Target Batch (CET / NEET)</option>
+              <option value="MHT-CET Crash Course">MHT-CET Intensive Entrance Batch</option>
+              <option value="10th State Board Foundation">10th State Board Foundation</option>
+              <option value="8th & 9th Pre-Foundation">8th & 9th Pre-Foundation</option>
+              <option value="11th & 12th Commerce">11th & 12th Commerce</option>
+            </select>
+          </div>
+          <div class="modern-form-group">
+            <label class="modern-form-label" for="inq_campus">Preferred Mode</label>
+            <select id="inq_campus" class="modern-select" name="campus">
+              <option value="Vaijapur Main Campus">Vaijapur Main Campus</option>
+              <option value="Online / Hybrid Mode">Online / Hybrid Mode</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modern-form-group">
+          <label class="modern-form-label" for="inq_message">Your Query or Previous Marks (Optional)</label>
+          <textarea id="inq_message" class="modern-textarea" name="message" rows="2" placeholder="e.g. Inquiring for 11th Science PCB batch, scored 91% in 10th"></textarea>
+        </div>
+
+        <button type="submit" class="btn-modern-amber" style="width:100%;justify-content:center;padding:0.95rem;margin-top:0.5rem;">
+          <span class="btn-icon-circle">🚀</span>
+          <span>Submit Counseling Request via WhatsApp</span>
+          <span class="btn-arrow-circle">→</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Shared JavaScript Utilities -->
+  <script>
+    // Mobile Drawer Controls
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const mobileDrawer = document.getElementById('mobileDrawer');
+    const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+
+    if (mobileBtn && mobileDrawer) {
+      mobileBtn.addEventListener('click', () => {
+        mobileDrawer.classList.add('active');
+      });
+    }
+
+    function closeMobileDrawer() {
+      if (mobileDrawer) mobileDrawer.classList.remove('active');
+    }
+
+    if (drawerCloseBtn) {
+      drawerCloseBtn.addEventListener('click', closeMobileDrawer);
+    }
+
+    // Gallery Dropdown Toggle (Desktop)
+    const galleryDropdown = document.getElementById('galleryDropdown');
+    const galleryBtn = document.getElementById('galleryDropdownBtn');
+
+    if (galleryDropdown && galleryBtn) {
+      galleryBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = galleryDropdown.classList.contains('open');
+        galleryDropdown.classList.toggle('open');
+        galleryBtn.setAttribute('aria-expanded', !isOpen);
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!galleryDropdown.contains(e.target)) {
+          galleryDropdown.classList.remove('open');
+          galleryBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Close on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && galleryDropdown.classList.contains('open')) {
+          galleryDropdown.classList.remove('open');
+          galleryBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Gallery Accordion Toggle (Mobile Drawer)
+    const mobileGalleryGroup = document.getElementById('mobileGalleryGroup');
+    const mobileGalleryBtn = document.getElementById('mobileGalleryBtn');
+
+    if (mobileGalleryGroup && mobileGalleryBtn) {
+      mobileGalleryBtn.addEventListener('click', () => {
+        mobileGalleryGroup.classList.toggle('open');
+      });
+    }
+
+    // Modal Controls
+    const inqModal = document.getElementById('inquiryModal');
+    function openInquiryModal() {
+      if (inqModal) inqModal.style.display = 'flex';
+    }
+    function closeInquiryModal() {
+      if (inqModal) inqModal.style.display = 'none';
+    }
+
+    // Close modal on click outside card
+    if (inqModal) {
+      inqModal.addEventListener('click', (e) => {
+        if (e.target === inqModal) {
+          closeInquiryModal();
+        }
+      });
+    }
+
+    // WhatsApp Direct Dispatch
+    function handleInquirySubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('inq_student_name').value.trim();
+      const phone = document.getElementById('inq_phone').value.trim();
+      const standard = document.getElementById('inq_standard').value;
+      const campus = document.getElementById('inq_campus').value;
+      const msg = document.getElementById('inq_message').value.trim();
+
+      const text = `*New Admission Inquiry - Sutawane Classes*\n\n` +
+                   `*Student Name:* ${name}\n` +
+                   `*Contact:* ${phone}\n` +
+                   `*Batch Interested:* ${standard}\n` +
+                   `*Campus / Mode:* ${campus}\n` +
+                   (msg ? `*Note:* ${msg}\n\n` : `\n`) +
+                   `Please share batch timings, syllabus schedule, and scholarship evaluation.`;
+
+      const targetPhone = "917776824564";
+      const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
+      window.open(waUrl, '_blank');
+      closeInquiryModal();
+    }
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

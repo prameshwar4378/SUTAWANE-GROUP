@@ -106,7 +106,7 @@ assert 'Ananya Rajesh Kulkarni' in preview_html
 assert 'ARK-101' in preview_html
 assert '15000' in preview_html
 assert 'Class 11 Science' in preview_html  # Auto-suggested from Class 10
-assert 'ARK-101-N' in preview_html        # Auto-suggested roll
+assert 'ARK-101' in preview_html        # Auto-suggested roll keeps clean branch roll
 print("Individual promotion preview rendered correctly with dues and suggested standard 'Class 11 Science'!")
 
 # Also test JSON preview

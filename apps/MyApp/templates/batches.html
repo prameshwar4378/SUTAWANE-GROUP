@@ -1,0 +1,564 @@
+{% extends 'public_base.html' %}
+{% load static %}
+
+{% block title %}Academic Batches & Programs · Sutawane Group of Education Vaijapur{% endblock %}
+{% block meta_desc %}Explore our structured academic batches for 8th-10th State Board, 11th-12th Science (PCB/PCM), MHT-CET, NEET, JEE & Commerce. Expert faculty, limited batch sizes & proven state rankers.{% endblock %}
+
+{% block content %}
+<!-- ==========================================================================
+     1. HERO HEADER WITH AMBIENT HALO & STREAM FILTER BAR
+     ========================================================================== -->
+<section class="modern-page-hero" id="top">
+  <!-- Atmospheric diffused glow halo -->
+  <div class="page-hero-halo" aria-hidden="true"></div>
+
+  <div class="modern-container">
+    <div class="modern-page-hero-wrap">
+      
+      <!-- Eyebrow Notification Pill -->
+      <a href="#demoModal" class="hero-notification-pill" onclick="openInquiryModal(); return false;">
+        <span class="pill-badge-indigo">ADMISSIONS 2026–27</span>
+        <span class="pill-text-content">Batches Active · Strict 30-Student Cap Per Batch</span>
+        <span class="pill-arrow-indicator">→</span>
+      </a>
+
+      <!-- Page Title -->
+      <h1 class="modern-page-title">
+        Structured Academic Programs.<br>
+        <span class="gradient-text-indigo">Engineered for State Rankers.</span>
+      </h1>
+
+      <!-- Subtitle Description -->
+      <p class="modern-page-desc">
+        Every program at Sutawane Classes is meticulously crafted with syllabus pacing, rigorous weekly testing, and personal 1-on-1 doubt resolution to ensure students conquer board and entrance examinations with absolute confidence.
+      </p>
+
+      <!-- Category Filter Pills Bar -->
+      <div class="modern-filter-bar">
+        <button type="button" class="modern-filter-btn active" data-filter="all">All Academic Batches</button>
+        <button type="button" class="modern-filter-btn" data-filter="science">11th &amp; 12th Science</button>
+        <button type="button" class="modern-filter-btn" data-filter="entrance">MHT-CET / NEET Target</button>
+        <button type="button" class="modern-filter-btn" data-filter="foundation">8th–10th State Board</button>
+        <button type="button" class="modern-filter-btn" data-filter="commerce">Commerce Stream</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     2. MODERN BATCHES CARDS GRID
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0;">
+  <div class="modern-container">
+    <div class="modern-batches-grid" id="batchesGrid">
+
+      <!-- Batch 1: 11th & 12th Science -->
+      <div class="modern-batch-card" data-category="science">
+        <div>
+          <div class="batch-card-header">
+            <span class="batch-stream-tag tag-science">Higher Secondary · Science</span>
+            <span class="batch-seat-badge">
+              <span class="live-dot-pulse"></span>
+              <span>12 Seats Available</span>
+            </span>
+          </div>
+          <h3 class="batch-card-title">11th &amp; 12th Science (PCB / PCM Integrated)</h3>
+          <p class="batch-card-target">Complete 2-Year State Board + Competitive Orientation</p>
+          
+          <ul class="modern-features-list">
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>In-depth mastery of Physics, Chemistry, Mathematics &amp; Biology</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>NCERT + Maharashtra State Board aligned printed study material</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Weekly subjective board pattern tests + objective CET drills</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Daily 1-on-1 faculty doubt clearing sessions with Prof. Sutawane</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="batch-card-footer">
+          <div class="batch-timing-box">
+            <small>Lecture Schedule</small>
+            <strong>Batch A: 7:30 AM | Batch B: 3:30 PM</strong>
+          </div>
+          <button type="button" class="btn-taskharbor-primary" style="padding:0.65rem 1.35rem;font-size:0.875rem;" onclick="openInquiryModal()">
+            <span>Inquire for Seat</span>
+            <span class="btn-pill-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch 2: MHT-CET Intensive Rankers Batch (Featured) -->
+      <div class="modern-batch-card featured-batch" data-category="entrance">
+        <span class="featured-popular-tag">★ MOST POPULAR · RANKER PREFERRED</span>
+        <div>
+          <div class="batch-card-header" style="margin-top:0.35rem;">
+            <span class="batch-stream-tag tag-entrance">Engineering / Pharmacy Entrance</span>
+            <span class="batch-seat-badge">
+              <span class="live-dot-pulse"></span>
+              <span>6 Seats Remaining</span>
+            </span>
+          </div>
+          <h3 class="batch-card-title">MHT-CET Intensive Rankers Batch</h3>
+          <p class="batch-card-target">Targeting 99+ Percentile for COEP, VJTI, ICT &amp; Top Govt Institutes</p>
+          
+          <ul class="modern-features-list">
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Specialized shortcut formulas and speed-boosting calculation hacks</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>15 Years MHT-CET chapter-wise past question bank dissection</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>50+ Full-length online/offline simulated entrance mock drills</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Personalized performance analytics &amp; state percentile predictor</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="batch-card-footer">
+          <div class="batch-timing-box">
+            <small>Lecture Schedule</small>
+            <strong>Daily 4.5 Hours + Weekend Mock</strong>
+          </div>
+          <button type="button" class="btn-taskharbor-primary" style="padding:0.65rem 1.35rem;font-size:0.875rem;" onclick="openInquiryModal()">
+            <span>Apply for Target Batch</span>
+            <span class="btn-pill-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch 3: NEET-UG Medical Master Batch -->
+      <div class="modern-batch-card" data-category="entrance">
+        <div>
+          <div class="batch-card-header">
+            <span class="batch-stream-tag tag-entrance">Medical Entrance · NEET-UG</span>
+            <span class="batch-seat-badge">
+              <span class="live-dot-pulse"></span>
+              <span>8 Seats Available</span>
+            </span>
+          </div>
+          <h3 class="batch-card-title">NEET-UG Medical Master Batch</h3>
+          <p class="batch-card-target">Targeting 650+ Score for Govt. Medical Colleges (MBBS/BDS)</p>
+          
+          <ul class="modern-features-list">
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>360/360 Target Biology masterclass with line-by-line NCERT decoding</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Physics numerical mastery: mechanics, electrodynamics &amp; optics</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Organic Chemistry reaction mechanisms &amp; physical numerical drills</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>OMR test series with strict negative marking discipline</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="batch-card-footer">
+          <div class="batch-timing-box">
+            <small>Lecture Schedule</small>
+            <strong>Daily 5.0 Hours + Doubt Counter</strong>
+          </div>
+          <button type="button" class="btn-taskharbor-primary" style="padding:0.65rem 1.35rem;font-size:0.875rem;" onclick="openInquiryModal()">
+            <span>Inquire for Seat</span>
+            <span class="btn-pill-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch 4: 10th SSC State Board -->
+      <div class="modern-batch-card" data-category="foundation">
+        <div>
+          <div class="batch-card-header">
+            <span class="batch-stream-tag tag-foundation">Secondary · Class 10 Foundation</span>
+            <span class="batch-seat-badge">
+              <span class="live-dot-pulse"></span>
+              <span>Active Enrollment</span>
+            </span>
+          </div>
+          <h3 class="batch-card-title">10th SSC State Board Excellence Batch</h3>
+          <p class="batch-card-target">Aiming for 95%+ in Board &amp; Building 11th Science Base</p>
+          
+          <ul class="modern-features-list">
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Mathematics (Algebra &amp; Geometry), Science Part 1 &amp; 2 complete syllabus</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>English, Marathi &amp; Social Science writing skills workshops</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Three full-length Prelim Examinations matching Board format</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Board moderator evaluated papers with personal answer-writing tips</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="batch-card-footer">
+          <div class="batch-timing-box">
+            <small>Lecture Schedule</small>
+            <strong>Daily 3.0 Hours (Morning / Evening)</strong>
+          </div>
+          <button type="button" class="btn-taskharbor-primary" style="padding:0.65rem 1.35rem;font-size:0.875rem;" onclick="openInquiryModal()">
+            <span>Inquire for Seat</span>
+            <span class="btn-pill-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch 5: 8th & 9th Pre-Foundation -->
+      <div class="modern-batch-card" data-category="foundation">
+        <div>
+          <div class="batch-card-header">
+            <span class="batch-stream-tag tag-foundation">Pre-Foundation · Class 8 &amp; 9</span>
+            <span class="batch-seat-badge">
+              <span class="live-dot-pulse"></span>
+              <span>New Batch Starting</span>
+            </span>
+          </div>
+          <h3 class="batch-card-title">8th &amp; 9th Concept Builder &amp; Olympiad Batch</h3>
+          <p class="batch-card-target">Foundational Strength in Mathematics &amp; Scientific Logic</p>
+          
+          <ul class="modern-features-list">
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Root-level conceptual grounding in Mathematics, Physics &amp; Chemistry</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Orientation for scholarship exams, NTSE, and Science Olympiads</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Interactive smart-classroom visual animations &amp; experiments</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Fun, engaging, stress-free environment fostering genuine curiosity</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="batch-card-footer">
+          <div class="batch-timing-box">
+            <small>Lecture Schedule</small>
+            <strong>Evening 4:30 PM – 7:00 PM</strong>
+          </div>
+          <button type="button" class="btn-taskharbor-primary" style="padding:0.65rem 1.35rem;font-size:0.875rem;" onclick="openInquiryModal()">
+            <span>Inquire for Seat</span>
+            <span class="btn-pill-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch 6: Commerce -->
+      <div class="modern-batch-card" data-category="commerce">
+        <div>
+          <div class="batch-card-header">
+            <span class="batch-stream-tag tag-commerce">Commerce · Class 11 &amp; 12</span>
+            <span class="batch-seat-badge">
+              <span class="live-dot-pulse"></span>
+              <span>Admissions Open</span>
+            </span>
+          </div>
+          <h3 class="batch-card-title">11th &amp; 12th Commerce Professional Career Batch</h3>
+          <p class="batch-card-target">HSC Board + CA Foundation / CMA Orientation</p>
+          
+          <ul class="modern-features-list">
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Book Keeping &amp; Accountancy, Economics, SP, OCM &amp; Commercial Maths</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Practical ledger accounting, case study analysis &amp; corporate basics</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Regular mock prelims and board-pattern paper solving sessions</span>
+            </li>
+            <li>
+              <span class="feat-check-icon">✓</span>
+              <span>Guidance from qualified chartered accountants and subject masters</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="batch-card-footer">
+          <div class="batch-timing-box">
+            <small>Lecture Schedule</small>
+            <strong>Morning 8:00 AM – 11:30 AM</strong>
+          </div>
+          <button type="button" class="btn-taskharbor-primary" style="padding:0.65rem 1.35rem;font-size:0.875rem;" onclick="openInquiryModal()">
+            <span>Inquire for Seat</span>
+            <span class="btn-pill-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     3. PROGRAM COMPARISON MATRIX TABLE
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0;">
+  <div class="modern-container">
+    <div class="matrix-section-wrap">
+      
+      <div class="text-center">
+        <span class="modern-badge">✦ PROGRAM SPECIFICATIONS ✦</span>
+        <h2 class="modern-section-title" style="font-size:2.4rem;">Batch Comparison Matrix</h2>
+        <p class="modern-section-desc mx-auto">
+          Choose the academic program structure best aligned with your target colleges, entrance examinations, and learning pace.
+        </p>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="modern-matrix-table">
+          <thead>
+            <tr>
+              <th>Feature / Parameter</th>
+              <th>Foundation (8th–10th)</th>
+              <th>11th–12th Regular Board</th>
+              <th class="featured-col-th">★ Super-30 Entrance Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:700;color:#0F172A;">Daily Lecture Duration</td>
+              <td>2.5 – 3.0 Hours</td>
+              <td>3.5 – 4.0 Hours</td>
+              <td class="featured-col-td">4.5 – 5.0 Hours</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#0F172A;">Study Material Modules</td>
+              <td>Printed Theory &amp; Worksheets</td>
+              <td>Full Set (Text + Question Bank)</td>
+              <td class="featured-col-td">Advanced Modules + 10k MCQ Bank</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#0F172A;">Weekly Test Frequency</td>
+              <td>Every Saturday</td>
+              <td>Weekly Subjective &amp; Objective</td>
+              <td class="featured-col-td">Twice Weekly + Full Mock Drills</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#0F172A;">1-on-1 Faculty Mentorship</td>
+              <td>Bi-weekly Review</td>
+              <td>Daily Doubt Counters</td>
+              <td class="featured-col-td">Personal Faculty Mentor Assigned</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#0F172A;">Performance Analytics</td>
+              <td>Monthly Report Card</td>
+              <td>Weekly WhatsApp SMS</td>
+              <td class="featured-col-td">Real-Time Cloud App Dashboard</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#0F172A;">Next Action</td>
+              <td>
+                <button type="button" class="btn-taskharbor-frosted" style="padding:0.45rem 1.15rem;font-size:0.8rem;" onclick="openInquiryModal()">
+                  Inquire Seat
+                </button>
+              </td>
+              <td>
+                <button type="button" class="btn-taskharbor-frosted" style="padding:0.45rem 1.15rem;font-size:0.8rem;" onclick="openInquiryModal()">
+                  Inquire Seat
+                </button>
+              </td>
+              <td class="featured-col-td">
+                <button type="button" class="btn-taskharbor-primary" style="padding:0.45rem 1.15rem;font-size:0.8rem;" onclick="openInquiryModal()">
+                  Apply for Target
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     4. 4-STEP ADMISSION PROCESS PIPELINE
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0;">
+  <div class="modern-container text-center">
+    <span class="modern-badge">✦ TRANSPARENT ENROLLMENT ✦</span>
+    <h2 class="modern-section-title" style="font-size:2.4rem;">How to Enroll at Sutawane Classes</h2>
+    <p class="modern-section-desc mx-auto">
+      Our 4-step streamlined admission workflow is designed to assess conceptual readiness and place every student in the optimal batch for maximum improvement.
+    </p>
+
+    <div class="admission-pipeline-grid">
+      <div class="admission-step-card">
+        <div class="step-number-bubble">01</div>
+        <h3 class="step-card-title">Free Counseling</h3>
+        <p class="step-card-desc">Visit the Station Road campus or connect online to discuss academic goals with senior mentors.</p>
+      </div>
+
+      <div class="admission-step-card">
+        <div class="step-number-bubble">02</div>
+        <h3 class="step-card-title">Diagnostic Check</h3>
+        <p class="step-card-desc">Short aptitude assessment to identify conceptual strengths, gaps, and stream readiness.</p>
+      </div>
+
+      <div class="admission-step-card">
+        <div class="step-number-bubble">03</div>
+        <h3 class="step-card-title">Batch Allocation</h3>
+        <p class="step-card-desc">Assignment to batch, distribution of official printed curriculum modules, and software portal access.</p>
+      </div>
+
+      <div class="admission-step-card">
+        <div class="step-number-bubble">04</div>
+        <h3 class="step-card-title">Classroom Induction</h3>
+        <p class="step-card-desc">Orientation with master faculty, classroom seat allotment, and commencing the 3-day demo pass.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     5. FREQUENTLY ASKED QUESTIONS (FAQ) ACCORDION
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0;padding-bottom:5.5rem;">
+  <div class="modern-container">
+    <div class="text-center">
+      <span class="modern-badge">✦ CLARITY &amp; TRUST ✦</span>
+      <h2 class="modern-section-title" style="font-size:2.4rem;">Frequently Asked Questions</h2>
+      <p class="modern-section-desc mx-auto">
+        Everything parents and students need to know about batch admissions, fee plans, testing schedules, and mentorship.
+      </p>
+    </div>
+
+    <div class="modern-faq-wrap">
+      <!-- FAQ 1 -->
+      <div class="modern-faq-box active">
+        <button type="button" class="modern-faq-btn" onclick="toggleBatchFaq(this)">
+          <span>Can a student attend demo lectures before confirming admission?</span>
+          <span class="modern-faq-icon">+</span>
+        </button>
+        <div class="modern-faq-content">
+          Yes! We offer a 3-day complimentary classroom trial for all new batches. Students can experience our teaching methodology, smart classroom infrastructure, and faculty interaction firsthand before finalizing admission.
+        </div>
+      </div>
+
+      <!-- FAQ 2 -->
+      <div class="modern-faq-box">
+        <button type="button" class="modern-faq-btn" onclick="toggleBatchFaq(this)">
+          <span>Are flexible fee installment plans available?</span>
+          <span class="modern-faq-icon">+</span>
+        </button>
+        <div class="modern-faq-content">
+          Absolutely. We provide customized, zero-interest installment options divided across the academic term. Meritorious students with 90%+ in previous board exams are also eligible for institutional scholarships.
+        </div>
+      </div>
+
+      <!-- FAQ 3 -->
+      <div class="modern-faq-box">
+        <button type="button" class="modern-faq-btn" onclick="toggleBatchFaq(this)">
+          <span>What printed study materials and test series are included?</span>
+          <span class="modern-faq-icon">+</span>
+        </button>
+        <div class="modern-faq-content">
+          Every enrolled student receives comprehensive printed theory modules, chapter-wise formula handbooks, a 10,000+ past entrance question bank, and full access to our weekly offline OMR test series with detailed rank analysis.
+        </div>
+      </div>
+
+      <!-- FAQ 4 -->
+      <div class="modern-faq-box">
+        <button type="button" class="modern-faq-btn" onclick="toggleBatchFaq(this)">
+          <span>How are parents kept updated regarding attendance and progress?</span>
+          <span class="modern-faq-icon">+</span>
+        </button>
+        <div class="modern-faq-content">
+          Parents receive automatic real-time SMS notifications when their ward enters the campus. Additionally, weekly test scorecards, chapter completion status, and fee receipts are dispatched directly via WhatsApp and our integrated student portal.
+        </div>
+      </div>
+
+      <!-- FAQ 5 -->
+      <div class="modern-faq-box">
+        <button type="button" class="modern-faq-btn" onclick="toggleBatchFaq(this)">
+          <span>What is the average batch size at the Vaijapur campus?</span>
+          <span class="modern-faq-icon">+</span>
+        </button>
+        <div class="modern-faq-content">
+          We maintain strict caps on batch sizes (maximum 30–35 students) to ensure every student receives personal eye contact from the teacher and can freely ask questions without feeling lost in a crowd.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Modern Batches Category Filter Logic
+  document.querySelectorAll('.modern-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.modern-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filter = btn.getAttribute('data-filter');
+      const cards = document.querySelectorAll('.modern-batch-card');
+
+      cards.forEach(card => {
+        if (filter === 'all' || card.getAttribute('data-category') === filter) {
+          card.style.display = 'flex';
+          setTimeout(() => { card.style.opacity = '1'; card.style.transform = ''; }, 10);
+        } else {
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.96)';
+          setTimeout(() => { card.style.display = 'none'; }, 200);
+        }
+      });
+    });
+  });
+
+  // Modern Batch FAQ Accordion Toggle
+  function toggleBatchFaq(btn) {
+    const box = btn.closest('.modern-faq-box');
+    const isActive = box.classList.contains('active');
+
+    // Close all open FAQs
+    document.querySelectorAll('.modern-faq-box').forEach(b => b.classList.remove('active'));
+
+    // Toggle target FAQ
+    if (!isActive) {
+      box.classList.add('active');
+    }
+  }
+</script>
+{% endblock %}

@@ -31,6 +31,8 @@ from .export_theme import (
     build_executive_pdf_header,
     ExecutiveLandscapeCanvas,
     format_excel_worksheet,
+    FONT_FAMILY,
+    FONT_FAMILY_BOLD,
 )
 
 
@@ -434,12 +436,13 @@ def export_session_audit_pdf(audit_data, options=None):
     """
     Generates high-grade Landscape A4 Academic Session Audit PDF document matching the snapshot layout:
     - Title banner matching institutional design
+    - 6-KPI executive financial summary cards strip
     - Branch-by-branch financial performance comparison
-    - Course-wise enrollment and fees distribution
-    - Green for collections, Red for pending dues & expenses
+    - Side-by-side Course Breakdown & Monthly Cash Movement
+    - Native Indian Rupee (₹) typography support with crisp executive colors
     """
     options = options or {}
-    session_name = audit_data.get('session', {}).get('name') or options.get('session_name') or 'Current Session'
+    session_name = audit_data.get('session', {}).get('displayName') or audit_data.get('session', {}).get('name') or options.get('session_name') or 'Current Session'
     branch_label = options.get('branch_name') or 'All Branches'
 
     buffer = io.BytesIO()
@@ -448,90 +451,36 @@ def export_session_audit_pdf(audit_data, options=None):
         pagesize=landscape(A4),
         leftMargin=20,
         rightMargin=20,
-        topMargin=20,
-        bottomMargin=30,
+        topMargin=15,
+        bottomMargin=22,
     )
 
     styles = getSampleStyleSheet()
 
-    hdr_style = ParagraphStyle(
-        'AudHdr',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=7.5,
-        leading=9.5,
-        textColor=colors.white,
-        alignment=1,
-    )
-    hdr_right_style = ParagraphStyle(
-        'AudHdrR',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=7.5,
-        leading=9.5,
-        textColor=colors.white,
-        alignment=2,
-    )
-    section_title = ParagraphStyle(
-        'AudSecTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=9.5,
-        textColor=colors.HexColor(COLOR_NAVY_PRIMARY),
-        leading=13,
-    )
-    cell_normal = ParagraphStyle(
-        'AudCellNorm',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=7,
-        leading=9,
-        textColor=colors.HexColor(COLOR_SLATE_TEXT),
-    )
-    cell_bold = ParagraphStyle(
-        'AudCellBld',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=7,
-        leading=9,
-        textColor=colors.HexColor(COLOR_SLATE_TEXT),
-    )
-    cell_center = ParagraphStyle(
-        'AudCellCenter',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=7,
-        leading=9,
-        textColor=colors.HexColor(COLOR_SLATE_TEXT),
-        alignment=1,
-    )
-    cell_right = ParagraphStyle(
-        'AudCellRight',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=7,
-        leading=9,
-        textColor=colors.HexColor(COLOR_SLATE_TEXT),
-        alignment=2,
-    )
-    cell_green = ParagraphStyle(
-        'AudCellGreen',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=7,
-        leading=9,
-        textColor=colors.HexColor(COLOR_GREEN_PAID),
-        alignment=2,
-    )
-    cell_red = ParagraphStyle(
-        'AudCellRed',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=7,
-        leading=9,
-        textColor=colors.HexColor(COLOR_RED_PENDING),
-        alignment=2,
-    )
+    def make_style(name, bold=False, size=6.5, leading=8.5, color=COLOR_SLATE_TEXT, align=0):
+        return ParagraphStyle(
+            name,
+            parent=styles['Normal'],
+            fontName=FONT_FAMILY_BOLD if bold else FONT_FAMILY,
+            fontSize=size,
+            leading=leading,
+            textColor=colors.HexColor(color) if isinstance(color, str) else color,
+            alignment=align
+        )
+
+    hdr_style = make_style('AudHdr', bold=True, size=7, leading=9, color='#FFFFFF', align=1)
+    hdr_right = make_style('AudHdrR', bold=True, size=7, leading=9, color='#FFFFFF', align=2)
+    hdr_left = make_style('AudHdrL', bold=True, size=7, leading=9, color='#FFFFFF', align=0)
+    section_title = make_style('AudSecTitle', bold=True, size=8.5, leading=11, color=COLOR_NAVY_PRIMARY, align=0)
+
+    cell_normal = make_style('AudCellNorm', size=6.5, leading=8.5, color=COLOR_SLATE_TEXT, align=0)
+    cell_bold = make_style('AudCellBld', bold=True, size=6.5, leading=8.5, color=COLOR_SLATE_TEXT, align=0)
+    cell_bold_right = make_style('AudCellBldR', bold=True, size=6.5, leading=8.5, color=COLOR_SLATE_TEXT, align=2)
+    cell_center = make_style('AudCellCenter', size=6.5, leading=8.5, color=COLOR_SLATE_TEXT, align=1)
+    cell_bold_center = make_style('AudCellBldC', bold=True, size=6.5, leading=8.5, color=COLOR_SLATE_TEXT, align=1)
+    cell_right = make_style('AudCellRight', size=6.5, leading=8.5, color=COLOR_SLATE_TEXT, align=2)
+    cell_green = make_style('AudCellGreen', bold=True, size=6.5, leading=8.5, color=COLOR_GREEN_PAID, align=2)
+    cell_red = make_style('AudCellRed', bold=True, size=6.5, leading=8.5, color=COLOR_RED_PENDING, align=2)
 
     story = []
 
@@ -550,20 +499,105 @@ def export_session_audit_pdf(audit_data, options=None):
         report_badge_value="Audit Reconciled",
     ))
 
-    # 2. Branch Performance Table
+    # 2. Executive 6 KPI Cards Strip (spanning full 802 pt)
+    summary = audit_data.get('summary', {})
+    act_adm = summary.get('activeAdmissions', 0)
+    arch_adm = summary.get('archivedAdmissions', 0)
+    tot_agreed = float(summary.get('totalFeesAgreed', 0.0))
+    tot_col = float(summary.get('totalCollections', 0.0))
+    tot_dues = float(summary.get('totalPendingDues', 0.0))
+    eff_rate = summary.get('collectionEfficiency', 0.0)
+    tot_exp = float(summary.get('totalExpenses', 0.0))
+    net_surplus = float(summary.get('netSurplus', 0.0))
+
+    kpi_card_w = 801.89 / 6.0  # 133.6 pt
+
+    kpi_cards = [
+        # 1. Enrollments
+        [
+            Paragraph("<font size=6 color='#64748B'><b>ACTIVE ENROLLMENTS</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=10 color='#1E293B'><b>{act_adm}</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=5.5 color='#64748B'>+{arch_adm} archived records</font>", cell_normal),
+        ],
+        # 2. Agreed Fees
+        [
+            Paragraph("<font size=6 color='#64748B'><b>COMMITTED FEES</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=10 color='#1E293B'><b>{format_currency_inr(tot_agreed)}</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph("<font size=5.5 color='#64748B'>Total contracted fees</font>", cell_normal),
+        ],
+        # 3. Realized Fees (Emerald)
+        [
+            Paragraph("<font size=6 color='#047857'><b>REALIZED COLLECTIONS</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=10 color='#047857'><b>{format_currency_inr(tot_col)}</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=5.5 color='#059669'><b>{eff_rate}%</b> recovery rate</font>", cell_normal),
+        ],
+        # 4. Pending Dues (Amber)
+        [
+            Paragraph("<font size=6 color='#B45309'><b>PENDING BALANCES</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=10 color='#B45309'><b>{format_currency_inr(tot_dues)}</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph("<font size=5.5 color='#D97706'>Outstanding session dues</font>", cell_normal),
+        ],
+        # 5. Center Expenses (Rose)
+        [
+            Paragraph("<font size=6 color='#BE123C'><b>OPERATIONAL EXPENSES</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=10 color='#BE123C'><b>{format_currency_inr(tot_exp)}</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph("<font size=5.5 color='#E11D48'>Disbursed center costs</font>", cell_normal),
+        ],
+        # 6. Net Surplus (Emerald / Rose)
+        [
+            Paragraph(f"<font size=6 color='{'#047857' if net_surplus >= 0 else '#BE123C'}'><b>NET OPERATING SURPLUS</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph(f"<font size=10 color='{'#047857' if net_surplus >= 0 else '#BE123C'}'><b>{format_currency_inr(net_surplus)}</b></font>", cell_normal),
+            Spacer(1, 1),
+            Paragraph("<font size=5.5 color='#64748B'>Collections − Expenses</font>", cell_normal),
+        ]
+    ]
+
+    kpi_table = Table([kpi_cards], colWidths=[kpi_card_w]*6)
+    kpi_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#F8FAFC')),
+        ('BACKGROUND', (2, 0), (2, 0), colors.HexColor('#F0FDF4')),
+        ('BACKGROUND', (3, 0), (3, 0), colors.HexColor('#FEFCE8')),
+        ('BACKGROUND', (4, 0), (4, 0), colors.HexColor('#FFF1F2')),
+        ('BACKGROUND', (5, 0), (5, 0), colors.HexColor('#F0FDF4' if net_surplus >= 0 else '#FFF1F2')),
+        ('BOX', (0, 0), (0, 0), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('BOX', (1, 0), (1, 0), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('BOX', (2, 0), (2, 0), 0.5, colors.HexColor('#86EFAC')),
+        ('BOX', (3, 0), (3, 0), 0.5, colors.HexColor('#FDE047')),
+        ('BOX', (4, 0), (4, 0), 0.5, colors.HexColor('#FECDD3')),
+        ('BOX', (5, 0), (5, 0), 0.5, colors.HexColor('#86EFAC' if net_surplus >= 0 else '#FECDD3')),
+    ]))
+    story.append(kpi_table)
+    story.append(Spacer(1, 7))
+
+    # 3. Part A: Campus Branch Financial Performance Table
     story.append(Paragraph(f"<b>Part A: Campus Branch Financial Performance ({len(branch_list)} Centers)</b>", section_title))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
 
     b_headers = [
         Paragraph("#", hdr_style),
-        Paragraph("Campus Branch", hdr_style),
-        Paragraph("Code", hdr_style),
+        Paragraph("Campus Branch & Code", hdr_left),
         Paragraph("Students", hdr_style),
-        Paragraph("Committed Fees", hdr_right_style),
-        Paragraph("Collections", hdr_right_style),
-        Paragraph("Pending Dues", hdr_right_style),
-        Paragraph("Center Expenses", hdr_right_style),
-        Paragraph("Net Surplus", hdr_right_style),
+        Paragraph("Committed Fees", hdr_right),
+        Paragraph("Collections", hdr_right),
+        Paragraph("Pending Dues", hdr_right),
+        Paragraph("Center Expenses", hdr_right),
+        Paragraph("Net Surplus", hdr_right),
         Paragraph("Rate", hdr_style),
     ]
     b_rows = [b_headers]
@@ -574,131 +608,240 @@ def export_session_audit_pdf(audit_data, options=None):
     tot_dues = 0.0
     tot_exp = 0.0
 
-    for idx, b in enumerate(branch_list, 1):
-        st_cnt = int(b.get('studentsCount', 0))
-        fees = float(b.get('totalFees', 0.0))
-        col = float(b.get('collections', 0.0))
-        dues = float(b.get('pendingDues', 0.0))
-        exp = float(b.get('expenses', 0.0))
-        surplus = float(b.get('netSurplus', 0.0))
-        rate = b.get('collectionRate', 0.0)
+    if branch_list:
+        for idx, b in enumerate(branch_list, 1):
+            st_cnt = int(b.get('studentsCount', 0))
+            fees = float(b.get('totalFees', 0.0))
+            col = float(b.get('collections', 0.0))
+            dues = float(b.get('pendingDues', 0.0))
+            exp = float(b.get('expenses', 0.0))
+            surplus = float(b.get('netSurplus', 0.0))
+            rate = b.get('collectionRate', 0.0)
 
-        tot_st += st_cnt
-        tot_fees += fees
-        tot_col += col
-        tot_dues += dues
-        tot_exp += exp
+            tot_st += st_cnt
+            tot_fees += fees
+            tot_col += col
+            tot_dues += dues
+            tot_exp += exp
+
+            branch_label_html = f"<b>{b.get('branchName', '—')}</b>"
+            b_code = b.get('branchCode')
+            if b_code:
+                branch_label_html += f" &bull; <font size=5.5 color='#64748B'>Code: {b_code}</font>"
+
+            b_rows.append([
+                Paragraph(str(idx), cell_center),
+                Paragraph(branch_label_html, cell_normal),
+                Paragraph(str(st_cnt), cell_center),
+                Paragraph(format_currency_inr(fees), cell_right),
+                Paragraph(format_currency_inr(col), cell_green),
+                Paragraph(format_currency_inr(dues), cell_red if dues > 0 else cell_right),
+                Paragraph(format_currency_inr(exp), cell_red if exp > 0 else cell_right),
+                Paragraph(format_currency_inr(surplus), cell_green if surplus >= 0 else cell_red),
+                Paragraph(f"<b>{rate}%</b>", cell_center),
+            ])
+
+        tot_surplus = tot_col - tot_exp
+        tot_rate = round((tot_col / tot_fees * 100), 1) if tot_fees > 0 else 0.0
 
         b_rows.append([
-            Paragraph(str(idx), cell_center),
-            Paragraph(str(b.get('branchName', '—')), cell_bold),
-            Paragraph(str(b.get('branchCode', '—')), cell_center),
-            Paragraph(str(st_cnt), cell_center),
-            Paragraph(format_currency_inr(fees), cell_right),
-            Paragraph(format_currency_inr(col), cell_green),
-            Paragraph(format_currency_inr(dues), cell_red if dues > 0 else cell_right),
-            Paragraph(format_currency_inr(exp), cell_red if exp > 0 else cell_right),
-            Paragraph(format_currency_inr(surplus), cell_green if surplus >= 0 else cell_red),
-            Paragraph(f"{rate}%", cell_center),
+            Paragraph("<b>CONSOLIDATED TOTALS</b>", cell_bold),
+            Paragraph("", cell_normal),
+            Paragraph(f"<b>{tot_st}</b>", cell_bold_center),
+            Paragraph(format_currency_inr(tot_fees), cell_bold_right),
+            Paragraph(format_currency_inr(tot_col), cell_green),
+            Paragraph(format_currency_inr(tot_dues), cell_red if tot_dues > 0 else cell_bold_right),
+            Paragraph(format_currency_inr(tot_exp), cell_red if tot_exp > 0 else cell_bold_right),
+            Paragraph(format_currency_inr(tot_surplus), cell_green if tot_surplus >= 0 else cell_red),
+            Paragraph(f"<b>{tot_rate}%</b>", cell_bold_center),
+        ])
+    else:
+        b_rows.append([
+            Paragraph("—", cell_center),
+            Paragraph("<i>No branch records found for this academic session.</i>", cell_normal),
+            Paragraph("0", cell_center),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph("0.0%", cell_center),
         ])
 
-    tot_surplus = tot_col - tot_exp
-    tot_rate = round((tot_col / tot_fees * 100), 1) if tot_fees > 0 else 0.0
-
-    b_rows.append([
-        Paragraph("<b>TOTAL</b>", cell_bold),
-        Paragraph("<b>Consolidated</b>", cell_bold),
-        Paragraph("", cell_normal),
-        Paragraph(f"<b>{tot_st}</b>", cell_center),
-        Paragraph(format_currency_inr(tot_fees), cell_bold),
-        Paragraph(format_currency_inr(tot_col), cell_green),
-        Paragraph(format_currency_inr(tot_dues), cell_red),
-        Paragraph(format_currency_inr(tot_exp), cell_red),
-        Paragraph(format_currency_inr(tot_surplus), cell_green if tot_surplus >= 0 else cell_red),
-        Paragraph(f"<b>{tot_rate}%</b>", cell_center),
-    ])
-
-    # Col widths totaling 802 pt
-    b_table = Table(b_rows, colWidths=[24, 148, 55, 55, 90, 90, 90, 90, 100, 60])
-    b_table.setStyle(TableStyle([
+    b_table = Table(b_rows, colWidths=[24, 186, 52, 90, 90, 88, 88, 114, 70])
+    b_table_style = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
-        ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
-    ]))
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+    ]
+    if branch_list:
+        b_table_style.extend([
+            ('SPAN', (0, -1), (1, -1)),  # Merge col 0 & 1 for Consolidated Totals
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
+            ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
+        ])
+    b_table.setStyle(TableStyle(b_table_style))
     story.append(b_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
-    # 3. Course Breakdown Table
-    course_list = audit_data.get('courseBreakdown', [])
-    story.append(Paragraph(f"<b>Part B: Course & Standard Wise Revenue Breakdown ({len(course_list)} Courses)</b>", section_title))
-    story.append(Spacer(1, 4))
+    # 4. Side-by-Side Lower Block: Part B (Course Breakdown) & Part C (Monthly Trend)
+    course_list = audit_data.get('standardBreakdown') or audit_data.get('courseBreakdown', [])
 
     c_headers = [
         Paragraph("#", hdr_style),
-        Paragraph("Course / Standard", hdr_style),
-        Paragraph("Enrolled Students", hdr_style),
-        Paragraph("Total Committed Fees", hdr_right_style),
-        Paragraph("Collections Realized", hdr_right_style),
-        Paragraph("Pending Balances", hdr_right_style),
-        Paragraph("Collection Efficiency", hdr_style),
+        Paragraph("Class / Course", hdr_left),
+        Paragraph("Students", hdr_style),
+        Paragraph("Committed", hdr_right),
+        Paragraph("Collected", hdr_right),
+        Paragraph("Recovery", hdr_style),
     ]
     c_rows = [c_headers]
 
     c_tot_st = 0
     c_tot_fees = 0.0
     c_tot_col = 0.0
-    c_tot_dues = 0.0
 
-    for idx, c_item in enumerate(course_list, 1):
-        st_cnt = int(c_item.get('studentsCount', 0))
-        fees = float(c_item.get('totalFees', 0.0))
-        col = float(c_item.get('collections', 0.0))
-        dues = float(c_item.get('pendingDues', 0.0))
-        rate = c_item.get('collectionRate', 0.0)
+    if course_list:
+        for idx, c_item in enumerate(course_list, 1):
+            st_cnt = int(c_item.get('studentsCount') or c_item.get('studentCount', 0))
+            fees = float(c_item.get('totalFees', 0.0))
+            col = float(c_item.get('collected') or c_item.get('collections', 0.0))
+            rate = c_item.get('collectionRate', 0.0)
 
-        c_tot_st += st_cnt
-        c_tot_fees += fees
-        c_tot_col += col
-        c_tot_dues += dues
+            c_tot_st += st_cnt
+            c_tot_fees += fees
+            c_tot_col += col
 
+            c_rows.append([
+                Paragraph(str(idx), cell_center),
+                Paragraph(str(c_item.get('standard', '—')), cell_bold),
+                Paragraph(str(st_cnt), cell_center),
+                Paragraph(format_currency_inr(fees), cell_right),
+                Paragraph(format_currency_inr(col), cell_green),
+                Paragraph(f"<b>{rate}%</b>", cell_center),
+            ])
+
+        c_tot_rate = round((c_tot_col / c_tot_fees * 100), 1) if c_tot_fees > 0 else 0.0
         c_rows.append([
-            Paragraph(str(idx), cell_center),
-            Paragraph(str(c_item.get('standard', '—')), cell_bold),
-            Paragraph(str(st_cnt), cell_center),
-            Paragraph(format_currency_inr(fees), cell_right),
-            Paragraph(format_currency_inr(col), cell_green),
-            Paragraph(format_currency_inr(dues), cell_red if dues > 0 else cell_right),
-            Paragraph(f"{rate}%", cell_center),
+            Paragraph("<b>TOTAL COURSES</b>", cell_bold),
+            Paragraph("", cell_normal),
+            Paragraph(f"<b>{c_tot_st}</b>", cell_bold_center),
+            Paragraph(format_currency_inr(c_tot_fees), cell_bold_right),
+            Paragraph(format_currency_inr(c_tot_col), cell_green),
+            Paragraph(f"<b>{c_tot_rate}%</b>", cell_bold_center),
+        ])
+    else:
+        c_rows.append([
+            Paragraph("—", cell_center),
+            Paragraph("<i>No course enrollment data found for this session.</i>", cell_normal),
+            Paragraph("0", cell_center),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph("0.0%", cell_center),
         ])
 
-    c_tot_rate = round((c_tot_col / c_tot_fees * 100), 1) if c_tot_fees > 0 else 0.0
-    c_rows.append([
-        Paragraph("<b>TOTAL</b>", cell_bold),
-        Paragraph("<b>Consolidated Courses</b>", cell_bold),
-        Paragraph(f"<b>{c_tot_st}</b>", cell_center),
-        Paragraph(format_currency_inr(c_tot_fees), cell_bold),
-        Paragraph(format_currency_inr(c_tot_col), cell_green),
-        Paragraph(format_currency_inr(c_tot_dues), cell_red),
-        Paragraph(f"<b>{c_tot_rate}%</b>", cell_center),
-    ])
-
-    c_table = Table(c_rows, colWidths=[24, 218, 100, 120, 120, 120, 100])
-    c_table.setStyle(TableStyle([
+    c_table = Table(c_rows, colWidths=[20, 145, 45, 75, 75, 55])
+    c_style = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
-        ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+    ]
+    if course_list:
+        c_style.extend([
+            ('SPAN', (0, -1), (1, -1)),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
+            ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
+        ])
+    c_table.setStyle(TableStyle(c_style))
+
+    # Right: Monthly Trend (382 pt)
+    m_trend = audit_data.get('monthlyTrend', [])
+    m_headers = [
+        Paragraph("Month", hdr_left),
+        Paragraph("Collections", hdr_right),
+        Paragraph("Expenses", hdr_right),
+        Paragraph("Net Movement", hdr_right),
+    ]
+    m_rows = [m_headers]
+
+    m_tot_col = 0.0
+    m_tot_exp = 0.0
+
+    if m_trend:
+        for m in m_trend:
+            col = float(m.get('collections', 0.0))
+            exp = float(m.get('expenses', 0.0))
+            net = float(m.get('net') if m.get('net') is not None else (col - exp))
+            m_tot_col += col
+            m_tot_exp += exp
+
+            m_rows.append([
+                Paragraph(f"<b>{m.get('monthLabel', '—')}</b>", cell_normal),
+                Paragraph(format_currency_inr(col), cell_green),
+                Paragraph(format_currency_inr(exp), cell_red if exp > 0 else cell_right),
+                Paragraph(format_currency_inr(net), cell_green if net >= 0 else cell_red),
+            ])
+
+        m_tot_net = m_tot_col - m_tot_exp
+        m_rows.append([
+            Paragraph("<b>TOTAL MOVEMENT</b>", cell_bold),
+            Paragraph(format_currency_inr(m_tot_col), cell_green),
+            Paragraph(format_currency_inr(m_tot_exp), cell_red),
+            Paragraph(format_currency_inr(m_tot_net), cell_green if m_tot_net >= 0 else cell_red),
+        ])
+    else:
+        m_rows.append([
+            Paragraph("<i>No monthly cash movement recorded.</i>", cell_normal),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph(format_currency_inr(0), cell_right),
+            Paragraph(format_currency_inr(0), cell_right),
+        ])
+
+    m_table = Table(m_rows, colWidths=[85, 96, 96, 105])
+    m_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+    ]
+    if m_trend:
+        m_style.extend([
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
+            ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
+        ])
+    m_table.setStyle(TableStyle(m_style))
+
+    # Assemble Side-by-Side block
+    left_block = [
+        Paragraph(f"<b>Part B: Course &amp; Standard Breakdown ({len(course_list)} Courses)</b>", section_title),
+        Spacer(1, 3),
+        c_table
+    ]
+    right_block = [
+        Paragraph(f"<b>Part C: Session Monthly Cash Movement ({len(m_trend)} Months)</b>", section_title),
+        Spacer(1, 3),
+        m_table
+    ]
+
+    dual_table = Table([[left_block, right_block]], colWidths=[420, 381.89])
+    dual_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (0, 0), 6),
+        ('LEFTPADDING', (1, 0), (1, 0), 6),
     ]))
-    story.append(c_table)
+    story.append(dual_table)
 
     doc.build(story, canvasmaker=ExecutiveLandscapeCanvas)
     buffer.seek(0)
@@ -916,7 +1059,7 @@ def export_payment_modes_pdf(modes_data, options=None):
     hdr_style = ParagraphStyle(
         'ModHdr',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=8,
         leading=10,
         textColor=colors.white,
@@ -925,7 +1068,7 @@ def export_payment_modes_pdf(modes_data, options=None):
     hdr_right_style = ParagraphStyle(
         'ModHdrR',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=8,
         leading=10,
         textColor=colors.white,
@@ -934,7 +1077,7 @@ def export_payment_modes_pdf(modes_data, options=None):
     cell_normal = ParagraphStyle(
         'ModCellNorm',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -942,7 +1085,7 @@ def export_payment_modes_pdf(modes_data, options=None):
     cell_bold = ParagraphStyle(
         'ModCellBld',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -950,7 +1093,7 @@ def export_payment_modes_pdf(modes_data, options=None):
     cell_center = ParagraphStyle(
         'ModCellCenter',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -959,7 +1102,7 @@ def export_payment_modes_pdf(modes_data, options=None):
     cell_right = ParagraphStyle(
         'ModCellRight',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -968,7 +1111,7 @@ def export_payment_modes_pdf(modes_data, options=None):
     cell_green = ParagraphStyle(
         'ModCellGreen',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_GREEN_PAID),
@@ -1023,8 +1166,8 @@ def export_payment_modes_pdf(modes_data, options=None):
 
     overall_avg = round(tot_col / tot_cnt, 2) if tot_cnt > 0 else 0.0
     tbl_rows.append([
-        Paragraph("<b>TOTAL</b>", cell_bold),
-        Paragraph("<b>Consolidated Inflows</b>", cell_bold),
+        Paragraph("<b>TOTAL Consolidated Inflows</b>", cell_bold),
+        "",
         Paragraph(format_currency_inr(tot_col), cell_green),
         Paragraph(f"<b>{tot_cnt}</b>", cell_center),
         Paragraph(format_currency_inr(overall_avg), cell_bold),
@@ -1040,6 +1183,7 @@ def export_payment_modes_pdf(modes_data, options=None):
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('SPAN', (0, -1), (1, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
@@ -1255,7 +1399,7 @@ def export_expense_categories_pdf(categories_data, options=None):
     hdr_style = ParagraphStyle(
         'CatHdr',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=8,
         leading=10,
         textColor=colors.white,
@@ -1264,7 +1408,7 @@ def export_expense_categories_pdf(categories_data, options=None):
     hdr_right_style = ParagraphStyle(
         'CatHdrR',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=8,
         leading=10,
         textColor=colors.white,
@@ -1273,7 +1417,7 @@ def export_expense_categories_pdf(categories_data, options=None):
     cell_normal = ParagraphStyle(
         'CatCellNorm',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1281,7 +1425,7 @@ def export_expense_categories_pdf(categories_data, options=None):
     cell_bold = ParagraphStyle(
         'CatCellBld',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1289,7 +1433,7 @@ def export_expense_categories_pdf(categories_data, options=None):
     cell_center = ParagraphStyle(
         'CatCellCenter',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1298,7 +1442,7 @@ def export_expense_categories_pdf(categories_data, options=None):
     cell_right = ParagraphStyle(
         'CatCellRight',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1307,7 +1451,7 @@ def export_expense_categories_pdf(categories_data, options=None):
     cell_red = ParagraphStyle(
         'CatCellRed',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.HexColor(COLOR_RED_PENDING),
@@ -1361,8 +1505,8 @@ def export_expense_categories_pdf(categories_data, options=None):
 
     overall_avg = round(tot_exp / tot_cnt, 2) if tot_cnt > 0 else 0.0
     tbl_rows.append([
-        Paragraph("<b>TOTAL</b>", cell_bold),
-        Paragraph("<b>Consolidated Outflows</b>", cell_bold),
+        Paragraph("<b>TOTAL Consolidated Outflows</b>", cell_bold),
+        "",
         Paragraph(format_currency_inr(tot_exp), cell_red),
         Paragraph(f"<b>{tot_cnt}</b>", cell_center),
         Paragraph(format_currency_inr(overall_avg), cell_bold),
@@ -1378,6 +1522,7 @@ def export_expense_categories_pdf(categories_data, options=None):
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('SPAN', (0, -1), (1, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
@@ -1740,7 +1885,7 @@ def export_statement_pdf(statement_data, options=None):
     section_title = ParagraphStyle(
         'StmtSecTitle',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=9.5,
         textColor=colors.HexColor(COLOR_NAVY_PRIMARY),
         leading=13,
@@ -1748,7 +1893,7 @@ def export_statement_pdf(statement_data, options=None):
     cell_normal = ParagraphStyle(
         'StmtCellNorm',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1756,7 +1901,7 @@ def export_statement_pdf(statement_data, options=None):
     cell_bold = ParagraphStyle(
         'StmtCellBld',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1764,7 +1909,7 @@ def export_statement_pdf(statement_data, options=None):
     cell_right = ParagraphStyle(
         'StmtCellRight',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1773,7 +1918,7 @@ def export_statement_pdf(statement_data, options=None):
     cell_center = ParagraphStyle(
         'StmtCellCenter',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=FONT_FAMILY,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_SLATE_TEXT),
@@ -1782,7 +1927,7 @@ def export_statement_pdf(statement_data, options=None):
     cell_green = ParagraphStyle(
         'StmtCellGreen',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_GREEN_PAID),
@@ -1791,7 +1936,7 @@ def export_statement_pdf(statement_data, options=None):
     cell_red = ParagraphStyle(
         'StmtCellRed',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7,
         leading=9,
         textColor=colors.HexColor(COLOR_RED_PENDING),
@@ -1800,7 +1945,7 @@ def export_statement_pdf(statement_data, options=None):
     hdr_style = ParagraphStyle(
         'StmtHdr',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.white,
@@ -1809,7 +1954,7 @@ def export_statement_pdf(statement_data, options=None):
     hdr_right_style = ParagraphStyle(
         'StmtHdrR',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=FONT_FAMILY_BOLD,
         fontSize=7.5,
         leading=9.5,
         textColor=colors.white,
@@ -1829,9 +1974,10 @@ def export_statement_pdf(statement_data, options=None):
     net = tot_col - tot_exp
 
     header_meta = {
-        'institute_name': 'SUTAWANE CLASSES VAIJAPUR',
         'branch_name': branch_label,
         'session_name': session_label,
+        'branch_logo': options.get('branch_logo'),
+        'date_str': options.get('date_str') or period_label,
         'records_count': len(collections) + len(expenses),
     }
     story.extend(build_executive_pdf_header(
@@ -1900,27 +2046,21 @@ def export_statement_pdf(statement_data, options=None):
         ])
 
     col_tbl_rows.append([
-        Paragraph("<b>TOTAL</b>", cell_bold),
-        Paragraph(f"<b>{len(collections)} Receipts</b>", cell_bold),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
+        Paragraph(f"<b>TOTAL ({len(collections)} Receipts Realized)</b>", cell_bold),
+        "", "", "", "", "", "", "", "",
         Paragraph(format_currency_inr(tot_col), cell_green),
     ])
 
     # Col widths totaling 802 pt (Landscape A4)
-    # [24, 75, 140, 55, 80, 80, 60, 110, 68, 110] = 802
-    col_table = Table(col_tbl_rows, colWidths=[24, 75, 140, 55, 80, 80, 60, 110, 68, 110])
+    # [22, 115, 135, 55, 85, 75, 45, 105, 60, 105] = 802
+    col_table = Table(col_tbl_rows, colWidths=[22, 115, 135, 55, 85, 75, 45, 105, 60, 105])
     col_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('SPAN', (0, -1), (8, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
@@ -1961,26 +2101,21 @@ def export_statement_pdf(statement_data, options=None):
         ])
 
     exp_tbl_rows.append([
-        Paragraph("<b>TOTAL</b>", cell_bold),
-        Paragraph(f"<b>{len(expenses)} Vouchers</b>", cell_bold),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
-        Paragraph("", cell_normal),
+        Paragraph(f"<b>TOTAL ({len(expenses)} Vouchers Incurred)</b>", cell_bold),
+        "", "", "", "", "", "", "",
         Paragraph(format_currency_inr(tot_exp), cell_red),
     ])
 
     # Col widths totaling 802 pt (Landscape A4)
-    # [24, 85, 105, 175, 110, 75, 60, 68, 100] = 802
-    exp_table = Table(exp_tbl_rows, colWidths=[24, 85, 105, 175, 110, 75, 60, 68, 100])
+    # [22, 95, 95, 175, 100, 75, 50, 65, 125] = 802
+    exp_table = Table(exp_tbl_rows, colWidths=[22, 95, 95, 175, 100, 75, 50, 65, 125])
     exp_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+        ('SPAN', (0, -1), (7, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),

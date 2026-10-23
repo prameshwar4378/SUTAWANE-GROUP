@@ -3,16 +3,23 @@ from . import views
 
 urlpatterns = [
     path('', views.landing_view, name='landing'),
+    path('batches/', views.public_batches_view, name='public_batches'),
+    path('gallery/photos/', views.public_photo_gallery_view, name='public_photo_gallery'),
+    path('gallery/videos/', views.public_video_gallery_view, name='public_video_gallery'),
+    path('about/', views.public_about_us_view, name='public_about_us'),
+    path('contact/', views.public_contact_us_view, name='public_contact_us'),
     path('app/', views.dashboard_view, name='dashboard'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('api/developer/send-otp/', views.api_developer_send_otp_view, name='api_developer_send_otp'),
+    path('api/developer/verify-otp/', views.api_developer_verify_otp_view, name='api_developer_verify_otp'),
     path('switch-branch/<str:branch_id>/', views.switch_branch_view, name='switch_branch'),
     path('switch-session/<str:session_id>/', views.switch_session_view, name='switch_session'),
     path('toggle-sidebar/', views.toggle_sidebar_view, name='toggle_sidebar'),
     path('api/quick-search/', views.quick_search_api_view, name='api_quick_search'),
 
     # Navigation Routes
+    path('api/next-roll-number/', views.api_next_roll_number_view, name='api_next_roll_number'),
     path('students/', views.students_list_view, name='students_list'),
     path('students/batch-promote/modal/', views.batch_promote_modal_view, name='batch_promote_modal'),
     path('students/batch-promote/', views.batch_promote_view, name='batch_promote'),

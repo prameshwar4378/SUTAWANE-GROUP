@@ -52,8 +52,17 @@
   body.printing-receipt aside,
   body.printing-receipt header,
   body.printing-receipt nav,
-  body.printing-receipt .no-print {
+  body.printing-receipt .no-print,
+  body.printing-receipt .print-hide {
     display: none !important;
+  }
+
+  /* When printing receipt from inside page, isolate the receipt container */
+  body.printing-receipt main {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    overflow: visible !important;
   }
 
   body.printing-receipt #printable-receipt-container {
@@ -76,6 +85,11 @@
     margin: 8px 0 !important;
   }
 
+  .receipt-slip-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
   /* Thermal Receipt Mode */
   body.printing-thermal {
     page: thermal;
@@ -91,25 +105,313 @@
     font-size: 11px !important;
   }
 
-  /* Official Financial Statement print isolation */
-  body.printing-report {
-    background: white !important;
-    color: black !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  /* Universal layout ancestor reset during print */
+  #root,
+  #root > div,
+  main,
+  .overflow-hidden,
+  .overflow-y-auto,
+  .overflow-x-auto {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
   }
 
-  body.printing-report #printable-financial-report {
+  /* Official Institutional Financial Statement print isolation */
+  body.printing-statement,
+  body.printing-report {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  /* 1. Hide all background screen chrome, sidebars, headers, banners, toasts, and modal controls */
+  body.printing-statement aside,
+  body.printing-statement header,
+  body.printing-statement nav,
+  body.printing-statement footer,
+  body.printing-statement #toast-container,
+  body.printing-statement .daily-report-main-screen,
+  body.printing-statement #receiptModalContainer,
+  body.printing-statement .modal-header,
+  body.printing-statement .modal-footer,
+  body.printing-statement .no-print,
+  body.printing-statement .print-hide,
+  body.printing-statement button,
+  body.printing-report aside,
+  body.printing-report header,
+  body.printing-report nav,
+  body.printing-report footer,
+  body.printing-report #toast-container,
+  body.printing-report .daily-report-main-screen,
+  body.printing-report #receiptModalContainer,
+  body.printing-report .modal-header,
+  body.printing-report .modal-footer,
+  body.printing-report .no-print,
+  body.printing-report .print-hide,
+  body.printing-report button {
+    display: none !important;
+  }
+
+  /* 2. Reset ancestor layout hierarchy */
+  body.printing-statement html,
+  body.printing-statement #root,
+  body.printing-statement #root > div,
+  body.printing-statement main,
+  body.printing-report html,
+  body.printing-report #root,
+  body.printing-report #root > div,
+  body.printing-report main {
+    display: block !important;
+    position: static !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  /* 3. Neutralize modal fixed backdrop wrapper */
+  body.printing-statement #officialPrintModal,
+  body.printing-report #officialPrintModal {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* 4. Neutralize modal card wrapper */
+  body.printing-statement #officialPrintModal > div,
+  body.printing-report #officialPrintModal > div {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* 5. Neutralize scrollable modal body wrapper */
+  body.printing-statement #officialPrintModal .flex-1.overflow-y-auto,
+  body.printing-statement #officialPrintModal .overflow-y-auto,
+  body.printing-report #officialPrintModal .flex-1.overflow-y-auto,
+  body.printing-report #officialPrintModal .overflow-y-auto {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  /* 6. Exact Document Layout Presentation */
+  body.printing-statement #printable-daily-statement,
+  body.printing-statement #printable-financial-report,
+  body.printing-statement .printable-statement-card,
+  body.printing-report #printable-daily-statement,
+  body.printing-report #printable-financial-report,
+  body.printing-report .printable-statement-card {
     display: block !important;
     visibility: visible !important;
     position: static !important;
     width: 100% !important;
-    max-width: 194mm !important;
+    max-width: 190mm !important;
     margin: 0 auto !important;
-    padding: 0 !important;
-    background: white !important;
-    color: black !important;
+    padding: 6mm 8mm !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1.5px solid #28375C !important;
+    border-radius: 8px !important;
     box-shadow: none !important;
-    border: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Compact spacing inside statement document */
+  #printable-daily-statement .space-y-6 > :not([hidden]) ~ :not([hidden]),
+  #printable-daily-statement > :not([hidden]) ~ :not([hidden]),
+  #printable-financial-report .space-y-6 > :not([hidden]) ~ :not([hidden]),
+  #printable-financial-report > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 10px !important;
+  }
+
+  /* Ensure crisp colors and backgrounds on print */
+  #printable-daily-statement *,
+  #printable-financial-report * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Professional high-contrast styling for printed tables and cards */
+  #printable-daily-statement .statement-brand-title,
+  #printable-daily-statement h1 {
+    color: #28375C !important;
+  }
+
+  #printable-daily-statement table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #printable-daily-statement thead {
+    background-color: #f1f5f9 !important;
+  }
+
+  #printable-daily-statement thead th {
+    background-color: #f1f5f9 !important;
+    color: #1e293b !important;
+    font-weight: 700 !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 4px 6px !important;
+  }
+
+  #printable-daily-statement tbody td {
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    padding: 4px 6px !important;
+  }
+
+  #printable-daily-statement .signature-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Compact single-row 6 KPI cards in print */
+  .report-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 5px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .report-kpi-card {
+    padding: 5px 6px !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    background: #f8fafc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .report-kpi-card .kpi-value {
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    line-height: 1.15 !important;
+    margin-top: 1px !important;
+    color: #0f172a !important;
+  }
+
+  .report-kpi-card .kpi-label {
+    font-size: 8.5px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #475569 !important;
+  }
+
+  .report-kpi-card .kpi-subtext {
+    font-size: 7.5px !important;
+    color: #64748b !important;
+    margin-top: 1px !important;
+  }
+
+  /* Two side-by-side tables in print */
+  .report-side-by-side-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin-top: 6px !important;
+  }
+
+  /* Section cards in print */
+  .report-section-card {
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    background: white !important;
+    box-shadow: none !important;
+    margin-bottom: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: visible !important;
+  }
+
+  .report-section-header {
+    padding: 4px 6px !important;
+    background: #f1f5f9 !important;
+    border-bottom: 1px solid #94a3b8 !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+  }
+
+  /* Tables in print */
+  .report-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 8.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  .report-table th {
+    background-color: #1e293b !important;
+    color: white !important;
+    padding: 3px 5px !important;
+    font-weight: 700 !important;
+    border: 1px solid #1e293b !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-size: 8.5px !important;
+  }
+
+  .report-table td {
+    padding: 2.5px 5px !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+
+  .report-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .report-table thead {
+    display: table-header-group !important;
+  }
+
+  /* Target session ribbon in print */
+  .report-session-ribbon {
+    padding: 4px 8px !important;
+    margin-bottom: 6px !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    background: #f8fafc !important;
   }
 }

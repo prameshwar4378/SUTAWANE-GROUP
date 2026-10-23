@@ -55,10 +55,10 @@
           <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
         </button>
         <a
-          href="{% url 'payment_receipt_print' p.id %}?type=ORIGINAL"
+          href="{% url 'payment_receipt_print' p.id %}?format=a4_dual&autoprint=1"
           target="_blank"
           class="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          title="Print Official A4 Receipt"
+          title="Print Official A4 Receipt (New Tab)"
         >
           <i data-lucide="printer" class="w-3.5 h-3.5"></i>
         </a>

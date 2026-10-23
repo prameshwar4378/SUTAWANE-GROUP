@@ -179,19 +179,19 @@
       <!-- Row 1: Search, Session, Branch, Standard -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         <!-- Search Input -->
-        <div class="relative">
-          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground"></i>
+        <div class="relative flex items-center">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
           <input
             type="text"
             name="q"
             value="{{ filters.q }}"
             placeholder="Search name, roll, phone, standard..."
-            class="pl-9 pr-8 h-9 text-xs w-full rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            class="pl-9 {% if filters.q %}pr-8{% else %}pr-3{% endif %} h-9 text-xs w-full rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
           />
           {% if filters.q %}
           <a
             href="?{% for k, v in filters.items %}{% if k != 'q' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}"
-            class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
             title="Clear search"
           >
             <i data-lucide="x" class="w-4 h-4"></i>
@@ -302,27 +302,16 @@
         </div>
       </div>
 
-      <!-- Row 3: Page Size & Reset -->
+      <!-- Row 3: Action Buttons & Hidden Page Size -->
+      <input type="hidden" name="page_size" id="hiddenDuesPageSize" value="{{ filters.page_size|default:25 }}">
       <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border mt-3 text-xs">
         <div class="flex items-center gap-2">
-          <span class="text-muted-foreground font-medium">Page Size:</span>
-          <select
-            name="page_size"
-            onchange="this.form.submit()"
-            class="h-7 bg-background border border-input rounded px-2 text-xs font-medium focus:outline-none cursor-pointer"
-          >
-            <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
-            <option value="25" {% if filters.page_size == 25 %}selected{% endif %}>25 per page</option>
-            <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
-            <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100 per page</option>
-            <option value="10000" {% if filters.page_size == 10000 %}selected{% endif %}>Show All</option>
-          </select>
-
           <button
             type="submit"
-            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 transition-colors cursor-pointer"
+            class="inline-flex items-center justify-center rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3.5 gap-1.5 transition-colors cursor-pointer shadow-2xs"
           >
-            Apply Filters
+            <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+            <span>Apply Filters</span>
           </button>
         </div>
 
@@ -356,6 +345,21 @@
 
       <!-- Corner Table Utility Toolbar -->
       <div class="flex flex-wrap items-center gap-2">
+        <!-- Page Size Selector: Visible Left of the Columns Button -->
+        <div class="flex items-center gap-1.5 text-xs mr-0.5">
+          <label for="duesPageSizeSelect" class="text-xs text-muted-foreground font-medium whitespace-nowrap">Page Size:</label>
+          <select
+            id="duesPageSizeSelect"
+            class="h-8 bg-background border border-input rounded-md px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-2xs"
+            onchange="updateDuesPageSize(this.value)"
+          >
+            <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
+            <option value="25" {% if filters.page_size == 25 or not filters.page_size %}selected{% endif %}>25 per page</option>
+            <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
+            <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100 per page</option>
+          </select>
+        </div>
+
         <!-- Column Customization Modal Button -->
         <button
           type="button"
@@ -598,6 +602,23 @@
       if (customFrom) customFrom.classList.add('hidden');
       if (customTo) customTo.classList.add('hidden');
       selectEl.form.submit();
+    }
+  }
+
+  // --- Table Page Size Controller for Pending Student Dues ---
+  function updateDuesPageSize(size) {
+    const hiddenInput = document.getElementById('hiddenDuesPageSize');
+    if (hiddenInput) {
+      hiddenInput.value = size;
+    }
+    const form = document.getElementById('duesFilterForm');
+    if (form) {
+      form.submit();
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page_size', size);
+      url.searchParams.set('page', '1');
+      window.location.href = url.toString();
     }
   }
 

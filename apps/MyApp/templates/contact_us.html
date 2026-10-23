@@ -1,0 +1,254 @@
+{% extends 'public_base.html' %}
+{% load static %}
+
+{% block title %}Contact & Campus Directory · Sutawane Group Vaijapur{% endblock %}
+{% block meta_desc %}Get in touch with Sutawane Classes Vaijapur. Visit our Station Road main campus, call our helpline, or submit an admission counseling request.{% endblock %}
+
+{% block content %}
+<!-- ==========================================================================
+     1. HERO HEADER WITH AMBIENT HALO
+     ========================================================================== -->
+<section class="modern-page-hero" id="top">
+  <!-- Atmospheric diffused glow halo -->
+  <div class="page-hero-halo" aria-hidden="true"></div>
+
+  <div class="modern-container">
+    <div class="modern-page-hero-wrap">
+      
+      <!-- Eyebrow Notification Pill -->
+      <a href="#demoForm" class="hero-notification-pill">
+        <span class="pill-badge-indigo">ADMISSIONS DESK</span>
+        <span class="pill-text-content">Campus Open Today for Parent Counseling &amp; 3-Day Demo Passes</span>
+        <span class="pill-arrow-indicator">→</span>
+      </a>
+
+      <!-- Page Title -->
+      <h1 class="modern-page-title">
+        Connect with Our Academic Desk.<br>
+        <span class="gradient-text-indigo">We Are Here to Guide Your Child's Future.</span>
+      </h1>
+
+      <!-- Subtitle Description -->
+      <p class="modern-page-desc">
+        Have questions regarding batch schedules, fee structures, or curriculum pacing? Visit our Station Road main campus in Vaijapur or connect directly with our senior counseling team.
+      </p>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     2. CONTACT SPLIT GRID SECTION
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0;">
+  <div class="modern-container">
+    <div class="contact-split-grid">
+      
+      <!-- Left Column: Campus Info & Fast Channels -->
+      <div class="contact-info-column">
+        
+        <!-- Main Campus Card -->
+        <div class="modern-contact-card">
+          <div class="contact-card-header">
+            <div class="campus-title-group">
+              <div class="campus-pin-icon">📍</div>
+              <div>
+                <h3 class="campus-title-text">Vaijapur Main Campus</h3>
+                <small style="color:#64748B;font-weight:600;">Head Office &amp; Central Learning Center</small>
+              </div>
+            </div>
+            <span class="batch-seat-badge">
+              <span class="live-dot-pulse"></span>
+              <span>Open Today</span>
+            </span>
+          </div>
+
+          <div class="contact-details-list">
+            <div class="contact-detail-item">
+              <div class="detail-icon-circle">🏢</div>
+              <div class="detail-text-block">
+                <strong>Campus Address</strong>
+                Station Road, Near Central Bus Stand, Vaijapur, Taluka Vaijapur, Dist. Chhatrapati Sambhajinagar (Aurangabad), Maharashtra 423701.
+              </div>
+            </div>
+
+            <div class="contact-detail-item">
+              <div class="detail-icon-circle">📞</div>
+              <div class="detail-text-block">
+                <strong>Helpline Desk</strong>
+                <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}">{{ institute_settings.phone|default:'+91 98765 43210' }}</a>
+              </div>
+            </div>
+
+            <div class="contact-detail-item">
+              <div class="detail-icon-circle">📱</div>
+              <div class="detail-text-block">
+                <strong>Senior Counselor Direct</strong>
+                <a href="tel:+917776824564">+91 77768 24564</a>
+              </div>
+            </div>
+
+            <div class="contact-detail-item">
+              <div class="detail-icon-circle">✉️</div>
+              <div class="detail-text-block">
+                <strong>Official Email</strong>
+                <a href="mailto:{{ institute_settings.email|default:'contact@sutawaneclasses.com' }}">{{ institute_settings.email|default:'contact@sutawaneclasses.com' }}</a>
+              </div>
+            </div>
+
+            <div class="contact-detail-item" style="padding-top:0.85rem;border-top:1px solid #F1F5F9;">
+              <div class="detail-icon-circle">⏰</div>
+              <div class="detail-text-block">
+                <strong>Campus Visiting Hours</strong>
+                Monday to Saturday: 7:30 AM – 8:00 PM<br>
+                Sunday: 8:00 AM – 1:00 PM
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WhatsApp Fast Pass Box -->
+        <div class="contact-whatsapp-box">
+          <div class="wa-box-header">
+            <div class="wa-icon-bubble">💬</div>
+            <div class="wa-title-group">
+              <h4>Instant WhatsApp Desk</h4>
+              <p>Average reply time: within 15 minutes</p>
+            </div>
+          </div>
+          <p class="wa-box-desc">
+            Prefer texting? Chat directly with our admissions coordinator on WhatsApp for quick fee installment details, syllabus booklets, and class timings.
+          </p>
+          <a href="https://wa.me/917776824564?text=Hello%20Sutawane%20Classes,%20I%20want%20to%20know%20more%20about%20admissions." target="_blank" rel="noopener noreferrer" class="btn-whatsapp-chat">
+            <span>Start WhatsApp Chat</span>
+            <span>↗</span>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Interactive Admission Form -->
+      <div class="modern-inquiry-form-card" id="demoForm">
+        <div class="inquiry-form-head">
+          <span class="modern-badge">✦ QUICK ADMISSION INQUIRY ✦</span>
+          <h2 class="modern-section-title" style="font-size:2rem;margin-bottom:0.4rem;">Book Your Free Counseling Session</h2>
+          <p style="font-size:0.925rem;color:#64748B;line-height:1.55;">
+            Fill out the details below and our senior counseling team will reserve your 3-day demo pass and dispatch batch timetables directly to your WhatsApp.
+          </p>
+        </div>
+
+        <form id="contactPageForm" onsubmit="handleContactPageSubmit(event)">
+          <div class="form-grid-row">
+            <div class="modern-form-group">
+              <label for="contact_student_name">Student Full Name *</label>
+              <input type="text" id="contact_student_name" class="modern-form-input" required placeholder="e.g. Atharva Kulkarni">
+            </div>
+            <div class="modern-form-group">
+              <label for="contact_phone">Parent / Guardian Phone *</label>
+              <input type="tel" id="contact_phone" class="modern-form-input" required placeholder="e.g. 9876543210">
+            </div>
+          </div>
+
+          <div class="form-grid-row">
+            <div class="modern-form-group">
+              <label for="contact_standard">Class / Batch Seeking *</label>
+              <select id="contact_standard" class="modern-form-select" required>
+                <option value="" disabled selected>Select Desired Batch</option>
+                <option value="11th Science (PCB/PCM)">11th Science (Board + MHT-CET / NEET)</option>
+                <option value="12th Science Target Batch">12th Science Target Batch (CET / NEET)</option>
+                <option value="MHT-CET Rankers Batch">MHT-CET Intensive Entrance Batch</option>
+                <option value="NEET Medical Master Batch">NEET-UG Medical Master Batch</option>
+                <option value="10th SSC State Board">10th State Board Foundation</option>
+                <option value="8th & 9th Concept Builder">8th &amp; 9th Pre-Foundation</option>
+                <option value="11th & 12th Commerce">11th &amp; 12th Commerce</option>
+              </select>
+            </div>
+            <div class="modern-form-group">
+              <label for="contact_student_phone">Student WhatsApp Mobile</label>
+              <input type="tel" id="contact_student_phone" class="modern-form-input" placeholder="e.g. 9876543210">
+            </div>
+          </div>
+
+          <div class="modern-form-group">
+            <label for="contact_previous_marks">Current School / College &amp; Previous Percentage</label>
+            <input type="text" id="contact_previous_marks" class="modern-form-input" placeholder="e.g. New High School Vaijapur, scored 92% in 9th">
+          </div>
+
+          <div class="modern-form-group">
+            <label for="contact_message">Specific Questions or Academic Goals</label>
+            <textarea id="contact_message" class="modern-form-textarea" rows="3" placeholder="Tell us if you need hostel guidance, scholarship details, or timing flexibility..."></textarea>
+          </div>
+
+          <button type="submit" class="btn-taskharbor-primary" style="width:100%;justify-content:center;padding:0.95rem;font-size:1rem;margin-top:0.5rem;">
+            <span>Submit Academic Inquiry via WhatsApp</span>
+            <span class="btn-pill-arrow">→</span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     3. LOCATION MAP & DIRECTIONS SECTION
+     ========================================================================== -->
+<section class="modern-section" style="padding-top:0;padding-bottom:5.5rem;">
+  <div class="modern-container">
+    <div class="campus-map-section-wrap text-center">
+      <span class="modern-badge">✦ PRIME ACCESSIBLE LOCATION ✦</span>
+      <h3 class="modern-section-title" style="font-size:2.2rem;margin-bottom:0.75rem;">Easily Accessible at the Heart of Vaijapur</h3>
+      <p class="modern-section-desc mx-auto" style="margin-bottom:0;">
+        Located right on Station Road within 3 minutes walking distance from the Vaijapur Central Bus Stand, ensuring a safe and comfortable daily commute for local and rural students alike.
+      </p>
+
+      <!-- Commute Highlights -->
+      <div class="commute-badges-row">
+        <span class="commute-pill-chip">🚌 3 Mins Walk from Bus Stand</span>
+        <span class="commute-pill-chip">🚗 Dedicated Safe Student Parking</span>
+        <span class="commute-pill-chip">🛡️ 24/7 CCTV Monitored Campus</span>
+        <span class="commute-pill-chip">❄️ Air-Conditioned Smart Halls</span>
+      </div>
+
+      <!-- Map Embed Frame -->
+      <div class="commute-map-frame">
+        <iframe 
+          title="Sutawane Classes Vaijapur Location Map"
+          src="https://maps.google.com/maps?q=Station%20Road,%20Vaijapur,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed"
+          style="width:100%;height:100%;border:0;" 
+          loading="lazy">
+        </iframe>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function handleContactPageSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('contact_student_name').value.trim();
+    const parentPhone = document.getElementById('contact_phone').value.trim();
+    const standard = document.getElementById('contact_standard').value;
+    const studentPhone = document.getElementById('contact_student_phone').value.trim();
+    const marks = document.getElementById('contact_previous_marks').value.trim();
+    const msg = document.getElementById('contact_message').value.trim();
+
+    const text = `*New 3-Day Demo Inquiry - Sutawane Group*\n\n` +
+                 `*Student Name:* ${name}\n` +
+                 `*Parent Phone:* ${parentPhone}\n` +
+                 (studentPhone ? `*Student WhatsApp:* ${studentPhone}\n` : '') +
+                 `*Batch Desired:* ${standard}\n` +
+                 (marks ? `*School / Prev Marks:* ${marks}\n` : '') +
+                 (msg ? `*Questions:* ${msg}\n` : '') +
+                 `\n_Submitted via Contact Page on Sutawane Group Web Portal_`;
+
+    const targetWhatsApp = "917776824564";
+    const encoded = encodeURIComponent(text);
+    const waUrl = `https://wa.me/${targetWhatsApp}?text=${encoded}`;
+
+    window.open(waUrl, '_blank');
+  }
+</script>
+{% endblock %}

@@ -130,3 +130,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# Email Configuration (Google SMTP for Developer OTP & System Alerts)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'prameshwar4378@gmail.com'
+EMAIL_HOST_PASSWORD = 'pkppqklbhjjtbont'
+DEFAULT_FROM_EMAIL = '"Sutawane Software Support" <prameshwar4378@gmail.com>'
+SERVER_EMAIL = 'prameshwar4378@gmail.com'
+EMAIL_TIMEOUT = 15

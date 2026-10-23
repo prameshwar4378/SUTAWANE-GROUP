@@ -187,10 +187,13 @@ window.renderIcons = function () {
   }
 };
 
-// Re-render Lucide icons and charts on any HTMX DOM content swap
+// Re-render Lucide icons, charts and searchable selects on any HTMX DOM content swap
 document.addEventListener('htmx:afterSwap', function (e) {
   window.renderIcons();
   initMonthlyFinancialChart();
+  if (window.SearchableSelect && e.detail && e.detail.target) {
+    window.SearchableSelect.initAll(e.detail.target);
+  }
 });
 
 // Configure HTMX CSRF token from cookie or hidden input if needed
@@ -269,6 +272,7 @@ function initHeaderSearch() {
   const resultsContainer = document.getElementById('header-search-results');
   const itemsList = document.getElementById('header-search-items-list');
   const headerTitle = document.getElementById('header-search-header-title');
+  const searchContainer = document.getElementById('header-search-container');
 
   if (!input || !resultsContainer || !itemsList) return;
 
@@ -314,6 +318,11 @@ function initHeaderSearch() {
       if (query) {
         location.href = `/students/?q=${encodeURIComponent(query)}`;
       }
+    } else if (e.key === 'Escape') {
+      resultsContainer.classList.add('hidden');
+      if (searchContainer && searchContainer.classList.contains('is-mobile-active')) {
+        searchContainer.classList.remove('is-mobile-active');
+      }
     }
   });
 
@@ -333,31 +342,52 @@ function initHeaderSearch() {
     }
   });
 
+  // Automatically dismiss floating dropdown when scrolling main page content
+  const mainViewport = document.querySelector('main');
+  if (mainViewport) {
+    mainViewport.addEventListener('scroll', function () {
+      if (resultsContainer && !resultsContainer.classList.contains('hidden')) {
+        resultsContainer.classList.add('hidden');
+      }
+    }, { passive: true });
+  }
+
   function renderSearchResults(students, query) {
     itemsList.innerHTML = '';
     if (headerTitle) {
-      headerTitle.textContent = `Matching Students (${students.length})`;
+      headerTitle.innerHTML = `<i data-lucide="users" class="w-3.5 h-3.5 text-primary"></i><span>Matching Students (${students.length})</span>`;
+    }
+    const viewAllLink = document.getElementById('header-search-view-all-link');
+    if (viewAllLink) {
+      viewAllLink.href = `/students/?q=${encodeURIComponent(query)}`;
     }
 
     if (students.length === 0) {
       itemsList.innerHTML = `
-        <div class="p-4 text-center text-xs text-muted-foreground">
-          No students matching "${escapeHtml(query)}"
+        <div class="p-6 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5 bg-card">
+          <i data-lucide="search-x" class="w-6 h-6 text-muted-foreground/60"></i>
+          <p class="font-medium text-foreground">No students matching "${escapeHtml(query)}"</p>
+          <p class="text-[11px] text-muted-foreground">Check spelling or search by student ID, roll number, or phone.</p>
         </div>
       `;
     } else {
       students.forEach((s) => {
         const item = document.createElement('div');
-        item.className = 'p-2.5 px-3 flex items-center justify-between gap-2 hover:bg-muted/50 cursor-pointer transition-colors';
+        item.className = 'p-2.5 px-3.5 flex items-center justify-between gap-3 hover:bg-muted/50 cursor-pointer transition-colors bg-card';
+        const initial = s.full_name ? s.full_name.trim().charAt(0).toUpperCase() : '?';
+        const photoMarkup = s.photo_url
+          ? `<img src="${s.photo_url}" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentElement.innerText='${initial}';">`
+          : initial;
+
         item.innerHTML = `
-          <div class="flex items-center gap-2.5 min-w-0" onclick="location.href='/students/${s.id}/'">
-            <div class="w-7 h-7 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border">
-              ${s.photo_url ? `<img src="${s.photo_url}" class="w-full h-full object-cover">` : s.full_name.charAt(0)}
+          <div class="flex items-center gap-3 min-w-0 flex-1" onclick="location.href='/students/${s.id}/'">
+            <div class="w-8 h-8 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-border">
+              ${photoMarkup}
             </div>
-            <div class="min-w-0">
-              <div class="font-semibold truncate text-foreground flex items-center gap-1.5">
-                <span>${escapeHtml(s.full_name)}</span>
-                <span class="font-mono text-[10px] text-muted-foreground">(${escapeHtml(s.roll_number)})</span>
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold truncate text-foreground flex items-center gap-1.5 text-xs">
+                <span class="truncate">${escapeHtml(s.full_name)}</span>
+                <span class="font-mono text-[10px] text-muted-foreground shrink-0">(${escapeHtml(s.roll_number)})</span>
               </div>
               <div class="text-[10px] text-muted-foreground truncate">
                 ${escapeHtml(s.standard)} • ${escapeHtml(s.branch_name)}
@@ -367,16 +397,17 @@ function initHeaderSearch() {
           <div class="flex items-center gap-2 shrink-0">
             ${
               s.pending_fees > 0
-                ? `<span class="text-[10px] text-rose-600 font-bold">Due: ₹${Math.round(s.pending_fees).toLocaleString('en-IN')}</span>`
-                : `<span class="text-[10px] text-emerald-600 font-semibold">Cleared</span>`
+                ? `<span class="text-[10px] text-rose-600 font-bold whitespace-nowrap bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 px-2 py-0.5 rounded-md">Due: ₹${Math.round(s.pending_fees).toLocaleString('en-IN')}</span>`
+                : `<span class="text-[10px] text-emerald-600 font-semibold whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 px-2 py-0.5 rounded-md">Cleared</span>`
             }
             <a
               href="/fees/collect/?student_id=${s.id}&admission_id=${s.admission_id || ''}&amount=${s.pending_fees > 0 ? s.pending_fees : ''}"
-              class="h-6 px-2 text-[10px] font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 shadow-sm"
-              title="Collect fees"
+              class="h-6.5 px-2.5 text-[10px] font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 shadow-2xs whitespace-nowrap transition-colors"
+              title="Collect fees for ${escapeHtml(s.full_name)}"
+              onclick="event.stopPropagation();"
             >
               <i data-lucide="credit-card" class="w-3 h-3"></i>
-              Fee
+              <span>Fee</span>
             </a>
           </div>
         `;
@@ -410,6 +441,11 @@ window.openModal = function (modalId) {
     modal.classList.add('flex');
     document.body.classList.add('overflow-hidden');
     window.renderIcons();
+    if (window.SearchableSelect) {
+      setTimeout(() => {
+        window.SearchableSelect.initAll(modal);
+      }, 30);
+    }
   }
 };
 
