@@ -3,6 +3,24 @@
 
 {% block title %}{{ student.full_name }} ({{ student.student_code }}) — Student Profile{% endblock %}
 
+{% block extra_head %}
+<style>
+  @keyframes activeSessionMarchingDots {
+    0% {
+      stroke-dashoffset: 0;
+    }
+    100% {
+      stroke-dashoffset: -24;
+    }
+  }
+
+  .active-session-marching-dots {
+    animation: activeSessionMarchingDots 1.2s linear infinite;
+    filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.85));
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="space-y-6">
 
@@ -325,6 +343,27 @@
           {% endif %}"
         title="Switch to view fee structure for {{ adm.session.name }} ({{ adm.standard }})"
       >
+        {% if adm.is_selected %}
+        <!-- Dynamic Animated Marching Dotted Border for Active Session Card -->
+        <div class="pointer-events-none absolute inset-0 rounded-xl overflow-hidden z-10">
+          <svg class="w-full h-full overflow-visible" xmlns="http://www.w3.org/2000/svg">
+            <rect
+              x="1.5"
+              y="1.5"
+              width="calc(100% - 3px)"
+              height="calc(100% - 3px)"
+              rx="11"
+              fill="none"
+              stroke="#ffffff"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-dasharray="0.1 8"
+              class="active-session-marching-dots"
+            />
+          </svg>
+        </div>
+        {% endif %}
+
         <!-- Top row: Session Name, Class, Branch & Selection Tag -->
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0 flex items-center gap-3">
