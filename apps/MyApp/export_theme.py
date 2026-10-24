@@ -358,10 +358,15 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     meta_rows = [
         [Paragraph("SCOPE:", meta_lbl_style), Paragraph(scope_display, meta_val_style)],
         [Paragraph("DATE:", meta_lbl_style), Paragraph(date_str, meta_val_style)],
-        [Paragraph(badge_lbl, meta_lbl_style), Paragraph(str(badge_val), meta_val_red_style)],
     ]
+    if meta.get('overall_pending_total') is not None:
+        meta_rows.append([
+            Paragraph("ALL SESSIONS DUE:", meta_lbl_style),
+            Paragraph(format_currency_inr(meta.get('overall_pending_total')), meta_val_red_style)
+        ])
+    meta_rows.append([Paragraph(badge_lbl, meta_lbl_style), Paragraph(str(badge_val), meta_val_red_style)])
 
-    meta_table = Table(meta_rows, colWidths=[52, 186])
+    meta_table = Table(meta_rows, colWidths=[70, 168])
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(COLOR_BG_CARD)),
         ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor(COLOR_BORDER)),

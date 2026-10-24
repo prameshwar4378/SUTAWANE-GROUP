@@ -26,8 +26,9 @@ from .models import (
 from .auth_utils import (
     hash_password, verify_password, get_license_status,
     generate_and_send_developer_otp, verify_developer_otp,
-    AUTHORIZED_DEVELOPER_EMAIL
+    AUTHORIZED_DEVELOPER_EMAIL, invalidate_license_cache
 )
+from .context_processors import invalidate_global_context_cache, get_cached_settings_dict
 from .whatsapp import (
     format_whatsapp_number, generate_whatsapp_url,
     build_receipt_whatsapp_message, build_fee_reminder_whatsapp_message,
@@ -44,10 +45,11 @@ from .reports_export import (
     export_payment_modes_excel,
     export_payment_modes_pdf,
     export_expense_categories_excel,
-    export_expense_categories_pdf,
     export_statement_excel,
     export_statement_pdf,
 )
+from .student_ledger_service import build_student_ledger_payload
+from .student_ledger_export import export_student_ledger_pdf, export_student_ledger_excel
 from .backup_service import (
     get_storage_paths, get_dir_stats, format_bytes,
     create_full_backup_snapshot, execute_restore_from_file,
@@ -393,6 +395,9 @@ def developer_portal_view(request):
                     defaults={'value': developer_note}
                 )
 
+            invalidate_license_cache()
+            invalidate_global_context_cache()
+
             messages.success(request, "Software license configuration updated successfully.")
             return redirect('developer_portal')
 
@@ -574,10 +579,10 @@ def dashboard_view(request):
     end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     today_payments = payments_qs.filter(payment_date__range=[start_of_today, end_of_today])
-    today_collections = sum(p.total_amount for p in today_payments)
+    today_collections = today_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
 
     today_expenses_list = expenses_qs.filter(expense_date__range=[start_of_today, end_of_today])
-    today_expenses = sum(e.amount for e in today_expenses_list)
+    today_expenses = today_expenses_list.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
     today_net_movement = today_collections - today_expenses
 
     # 4. Month's Inflows, Outflows & Net Movement
@@ -586,17 +591,15 @@ def dashboard_view(request):
     end_of_month = (next_m - timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999)
 
     month_payments = payments_qs.filter(payment_date__range=[start_of_month, end_of_month])
-    month_collections = sum(p.total_amount for p in month_payments)
+    month_collections = month_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
 
     month_expenses_list = expenses_qs.filter(expense_date__range=[start_of_month, end_of_month])
-    month_expenses = sum(e.amount for e in month_expenses_list)
+    month_expenses = month_expenses_list.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
     month_net_movement = month_collections - month_expenses
 
     # 5. Session Cumulative Macro Metrics
     active_students_count = admissions_qs.count()
-    total_expected_fees = sum(
-        adm.fee_plan.net_payable for adm in admissions_qs if hasattr(adm, 'fee_plan')
-    )
+    total_expected_fees = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
     # Fee-plan collection metrics must exclude payments made against carried-forward
     # previous-session dues. Those receipts are cash movement, but not current
     # admission fee collections.
@@ -604,7 +607,7 @@ def dashboard_view(request):
         admission__isnull=False,
         admission__session_id=active_session.id if active_session and not is_all_sessions else None,
     ) if active_session and not is_all_sessions else payments_qs.filter(admission__isnull=False)
-    total_collected_fees = sum(p.total_amount for p in current_fee_payments_qs)
+    total_collected_fees = current_fee_payments_qs.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
     total_pending_fees = max(MONEY_ZERO, total_expected_fees - total_collected_fees)
 
     # 6. Installments Due Today & Overdue Dues
@@ -618,7 +621,7 @@ def dashboard_view(request):
     ).select_related('fee_plan').prefetch_related('allocations__payment')
 
     for inst in installments:
-        paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
+        paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
         bal = max(MONEY_ZERO, inst.amount_due - paid)
         if bal > 0 and inst.due_date:
             inst_date = timezone.localtime(inst.due_date).date()
@@ -659,8 +662,8 @@ def dashboard_view(request):
         if not is_all_sessions and active_session:
             m_coll_filter = m_coll_filter.filter(session_id=active_session.id)
 
-        m_coll = sum(p.total_amount for p in m_coll_filter)
-        m_exp = sum(e.amount for e in m_exp_filter)
+        m_coll = m_coll_filter.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+        m_exp = m_exp_filter.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
         max_trend_val = max(float(max_trend_val), float(m_coll), float(m_exp))
 
         monthly_trend.append({
@@ -743,17 +746,17 @@ def dashboard_view(request):
             b_adms = StudentAdmission.objects.filter(branch=b, is_active=True)
             if not is_all_sessions and active_session:
                 b_adms = b_adms.filter(session=active_session)
-            b_expected = sum(adm.fee_plan.net_payable for adm in b_adms if hasattr(adm, 'fee_plan'))
+            b_expected = FeePlan.objects.filter(admission__in=b_adms).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
 
             b_payments = Payment.objects.filter(branch=b, is_reversed=False)
             if not is_all_sessions and active_session:
                 b_payments = b_payments.filter(session=active_session)
-            b_collections = sum(p.total_amount for p in b_payments)
+            b_collections = b_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
 
             b_expenses_q = Expense.objects.filter(branch=b)
             if not is_all_sessions and active_session and active_session.start_date and active_session.end_date:
                 b_expenses_q = b_expenses_q.filter(expense_date__range=[active_session.start_date, active_session.end_date])
-            b_expenses = sum(e.amount for e in b_expenses_q)
+            b_expenses = b_expenses_q.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
 
             branch_comparison.append({
                 'branch_id': b.id,
@@ -1237,7 +1240,12 @@ def students_list_view(request):
     admissions_qs = StudentAdmission.objects.select_related(
         'student', 'branch', 'session', 'fee_plan'
     ).prefetch_related(
-        'payments', 'fee_plan__installments', 'fee_plan__installments__allocations', 'student__previous_dues'
+        'payments',
+        'fee_plan__installments',
+        'fee_plan__installments__allocations__payment',
+        'student__previous_dues',
+        'student__admissions__fee_plan',
+        'student__admissions__payments',
     )
 
     if branch_id and branch_id != 'ALL':
@@ -1284,10 +1292,11 @@ def students_list_view(request):
         pen_fees = max(MONEY_ZERO, tot_fees - pd_fees)
 
         # Previous dues carried into this admission's session only.
-        prev_dues_qs = st.previous_dues.all()
         if adm.session_id and session_id != 'ALL':
-            prev_dues_qs = prev_dues_qs.filter(current_session_id=adm.session_id)
-        prev_dues = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_qs), MONEY_ZERO)
+            prev_dues_list = [d for d in st.previous_dues.all() if d.current_session_id == adm.session_id]
+        else:
+            prev_dues_list = list(st.previous_dues.all())
+        prev_dues = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_list), MONEY_ZERO)
 
         # Overall consolidated pending dues across all academic sessions of this student
         st_all_admissions = st.admissions.all()
@@ -1320,18 +1329,20 @@ def students_list_view(request):
             active_count += 1
             total_session_fees += tot_fees
             total_session_pending += pen_fees
-            total_overall_pending += (pen_fees + prev_dues)
         else:
             archived_count += 1
+            if status_filter == 'false':
+                total_session_fees += tot_fees
+                total_session_pending += pen_fees
 
         total_session_paid += pd_fees
 
         # Earliest unpaid installment due date
         next_due_date = None
         due_status = 'PAID'
-        if pen_fees > 0 and plan and plan.installments.exists():
+        if pen_fees > 0 and plan and plan.installments.all():
             for inst in plan.installments.all():
-                inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
+                inst_paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
                 if inst.amount_due > inst_paid:
                     next_due_date = inst.due_date
                     due_status = inst.status
@@ -1351,6 +1362,34 @@ def students_list_view(request):
         })
 
     total_count = len(students_data)
+
+    # Consolidated Overall Pending Amount:
+    # When viewing sessions in the institute (or branch scope), calculate the TRUE Grand Total Multi-Session Overall Pending Dues across ALL sessions.
+    # If a specific search query is entered (e.g. searching for a single student), calculate the multi-session dues for that matching student cohort.
+    if search_q:
+        seen_student_ids_for_overall = set()
+        total_overall_pending = MONEY_ZERO
+        for item in students_data:
+            st_id = item['student'].id
+            if st_id not in seen_student_ids_for_overall:
+                seen_student_ids_for_overall.add(st_id)
+                total_overall_pending += item['overall_pending']
+    else:
+        # Grand total multi-session pending across ALL academic sessions for the institute / branch scope
+        all_adms_qs = StudentAdmission.objects.filter(is_active=True).select_related('fee_plan')
+        if branch_id and branch_id != 'ALL':
+            all_adms_qs = all_adms_qs.filter(branch_id=branch_id)
+
+        tot_all_agreed = FeePlan.objects.filter(admission__in=all_adms_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+        tot_all_paid = Payment.objects.filter(admission__in=all_adms_qs, is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+        all_sess_pending = max(MONEY_ZERO, tot_all_agreed - tot_all_paid)
+
+        prev_dues_qs = PreviousSessionDue.objects.all()
+        if branch_id and branch_id != 'ALL':
+            prev_dues_qs = prev_dues_qs.filter(student__admissions__branch_id=branch_id).distinct()
+        all_prev_pending = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_qs), MONEY_ZERO)
+
+        total_overall_pending = all_sess_pending + all_prev_pending
 
     # EXPORT HANDLING (Excel & Landscape PDF)
     export_type = request.GET.get('export')
@@ -1372,6 +1411,8 @@ def students_list_view(request):
             'branch_name': branch_name_label,
             'session_name': session_name_label,
             'records_count': len(students_data),
+            'session_pending_total': total_session_pending,
+            'overall_pending_total': total_overall_pending,
         }
         today_str = datetime.now().strftime('%Y%m%d')
 
@@ -1592,7 +1633,7 @@ def student_detail_view(request, student_id):
 
     # GET: Assemble full profile details
     admissions = student.admissions.select_related('branch', 'session', 'fee_plan').prefetch_related(
-        'payments', 'fee_plan__installments', 'fee_plan__installments__allocations', 'fee_plan__discounts'
+        'payments', 'fee_plan__installments', 'fee_plan__installments__allocations__payment', 'fee_plan__discounts'
     ).order_by('-created_at')
 
     admission_id = request.GET.get('admission_id')
@@ -1631,12 +1672,12 @@ def student_detail_view(request, student_id):
     total_discount = fee_plan.total_discount if fee_plan else MONEY_ZERO
     net_payable = fee_plan.net_payable if fee_plan else MONEY_ZERO
 
-    session_payments = current_adm.payments.filter(is_reversed=False).order_by('-payment_date') if current_adm else []
+    session_payments = sorted([p for p in current_adm.payments.all() if not p.is_reversed], key=lambda x: x.payment_date, reverse=True) if current_adm else []
     total_paid = sum(p.total_amount for p in session_payments)
     session_pending = max(MONEY_ZERO, net_payable - total_paid)
 
     # Consolidated financial calculation across ALL academic sessions for this student
-    all_previous_dues = student.previous_dues.select_related('original_session', 'current_session')
+    all_previous_dues = list(student.previous_dues.select_related('original_session', 'current_session'))
     all_prev_total = sum((d.outstanding_amount for d in all_previous_dues), MONEY_ZERO)
     all_prev_collected = sum((d.collected_amount for d in all_previous_dues), MONEY_ZERO)
     all_previous_dues_pending = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in all_previous_dues), MONEY_ZERO)
@@ -1650,9 +1691,10 @@ def student_detail_view(request, student_id):
 
     # Previous session dues for the currently selected session view (if any legacy record)
     previous_due_session_id = current_adm.session_id if current_adm else scope_s_id
-    previous_dues = all_previous_dues
     if previous_due_session_id and previous_due_session_id != 'ALL':
-        previous_dues = previous_dues.filter(current_session_id=previous_due_session_id)
+        previous_dues = [d for d in all_previous_dues if d.current_session_id == previous_due_session_id]
+    else:
+        previous_dues = list(all_previous_dues)
     previous_dues_pending = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in previous_dues), MONEY_ZERO)
 
     # Dues in all other academic sessions outside the current view
@@ -1663,8 +1705,8 @@ def student_detail_view(request, student_id):
     next_due_date = None
     next_due_status = 'PAID'
     if fee_plan:
-        for inst in fee_plan.installments.all().order_by('installment_no'):
-            paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
+        for inst in sorted(fee_plan.installments.all(), key=lambda x: x.installment_no):
+            paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
             balance = max(MONEY_ZERO, inst.amount_due - paid)
             is_cleared = balance <= 0 or session_pending <= 0
             status = 'PAID' if is_cleared else inst.status
@@ -1680,9 +1722,47 @@ def student_detail_view(request, student_id):
             })
 
     # All student payment receipts
-    all_payments = student.payments.select_related(
-        'branch', 'session', 'admission'
-    ).prefetch_related('allocations__installment').order_by('-payment_date')
+    all_payments = list(student.payments.select_related(
+        'branch', 'session', 'admission', 'admission__fee_plan', 'previous_due'
+    ).prefetch_related('allocations__installment', 'admission__payments').order_by('-payment_date'))
+
+    inst_settings = get_institute_settings_dict()
+    inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
+    target_phone = student.parent_phone or student.student_phone
+
+    for p in all_payments:
+        if not p.is_reversed and target_phone:
+            remaining_balance = MONEY_ZERO
+            if p.admission:
+                fp = getattr(p.admission, 'fee_plan', None)
+                tot_f = fp.net_payable if fp else MONEY_ZERO
+                paid_f = sum((x.total_amount for x in p.admission.payments.all() if not x.is_reversed), MONEY_ZERO)
+                remaining_balance = max(MONEY_ZERO, tot_f - paid_f)
+            elif p.previous_due:
+                pd = p.previous_due
+                remaining_balance = max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount)
+
+            branch_name = p.branch.name if p.branch else (p.admission.branch.name if p.admission and p.admission.branch else '')
+            branch_phone = p.branch.phone if p.branch and p.branch.phone else (p.admission.branch.phone if p.admission and p.admission.branch and p.admission.branch.phone else inst_settings.get('phone', ''))
+
+            msg = build_receipt_whatsapp_message(
+                institute_name=inst_name,
+                student_name=student.full_name,
+                student_code=student.student_code or '',
+                roll_number=p.admission.roll_number if p.admission else '',
+                standard=p.admission.standard if p.admission else 'General',
+                receipt_number=p.receipt_number,
+                total_amount=p.total_amount,
+                payment_date=timezone.localtime(p.payment_date).strftime('%d %B %Y') if p.payment_date else '',
+                payment_mode=p.get_payment_mode_display() if hasattr(p, 'get_payment_mode_display') else p.payment_mode,
+                reference_number=p.reference_number or '',
+                remaining_balance=remaining_balance,
+                branch_name=branch_name,
+                helpline=branch_phone,
+            )
+            p.whatsapp_url = generate_whatsapp_url(target_phone, msg)
+        else:
+            p.whatsapp_url = None
 
     courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
     sessions = AcademicSession.objects.filter(isActive=True).order_by('-start_date')
@@ -1725,6 +1805,62 @@ def student_detail_view(request, student_id):
         'branches': branches,
     }
     return render(request, 'student_detail.html', context)
+
+
+# -------------------------------------------------------------
+# Multi-Session Student Account Statement & Financial Ledger Views
+# -------------------------------------------------------------
+
+def student_statement_view(request, student_id):
+    """
+    Renders dedicated printable A4 HTML Student Account Statement & Batchwise Financial Ledger.
+    """
+    payload = build_student_ledger_payload(student_id)
+    if not payload:
+        messages.error(request, "Student not found.")
+        return redirect('students_list')
+    return render(request, 'student_ledger_print.html', payload)
+
+
+def student_statement_pdf_view(request, student_id):
+    """
+    Exports official publication-grade Portrait A4 PDF for student account statement.
+    """
+    payload = build_student_ledger_payload(student_id)
+    if not payload:
+        messages.error(request, "Student not found.")
+        return redirect('students_list')
+
+    pdf_bytes = export_student_ledger_pdf(payload)
+    student_name = payload['student']['full_name'].replace(' ', '_')
+    student_code = payload['student']['student_code']
+    filename = f"Account_Statement_{student_code}_{student_name}.pdf"
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+def student_statement_excel_view(request, student_id):
+    """
+    Exports comprehensive 3-sheet Excel workbook for student account statement.
+    """
+    payload = build_student_ledger_payload(student_id)
+    if not payload:
+        messages.error(request, "Student not found.")
+        return redirect('students_list')
+
+    excel_bytes = export_student_ledger_excel(payload)
+    student_name = payload['student']['full_name'].replace(' ', '_')
+    student_code = payload['student']['student_code']
+    filename = f"Account_Statement_{student_code}_{student_name}.xlsx"
+
+    response = HttpResponse(
+        excel_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 # -------------------------------------------------------------
@@ -2236,20 +2372,25 @@ def courses_list_view(request):
             Q(description__icontains=search_q)
         )
 
-    all_courses = Course.objects.all()
-    total_courses = all_courses.count()
-    active_count = all_courses.filter(is_active=True).count()
+    all_courses = list(Course.objects.all())
+    total_courses = len(all_courses)
+    active_count = sum(1 for c in all_courses if c.is_active)
     inactive_count = total_courses - active_count
+
+    # Aggregate student counts by standard in 1 single query
+    std_counts = dict(
+        StudentAdmission.objects.values('standard').annotate(cnt=Count('id')).values_list('standard', 'cnt')
+    )
 
     courses_data = []
     for c in courses_qs:
-        enrolled_count = StudentAdmission.objects.filter(standard=c.name).count()
+        enrolled_count = std_counts.get(c.name, 0)
         courses_data.append({
             'course': c,
             'enrolled_count': enrolled_count,
         })
 
-    overall_enrolled = StudentAdmission.objects.count()
+    overall_enrolled = sum(std_counts.values())
 
     context = {
         'courses_data': courses_data,
@@ -2661,7 +2802,7 @@ def fee_collect_view(request):
 
             # Multi-session tab switcher data
             admissions_qs = selected_student.admissions.select_related('branch', 'session', 'fee_plan').prefetch_related(
-                'payments', 'fee_plan__installments'
+                'payments', 'fee_plan__installments', 'fee_plan__installments__allocations__payment'
             ).order_by('-created_at')
             all_admissions = list(admissions_qs)
             for adm in all_admissions:
@@ -2686,7 +2827,7 @@ def fee_collect_view(request):
 
             fp = getattr(target_admission, 'fee_plan', None) if target_admission else None
             tot_f = fp.net_payable if fp else MONEY_ZERO
-            paid_f = sum((p.total_amount for p in target_admission.payments.filter(is_reversed=False)), MONEY_ZERO) if target_admission else MONEY_ZERO
+            paid_f = sum((p.total_amount for p in target_admission.payments.all() if not p.is_reversed), MONEY_ZERO) if target_admission else MONEY_ZERO
             pend_f = max(MONEY_ZERO, tot_f - paid_f)
 
             # Pure session-based calculation: each session strictly manages its own fees
@@ -2718,8 +2859,8 @@ def fee_collect_view(request):
                     pass
 
             if fp:
-                for inst in fp.installments.all().order_by('installment_no'):
-                    inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
+                for inst in sorted(fp.installments.all(), key=lambda x: x.installment_no):
+                    inst_paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
                     inst_bal = max(MONEY_ZERO, inst.amount_due - inst_paid)
                     is_cleared = inst_bal <= 0 or pend_f <= 0
                     status = 'PAID' if is_cleared else inst.status
@@ -2866,13 +3007,13 @@ def fee_collect_view(request):
     start_of_today = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_today = local_now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    total_collected_sum = sum((p.total_amount for p in payments_qs.filter(is_reversed=False)), MONEY_ZERO)
+    total_collected_sum = payments_qs.filter(is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
     today_payments_qs = payments_qs.filter(
         is_reversed=False
     ).filter(
         Q(payment_date__range=[start_of_today, end_of_today]) | Q(payment_date__date=local_today)
     ).distinct()
-    today_collected_sum = sum((p.total_amount for p in today_payments_qs), MONEY_ZERO)
+    today_collected_sum = today_payments_qs.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
     total_receipts_count = payments_qs.count()
     reversed_receipts_count = payments_qs.filter(is_reversed=True).count()
 
@@ -3162,7 +3303,7 @@ def payment_receipt_modal_view(request, payment_id):
     if payment.admission and hasattr(payment.admission, 'fee_plan'):
         fp = payment.admission.fee_plan
         tot = fp.net_payable
-        paid = sum(p.total_amount for p in payment.admission.payments.filter(is_reversed=False))
+        paid = payment.admission.payments.filter(is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
         remaining_balance = max(MONEY_ZERO, tot - paid)
     elif payment.previous_due:
         pd = payment.previous_due
@@ -3218,7 +3359,7 @@ def payment_receipt_print_view(request, payment_id):
     if payment.admission and hasattr(payment.admission, 'fee_plan'):
         fp = payment.admission.fee_plan
         tot = fp.net_payable
-        paid = sum(p.total_amount for p in payment.admission.payments.filter(is_reversed=False))
+        paid = payment.admission.payments.filter(is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
         remaining_balance = max(MONEY_ZERO, tot - paid)
     elif payment.previous_due:
         pd = payment.previous_due
@@ -3377,17 +3518,18 @@ def fees_dues_view(request):
         fp = adm.fee_plan
 
         # Calculate previous dues
-        prev_dues_qs = student.previous_dues.all()
         if adm.session_id and session_filter != 'ALL':
-            prev_dues_qs = prev_dues_qs.filter(current_session_id=adm.session_id)
+            prev_dues_list = [pd for pd in student.previous_dues.all() if pd.current_session_id == adm.session_id]
+        else:
+            prev_dues_list = list(student.previous_dues.all())
         prev_dues_pending = sum(
             max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount)
-            for pd in prev_dues_qs
+            for pd in prev_dues_list
         )
 
-        for inst in fp.installments.all().order_by('installment_no'):
+        for inst in sorted(fp.installments.all(), key=lambda x: x.installment_no):
             paid = sum(
-                a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)
+                a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed
             )
             balance = max(MONEY_ZERO, inst.amount_due - paid)
 
@@ -4225,275 +4367,375 @@ def financial_reports_view(request):
     target_session = None
     if selected_session_id != 'ALL':
         target_session = AcademicSession.objects.filter(id=selected_session_id).first()
-    if not target_session:
-        target_session = AcademicSession.objects.filter(is_current=True).first()
-    if not target_session:
-        target_session = sessions.first()
+        if not target_session:
+            target_session = AcademicSession.objects.filter(is_current=True).first()
+        if not target_session and sessions.exists():
+            target_session = sessions.first()
 
     # 1. SESSION AUDIT DATA
-    active_admissions = []
-    archived_admissions = []
-    total_fees_agreed = MONEY_ZERO
-    total_collections = MONEY_ZERO
-    total_pending_dues = MONEY_ZERO
-    collection_efficiency = 0.0
-    total_expenses = MONEY_ZERO
-    net_surplus = MONEY_ZERO
-    is_surplus = True
-    branch_breakdown = []
-    standard_breakdown = []
-    monthly_trend = []
+    if active_tab == 'SESSION_AUDIT':
+        active_admissions = []
+        archived_admissions = []
+        total_fees_agreed = MONEY_ZERO
+        total_collections = MONEY_ZERO
+        total_pending_dues = MONEY_ZERO
+        collection_efficiency = 0.0
+        total_expenses = MONEY_ZERO
+        net_surplus = MONEY_ZERO
+        is_surplus = True
+        branch_breakdown = []
+        standard_breakdown = []
+        monthly_trend = []
+        trend_totals = {
+            'collections': MONEY_ZERO,
+            'expenses': MONEY_ZERO,
+            'net': MONEY_ZERO,
+            'net_abs': MONEY_ZERO,
+            'activeMonthsCount': 0,
+            'totalMonthsCount': 0,
+        }
 
-    if target_session:
-        adm_qs = StudentAdmission.objects.filter(session=target_session).select_related('student', 'branch', 'fee_plan')
-        if selected_branch_id != 'ALL':
-            adm_qs = adm_qs.filter(branch_id=selected_branch_id)
-        
-        admissions = list(adm_qs)
-        active_admissions = [a for a in admissions if a.is_active]
-        archived_admissions = [a for a in admissions if not a.is_active]
+        if target_session or selected_session_id == 'ALL':
+            adm_qs = StudentAdmission.objects.all().select_related('student', 'branch', 'fee_plan')
+            if target_session:
+                adm_qs = adm_qs.filter(session=target_session)
+            if selected_branch_id != 'ALL':
+                adm_qs = adm_qs.filter(branch_id=selected_branch_id)
+            
+            admissions = list(adm_qs)
+            active_admissions = [a for a in admissions if a.is_active]
+            archived_admissions = [a for a in admissions if not a.is_active]
 
-        total_fees_agreed = sum(
-            (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None 
-             else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)
-             for a in active_admissions),
-            MONEY_ZERO
-        )
-
-        pay_qs = Payment.objects.filter(
-            session=target_session,
-            is_reversed=False,
-            admission__isnull=False,
-            admission__session=target_session,
-        ).select_related('branch', 'admission', 'student')
-        if selected_branch_id != 'ALL':
-            pay_qs = pay_qs.filter(branch_id=selected_branch_id)
-        payments = list(pay_qs)
-        total_collections = sum((p.total_amount for p in payments), MONEY_ZERO)
-        total_pending_dues = max(MONEY_ZERO, total_fees_agreed - total_collections)
-        collection_efficiency = round((float(total_collections) / float(total_fees_agreed) * 100), 1) if total_fees_agreed and float(total_fees_agreed) > 0 else 0.0
-
-        exp_qs = Expense.objects.filter(
-            expense_date__gte=target_session.start_date,
-            expense_date__lte=target_session.end_date
-        ).select_related('category', 'branch')
-        if selected_branch_id != 'ALL':
-            exp_qs = exp_qs.filter(branch_id=selected_branch_id)
-        session_expenses = list(exp_qs)
-        total_expenses = sum((e.amount for e in session_expenses), MONEY_ZERO)
-
-        net_surplus = total_collections - total_expenses
-        is_surplus = net_surplus >= 0
-
-        # Campus & Branch Performance Breakdown
-        for b in branches:
-            b_adms = [a for a in active_admissions if a.branch_id == b.id]
-            b_fees = sum(
-                (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
+            total_fees_agreed = sum(
+                (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None 
                  else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)
-                 for a in b_adms),
+                 for a in active_admissions),
                 MONEY_ZERO
             )
-            b_pays = [p for p in payments if p.branch_id == b.id]
-            b_col = sum((p.total_amount for p in b_pays), MONEY_ZERO)
-            b_exp = sum((e.amount for e in session_expenses if e.branch_id == b.id), MONEY_ZERO)
-            b_dues = max(MONEY_ZERO, b_fees - b_col)
-            b_net = b_col - b_exp
-            b_rate = round((float(b_col) / float(b_fees) * 100), 1) if b_fees and float(b_fees) > 0 else 0.0
 
-            branch_breakdown.append({
-                'branchId': b.id,
-                'branchName': b.name,
-                'branchCode': b.code,
-                'studentsCount': len(b_adms),
-                'totalFees': b_fees,
-                'collections': b_col,
-                'pendingDues': b_dues,
-                'expenses': b_exp,
-                'netSurplus': b_net,
-                'collectionRate': b_rate,
-            })
+            pay_qs = Payment.objects.filter(
+                is_reversed=False,
+                admission__isnull=False,
+            ).select_related('branch', 'admission', 'student')
+            if target_session:
+                pay_qs = pay_qs.filter(
+                    Q(session=target_session) | Q(admission__session=target_session)
+                )
+            if selected_branch_id != 'ALL':
+                pay_qs = pay_qs.filter(branch_id=selected_branch_id)
+            payments = list(pay_qs)
+            total_collections = sum((p.total_amount for p in payments), MONEY_ZERO)
+            total_pending_dues = max(MONEY_ZERO, total_fees_agreed - total_collections)
+            collection_efficiency = round((float(total_collections) / float(total_fees_agreed) * 100), 1) if total_fees_agreed and float(total_fees_agreed) > 0 else 0.0
 
-        # Standard / Course-wise Performance
-        std_map = {}
-        for a in active_admissions:
-            std = a.standard or 'General'
-            if std not in std_map:
-                std_map[std] = {'studentCount': 0, 'totalFees': MONEY_ZERO, 'collected': MONEY_ZERO}
-            std_map[std]['studentCount'] += 1
-            f_amt = (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
-                     else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO))
-            std_map[std]['totalFees'] += f_amt
+            exp_qs = Expense.objects.all().select_related('category', 'branch')
+            if target_session and target_session.start_date and target_session.end_date:
+                exp_qs = exp_qs.filter(
+                    expense_date__gte=target_session.start_date,
+                    expense_date__lte=target_session.end_date
+                )
+            if selected_branch_id != 'ALL':
+                exp_qs = exp_qs.filter(branch_id=selected_branch_id)
+            session_expenses = list(exp_qs)
+            total_expenses = sum((e.amount for e in session_expenses), MONEY_ZERO)
 
-        for p in payments:
-            if p.admission and p.admission.standard:
-                std = p.admission.standard
-                if std in std_map:
-                    std_map[std]['collected'] += p.total_amount
+            net_surplus = total_collections - total_expenses
+            is_surplus = net_surplus >= 0
 
-        for std, s_info in std_map.items():
-            s_fees = s_info['totalFees']
-            s_col = s_info['collected']
-            s_dues = max(MONEY_ZERO, s_fees - s_col)
-            s_rate = round((float(s_col) / float(s_fees) * 100), 1) if s_fees and float(s_fees) > 0 else 0.0
-            standard_breakdown.append({
-                'standard': std,
-                'studentCount': s_info['studentCount'],
-                'totalFees': s_fees,
-                'collected': s_col,
-                'pendingDues': s_dues,
-                'collectionRate': s_rate,
-            })
-        standard_breakdown.sort(key=lambda s: s['studentCount'], reverse=True)
+            # Campus & Branch Performance Breakdown
+            for b in branches:
+                b_adms = [a for a in active_admissions if a.branch_id == b.id]
+                b_fees = sum(
+                    (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
+                     else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)
+                     for a in b_adms),
+                    MONEY_ZERO
+                )
+                b_pays = [p for p in payments if p.branch_id == b.id]
+                b_col = sum((p.total_amount for p in b_pays), MONEY_ZERO)
+                b_exp = sum((e.amount for e in session_expenses if e.branch_id == b.id), MONEY_ZERO)
+                b_dues = max(MONEY_ZERO, b_fees - b_col)
+                b_net = b_col - b_exp
+                b_rate = round((float(b_col) / float(b_fees) * 100), 1) if b_fees and float(b_fees) > 0 else 0.0
 
-        # Monthly Inflow vs Outflow Trend
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        m_trend_map = {}
-        if target_session.start_date and target_session.end_date:
-            cur_dt = target_session.start_date
-            end_dt = target_session.end_date
-            iters = 0
-            while cur_dt <= end_dt and iters < 36:
-                iters += 1
-                y = cur_dt.year
-                m = cur_dt.month
-                k = f"{y}-{m:02d}"
-                m_trend_map[k] = {
-                    'monthKey': k,
-                    'monthLabel': f"{month_names[m-1]} {y}",
-                    'collections': MONEY_ZERO,
-                    'expenses': MONEY_ZERO,
-                }
-                if m == 12:
-                    cur_dt = cur_dt.replace(year=y+1, month=1, day=1)
-                else:
-                    cur_dt = cur_dt.replace(month=m+1, day=1)
+                branch_breakdown.append({
+                    'branchId': b.id,
+                    'branchName': b.name,
+                    'branchCode': b.code,
+                    'studentsCount': len(b_adms),
+                    'totalFees': b_fees,
+                    'collections': b_col,
+                    'pendingDues': b_dues,
+                    'expenses': b_exp,
+                    'netSurplus': b_net,
+                    'collectionRate': b_rate,
+                })
 
-        for p in payments:
-            k = f"{p.payment_date.year}-{p.payment_date.month:02d}"
-            if k in m_trend_map:
+            # Standard / Course-wise Performance
+            std_map = {}
+            for a in active_admissions:
+                std = a.standard or 'General'
+                if std not in std_map:
+                    std_map[std] = {'studentCount': 0, 'totalFees': MONEY_ZERO, 'collected': MONEY_ZERO}
+                std_map[std]['studentCount'] += 1
+                f_amt = (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
+                         else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO))
+                std_map[std]['totalFees'] += f_amt
+
+            for p in payments:
+                if p.admission and p.admission.standard:
+                    std = p.admission.standard
+                    if std in std_map:
+                        std_map[std]['collected'] += p.total_amount
+
+            for std, s_info in std_map.items():
+                s_fees = s_info['totalFees']
+                s_col = s_info['collected']
+                s_dues = max(MONEY_ZERO, s_fees - s_col)
+                s_rate = round((float(s_col) / float(s_fees) * 100), 1) if s_fees and float(s_fees) > 0 else 0.0
+                standard_breakdown.append({
+                    'standard': std,
+                    'studentCount': s_info['studentCount'],
+                    'totalFees': s_fees,
+                    'collected': s_col,
+                    'pendingDues': s_dues,
+                    'collectionRate': s_rate,
+                })
+            standard_breakdown.sort(key=lambda s: s['studentCount'], reverse=True)
+
+            # Monthly Inflow vs Outflow Trend
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            m_trend_map = {}
+            if target_session and target_session.start_date and target_session.end_date:
+                start_local = timezone.localtime(target_session.start_date) if timezone.is_aware(target_session.start_date) else target_session.start_date
+                end_local = timezone.localtime(target_session.end_date) if timezone.is_aware(target_session.end_date) else target_session.end_date
+                cur_dt = start_local.replace(day=1)
+                end_dt = end_local.replace(day=1)
+                iters = 0
+                while cur_dt <= end_dt and iters < 36:
+                    iters += 1
+                    y = cur_dt.year
+                    m = cur_dt.month
+                    k = f"{y}-{m:02d}"
+                    m_trend_map[k] = {
+                        'monthKey': k,
+                        'monthLabel': f"{month_names[m-1]} {y}",
+                        'collections': MONEY_ZERO,
+                        'expenses': MONEY_ZERO,
+                    }
+                    if m == 12:
+                        cur_dt = cur_dt.replace(year=y+1, month=1, day=1)
+                    else:
+                        cur_dt = cur_dt.replace(month=m+1, day=1)
+
+            # Never drop payments: add and accumulate every actual payment month
+            for p in payments:
+                p_dt = timezone.localtime(p.payment_date) if timezone.is_aware(p.payment_date) else p.payment_date
+                k = f"{p_dt.year}-{p_dt.month:02d}"
+                if k not in m_trend_map:
+                    m_trend_map[k] = {
+                        'monthKey': k,
+                        'monthLabel': f"{month_names[p_dt.month-1]} {p_dt.year}",
+                        'collections': MONEY_ZERO,
+                        'expenses': MONEY_ZERO,
+                    }
                 m_trend_map[k]['collections'] += p.total_amount
 
-        for e in session_expenses:
-            k = f"{e.expense_date.year}-{e.expense_date.month:02d}"
-            if k in m_trend_map:
+            # Never drop expenses: add and accumulate every session expense month
+            for e in session_expenses:
+                e_dt = timezone.localtime(e.expense_date) if timezone.is_aware(e.expense_date) else e.expense_date
+                k = f"{e_dt.year}-{e_dt.month:02d}"
+                if k not in m_trend_map:
+                    m_trend_map[k] = {
+                        'monthKey': k,
+                        'monthLabel': f"{month_names[e_dt.month-1]} {e_dt.year}",
+                        'collections': MONEY_ZERO,
+                        'expenses': MONEY_ZERO,
+                    }
                 m_trend_map[k]['expenses'] += e.amount
 
-        for item in m_trend_map.values():
-            item['net'] = item['collections'] - item['expenses']
-            item['net_abs'] = abs(item['net'])
+            # Sort chronologically by monthKey
+            monthly_trend = sorted(m_trend_map.values(), key=lambda x: x['monthKey'])
+            trend_tot_col = MONEY_ZERO
+            trend_tot_exp = MONEY_ZERO
+            active_months_count = 0
 
-        monthly_trend = list(m_trend_map.values())
+            for item in monthly_trend:
+                item['net'] = item['collections'] - item['expenses']
+                item['net_abs'] = abs(item['net'])
+                has_act = (item['collections'] > 0 or item['expenses'] > 0)
+                item['has_activity'] = has_act
+                if has_act:
+                    active_months_count += 1
+                trend_tot_col += item['collections']
+                trend_tot_exp += item['expenses']
 
-    session_audit_data = {
-        'session': {
-            'id': target_session.id if target_session else None,
-            'name': target_session.name if target_session else 'Consolidated',
-            'displayName': target_session.display_name if target_session else 'Academic Session',
-            'isCurrent': target_session.is_current if target_session else False,
-            'startDate': target_session.start_date.isoformat() if target_session else '',
-            'endDate': target_session.end_date.isoformat() if target_session else '',
-        },
-        'summary': {
-            'activeAdmissions': len(active_admissions),
-            'archivedAdmissions': len(archived_admissions),
-            'totalFeesAgreed': total_fees_agreed,
-            'totalCollections': total_collections,
-            'totalPendingDues': total_pending_dues,
-            'collectionEfficiency': collection_efficiency,
-            'totalExpenses': total_expenses,
-            'netSurplus': net_surplus,
-            'isSurplus': is_surplus,
-        },
-        'branchBreakdown': branch_breakdown,
-        'standardBreakdown': standard_breakdown,
-        'monthlyTrend': monthly_trend,
-    }
+            trend_tot_net = trend_tot_col - trend_tot_exp
+            trend_totals = {
+                'collections': trend_tot_col,
+                'expenses': trend_tot_exp,
+                'net': trend_tot_net,
+                'net_abs': abs(trend_tot_net),
+                'activeMonthsCount': active_months_count,
+                'totalMonthsCount': len(monthly_trend),
+            }
+
+        session_audit_data = {
+            'session': {
+                'id': target_session.id if target_session else None,
+                'name': target_session.name if target_session else 'Consolidated',
+                'displayName': target_session.display_name if target_session else 'All Academic Sessions (Consolidated)',
+                'isCurrent': target_session.is_current if target_session else False,
+                'startDate': target_session.start_date.isoformat() if (target_session and target_session.start_date) else '',
+                'endDate': target_session.end_date.isoformat() if (target_session and target_session.end_date) else '',
+            },
+            'summary': {
+                'activeAdmissions': len(active_admissions),
+                'archivedAdmissions': len(archived_admissions),
+                'totalFeesAgreed': total_fees_agreed,
+                'totalCollections': total_collections,
+                'totalPendingDues': total_pending_dues,
+                'collectionEfficiency': collection_efficiency,
+                'totalExpenses': total_expenses,
+                'netSurplus': net_surplus,
+                'isSurplus': is_surplus,
+            },
+            'branchBreakdown': branch_breakdown,
+            'standardBreakdown': standard_breakdown,
+            'monthlyTrend': monthly_trend,
+            'monthlyTrendTotals': trend_totals,
+        }
+    else:
+        session_audit_data = {
+            'session': {
+                'id': target_session.id if target_session else None,
+                'name': target_session.name if target_session else 'Consolidated',
+                'displayName': target_session.display_name if target_session else 'Academic Session',
+                'isCurrent': target_session.is_current if target_session else False,
+                'startDate': target_session.start_date.isoformat() if (target_session and target_session.start_date) else '',
+                'endDate': target_session.end_date.isoformat() if (target_session and target_session.end_date) else '',
+            },
+            'summary': {
+                'activeAdmissions': 0, 'archivedAdmissions': 0, 'totalFeesAgreed': MONEY_ZERO,
+                'totalCollections': MONEY_ZERO, 'totalPendingDues': MONEY_ZERO, 'collectionEfficiency': 0.0,
+                'totalExpenses': MONEY_ZERO, 'netSurplus': MONEY_ZERO, 'isSurplus': True,
+            },
+            'branchBreakdown': [], 'standardBreakdown': [], 'monthlyTrend': [],
+            'monthlyTrendTotals': {
+                'collections': MONEY_ZERO, 'expenses': MONEY_ZERO, 'net': MONEY_ZERO, 'net_abs': MONEY_ZERO,
+                'activeMonthsCount': 0, 'totalMonthsCount': 0,
+            },
+        }
 
     # 2. PAYMENT MODES DATA
-    # Payment-mode collection analytics represent current admission fees. Cash
-    # movement for previous-session dues remains visible in the receipt history.
-    p_modes_qs = Payment.objects.filter(is_reversed=False, admission__isnull=False)
-    if selected_branch_id != 'ALL':
-        p_modes_qs = p_modes_qs.filter(branch_id=selected_branch_id)
-    if selected_session_id != 'ALL':
-        p_modes_qs = p_modes_qs.filter(session_id=selected_session_id)
+    if active_tab == 'PAYMENT_MODES':
+        p_modes_qs = Payment.objects.filter(is_reversed=False, admission__isnull=False)
+        if selected_branch_id != 'ALL':
+            p_modes_qs = p_modes_qs.filter(branch_id=selected_branch_id)
+        if selected_session_id != 'ALL':
+            p_modes_qs = p_modes_qs.filter(session_id=selected_session_id)
 
-    mode_map = {
-        'CASH': {'amount': MONEY_ZERO, 'count': 0},
-        'UPI': {'amount': MONEY_ZERO, 'count': 0},
-        'BANK_TRANSFER': {'amount': MONEY_ZERO, 'count': 0},
-        'CHEQUE': {'amount': MONEY_ZERO, 'count': 0},
-        'OTHER': {'amount': MONEY_ZERO, 'count': 0},
-    }
-    tot_col_modes = MONEY_ZERO
-    tot_txns_modes = 0
-    for p in p_modes_qs:
-        m_key = (p.payment_mode or 'OTHER').upper()
-        if m_key not in mode_map:
-            mode_map[m_key] = {'amount': MONEY_ZERO, 'count': 0}
-        mode_map[m_key]['amount'] += p.total_amount
-        mode_map[m_key]['count'] += 1
-        tot_col_modes += p.total_amount
-        tot_txns_modes += 1
+        mode_map = {
+            'CASH': {'amount': MONEY_ZERO, 'count': 0},
+            'UPI': {'amount': MONEY_ZERO, 'count': 0},
+            'BANK_TRANSFER': {'amount': MONEY_ZERO, 'count': 0},
+            'CHEQUE': {'amount': MONEY_ZERO, 'count': 0},
+            'OTHER': {'amount': MONEY_ZERO, 'count': 0},
+        }
+        tot_col_modes = MONEY_ZERO
+        tot_txns_modes = 0
 
-    modes_list = []
-    for m_key, m_info in mode_map.items():
-        pct = round((float(m_info['amount']) / float(tot_col_modes) * 100), 1) if tot_col_modes and float(tot_col_modes) > 0 else 0.0
-        avg = round(float(m_info['amount']) / m_info['count'], 2) if m_info['count'] > 0 else 0.0
-        modes_list.append({
-            'mode': m_key,
-            'label': m_key.replace('_', ' '),
-            'amount': m_info['amount'],
-            'count': m_info['count'],
-            'average': avg,
-            'percentage': pct,
-        })
-    modes_list.sort(key=lambda x: x['amount'], reverse=True)
-    payment_modes_data = {
-        'totalCollected': tot_col_modes,
-        'totalTransactions': tot_txns_modes,
-        'modes': modes_list,
-    }
+        mode_aggs = p_modes_qs.values('payment_mode').annotate(
+            total_amt=Sum('total_amount'),
+            txn_count=Count('id')
+        )
+        for row in mode_aggs:
+            m_key = (row['payment_mode'] or 'OTHER').upper()
+            amt = row['total_amt'] or MONEY_ZERO
+            cnt = row['txn_count'] or 0
+            if m_key not in mode_map:
+                mode_map[m_key] = {'amount': MONEY_ZERO, 'count': 0}
+            mode_map[m_key]['amount'] += amt
+            mode_map[m_key]['count'] += cnt
+            tot_col_modes += amt
+            tot_txns_modes += cnt
+
+        modes_list = []
+        for m_key, m_info in mode_map.items():
+            pct = round((float(m_info['amount']) / float(tot_col_modes) * 100), 1) if tot_col_modes and float(tot_col_modes) > 0 else 0.0
+            avg = round(float(m_info['amount']) / m_info['count'], 2) if m_info['count'] > 0 else 0.0
+            modes_list.append({
+                'mode': m_key,
+                'label': m_key.replace('_', ' '),
+                'amount': m_info['amount'],
+                'count': m_info['count'],
+                'average': avg,
+                'percentage': pct,
+            })
+        modes_list.sort(key=lambda x: x['amount'], reverse=True)
+        payment_modes_data = {
+            'totalCollected': tot_col_modes,
+            'totalTransactions': tot_txns_modes,
+            'modes': modes_list,
+        }
+    else:
+        payment_modes_data = {
+            'totalCollected': MONEY_ZERO,
+            'totalTransactions': 0,
+            'modes': [],
+        }
 
     # 3. EXPENSE CATEGORIES DATA
-    e_cats_qs = Expense.objects.select_related('category', 'branch')
-    if selected_branch_id != 'ALL':
-        e_cats_qs = e_cats_qs.filter(branch_id=selected_branch_id)
-    if selected_session_id != 'ALL' and target_session:
-        e_cats_qs = e_cats_qs.filter(expense_date__gte=target_session.start_date, expense_date__lte=target_session.end_date)
+    if active_tab == 'EXPENSE_CATEGORIES':
+        e_cats_qs = Expense.objects.all()
+        if selected_branch_id != 'ALL':
+            e_cats_qs = e_cats_qs.filter(branch_id=selected_branch_id)
+        if selected_session_id != 'ALL' and target_session:
+            e_cats_qs = e_cats_qs.filter(expense_date__gte=target_session.start_date, expense_date__lte=target_session.end_date)
 
-    cat_map = {}
-    tot_exp_cats = MONEY_ZERO
-    tot_vouchers_cats = 0
-    for e in e_cats_qs:
-        c_id = e.category_id or 'uncategorized'
-        c_name = e.category.name if e.category else 'General Operations'
-        if c_id not in cat_map:
-            cat_map[c_id] = {'categoryId': c_id, 'categoryName': c_name, 'amount': MONEY_ZERO, 'count': 0}
-        cat_map[c_id]['amount'] += e.amount
-        cat_map[c_id]['count'] += 1
-        tot_exp_cats += e.amount
-        tot_vouchers_cats += 1
+        cat_aggs = e_cats_qs.values('category_id', 'category__name').annotate(
+            total_amt=Sum('amount'),
+            voucher_count=Count('id')
+        )
+        cat_map = {}
+        tot_exp_cats = MONEY_ZERO
+        tot_vouchers_cats = 0
+        for row in cat_aggs:
+            c_id = row['category_id'] or 'uncategorized'
+            c_name = row['category__name'] or 'General Operations'
+            amt = row['total_amt'] or MONEY_ZERO
+            cnt = row['voucher_count'] or 0
+            if c_id not in cat_map:
+                cat_map[c_id] = {'categoryId': c_id, 'categoryName': c_name, 'amount': MONEY_ZERO, 'count': 0}
+            cat_map[c_id]['amount'] += amt
+            cat_map[c_id]['count'] += cnt
+            tot_exp_cats += amt
+            tot_vouchers_cats += cnt
 
-    categories_list = []
-    for c_id, c_info in cat_map.items():
-        pct = round((float(c_info['amount']) / float(tot_exp_cats) * 100), 1) if tot_exp_cats and float(tot_exp_cats) > 0 else 0.0
-        avg = round(float(c_info['amount']) / c_info['count'], 2) if c_info['count'] > 0 else 0.0
-        categories_list.append({
-            'categoryId': c_id,
-            'categoryName': c_info['categoryName'],
-            'amount': c_info['amount'],
-            'count': c_info['count'],
-            'average': avg,
-            'percentage': pct,
-        })
-    categories_list.sort(key=lambda x: x['amount'], reverse=True)
-    expense_categories_data = {
-        'totalExpenses': tot_exp_cats,
-        'totalVouchers': tot_vouchers_cats,
-        'categories': categories_list,
-    }
+        categories_list = []
+        for c_id, c_info in cat_map.items():
+            pct = round((float(c_info['amount']) / float(tot_exp_cats) * 100), 1) if tot_exp_cats and float(tot_exp_cats) > 0 else 0.0
+            avg = round(float(c_info['amount']) / c_info['count'], 2) if c_info['count'] > 0 else 0.0
+            categories_list.append({
+                'categoryId': c_id,
+                'categoryName': c_info['categoryName'],
+                'amount': c_info['amount'],
+                'count': c_info['count'],
+                'average': avg,
+                'percentage': pct,
+            })
+        categories_list.sort(key=lambda x: x['amount'], reverse=True)
+        expense_categories_data = {
+            'totalExpenses': tot_exp_cats,
+            'totalVouchers': tot_vouchers_cats,
+            'categories': categories_list,
+        }
+    else:
+        expense_categories_data = {
+            'totalExpenses': MONEY_ZERO,
+            'totalVouchers': 0,
+            'categories': [],
+        }
 
     # EXPORT HANDLING
     export_type = request.GET.get('export')
@@ -4943,6 +5185,7 @@ def branches_list_view(request):
                 logo_url=logo_url,
                 is_active=True,
             )
+            invalidate_global_context_cache()
             messages.success(request, f"Branch '{branch.name}' created successfully.")
             return redirect('branches_list')
 
@@ -4970,6 +5213,7 @@ def branches_list_view(request):
                 branch.logo_url = f"/media/photos/{filename}"
 
             branch.save()
+            invalidate_global_context_cache()
             messages.success(request, f"Branch '{branch.name}' updated successfully.")
             return redirect('branches_list')
 
@@ -4978,16 +5222,19 @@ def branches_list_view(request):
             branch = get_object_or_404(Branch, id=branch_id)
             branch.is_active = not branch.is_active
             branch.save()
+            invalidate_global_context_cache()
             messages.success(request, f"Branch '{branch.name}' status set to {'Active' if branch.is_active else 'Disabled'}.")
             return redirect('branches_list')
 
-    branches = Branch.objects.all().order_by('name')
+    branches = list(Branch.objects.annotate(
+        students_count=Count('admissions', filter=Q(admissions__is_active=True))
+    ).order_by('name'))
     branches_data = []
     total_branch_students = 0
     active_branches_count = 0
 
     for b in branches:
-        st_count = StudentAdmission.objects.filter(branch=b, is_active=True).count()
+        st_count = b.students_count
         total_branch_students += st_count
         if b.is_active:
             active_branches_count += 1
@@ -5088,6 +5335,7 @@ def sessions_list_view(request):
                 is_current=is_current,
                 isActive=True,
             )
+            invalidate_global_context_cache()
             if is_current:
                 request.session['selected_session_id'] = str(session.id)
             messages.success(request, f"Academic session '{session.display_name}' created successfully.")
@@ -5154,6 +5402,7 @@ def sessions_list_view(request):
                 session.is_current = False
 
             session.save()
+            invalidate_global_context_cache()
             messages.success(request, f"Academic session '{session.display_name}' updated successfully.")
             return redirect('sessions_list')
 
@@ -5163,6 +5412,7 @@ def sessions_list_view(request):
             AcademicSession.objects.filter(is_current=True).update(is_current=False)
             session.is_current = True
             session.save()
+            invalidate_global_context_cache()
             request.session['selected_session_id'] = str(session.id)
             messages.success(request, f"Active academic session switched to '{session.display_name}'.")
             return redirect('sessions_list')
@@ -5190,6 +5440,7 @@ def sessions_list_view(request):
 
             session.isActive = not session.isActive
             session.save()
+            invalidate_global_context_cache()
             status_text = "activated" if session.isActive else "deactivated"
             messages.success(request, f"Academic session '{session.display_name or session.name}' {status_text} successfully.")
             return redirect('sessions_list')
@@ -5208,10 +5459,13 @@ def sessions_list_view(request):
 
             disp = session.display_name or session.name
             session.delete()
+            invalidate_global_context_cache()
             messages.success(request, f"Academic session '{disp}' deleted successfully.")
             return redirect('sessions_list')
 
-    sessions = list(AcademicSession.objects.all().order_by('-start_date'))
+    sessions = list(AcademicSession.objects.annotate(
+        students_count=Count('admissions', filter=Q(admissions__is_active=True))
+    ).order_by('-start_date'))
     sessions_data = []
     current_session = None
     current_session_students = 0
@@ -5236,7 +5490,7 @@ def sessions_list_view(request):
                 conflict_map[s1.id].append(s2.display_name or s2.name)
 
     for s in sessions:
-        st_count = StudentAdmission.objects.filter(session=s, is_active=True).count()
+        st_count = s.students_count
         if s.is_current:
             current_session = s
             current_session_students = st_count
@@ -5499,9 +5753,8 @@ def api_backup_delete_view(request, file_name):
 # -----------------------------------------------------------------------------
 
 def get_institute_settings_dict():
-    """Returns dictionary of all system settings with robust fallbacks."""
-    records = SystemSetting.objects.all()
-    settings_map = {s.key: s.value for s in records}
+    """Returns dictionary of all system settings with robust fallbacks from RAM cache."""
+    settings_map = get_cached_settings_dict()
     return {
         'institute_name': settings_map.get('institute_name', 'Sutawane Classes'),
         'tagline': settings_map.get('tagline', 'Excellence in Coaching & Board Preparations'),
@@ -5553,6 +5806,7 @@ def save_master_logo(file_obj):
         key='logo_url',
         defaults={'value': logo_url}
     )
+    invalidate_global_context_cache()
     return logo_url
 
 
@@ -5577,6 +5831,7 @@ def remove_master_logo():
         key='logo_url',
         defaults={'value': ''}
     )
+    invalidate_global_context_cache()
 
 
 def settings_manage_view(request):
@@ -5632,6 +5887,7 @@ def settings_manage_view(request):
                     except Exception as e:
                         messages.warning(request, f"Profile saved, but logo upload failed: {str(e)}")
 
+            invalidate_global_context_cache()
             messages.success(request, "Institute settings saved successfully!")
             return redirect('settings_manage')
 
@@ -5669,6 +5925,7 @@ def api_settings_view(request):
                         key=key,
                         defaults={'value': str(val).strip()}
                     )
+            invalidate_global_context_cache()
             return JsonResponse({'success': True, 'message': 'Settings saved successfully'})
         except Exception as e:
             return JsonResponse({'error': 'Failed to save settings', 'details': str(e)}, status=500)

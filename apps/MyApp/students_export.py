@@ -95,7 +95,18 @@ def export_students_to_excel(students_data, meta=None):
         ws.row_dimensions[1].height = 28
 
         ws.merge_cells(f"A2:{max_col_letter}2")
-        ws["A2"] = f"Scope: {scope_note} | Export Date: {now_str} | Active Records: {len(records)}"
+        sess_pend = meta.get('session_pending_total')
+        ov_pend = meta.get('overall_pending_total')
+        meta_parts = [
+            f"Scope: {scope_note}",
+            f"Export Date: {now_str}",
+            f"Enrolled Records: {len(records)}",
+        ]
+        if sess_pend is not None:
+            meta_parts.append(f"Session Pending Dues: ₹{float(sess_pend):,.0f}")
+        if ov_pend is not None:
+            meta_parts.append(f"All-Sessions Overall Pending: ₹{float(ov_pend):,.0f}")
+        ws["A2"] = " | ".join(meta_parts)
         ws["A2"].font = Font(name="Calibri", size=9.5, italic=True, color="64748B")
         ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[2].height = 18
@@ -361,6 +372,8 @@ def export_students_to_pdf(students_data, meta=None):
         'branch_logo': meta.get('branch_logo'),
         'date_str': meta.get('date_str'),
         'records_count': len(students_data),
+        'overall_pending_total': meta.get('overall_pending_total'),
+        'session_pending_total': meta.get('session_pending_total'),
     }
     header_elements = build_executive_pdf_header(
         doc_title="STUDENTS ENROLLMENT & ACADEMIC DIRECTORY",

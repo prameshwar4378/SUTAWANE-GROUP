@@ -356,20 +356,20 @@ def export_session_audit_excel(audit_data, options=None):
         align_h = 'center' if col_idx in [1, 2] else 'right'
         cell.alignment = Alignment(horizontal=align_h, vertical="center")
 
-    monthly_list = audit_data.get('monthlyBreakdown', [])
+    monthly_list = audit_data.get('monthlyTrend', []) or audit_data.get('monthlyBreakdown', [])
     m_tot_col = 0.0
     m_tot_exp = 0.0
 
     for idx, m_item in enumerate(monthly_list, 1):
         m_col = float(m_item.get('collections', 0.0))
         m_exp = float(m_item.get('expenses', 0.0))
-        m_net = m_col - m_exp
+        m_net = float(m_item.get('net') if m_item.get('net') is not None else (m_col - m_exp))
         m_tot_col += m_col
         m_tot_exp += m_exp
 
         row_num = 4 + idx
         ws3.row_dimensions[row_num].height = 20
-        row_vals = [idx, m_item.get('month', '—'), m_col, m_exp, m_net]
+        row_vals = [idx, m_item.get('monthLabel') or m_item.get('month', '—'), m_col, m_exp, m_net]
 
         for col_idx, val in enumerate(row_vals, 1):
             cell = ws3.cell(row=row_num, column=col_idx, value=val)

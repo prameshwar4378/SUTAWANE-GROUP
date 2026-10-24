@@ -339,7 +339,7 @@
           Showing {{ dues|length }} of {{ total_filtered_count }} entries
         </span>
         <span class="hidden md:inline text-xs text-muted-foreground font-mono ml-2">
-          Active Session: {{ selected_session.name|default:"2026-27" }}
+          Active Session: {% if selected_session %}{{ selected_session.name }}{% else %}Consolidated{% endif %}
         </span>
       </div>
 

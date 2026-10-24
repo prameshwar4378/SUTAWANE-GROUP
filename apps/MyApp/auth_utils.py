@@ -26,10 +26,24 @@ def verify_password(password: str, stored_hash: str, salt: str) -> bool:
     return secrets.compare_digest(calculated, stored_hash)
 
 
-def get_license_status() -> dict:
+def invalidate_license_cache():
+    """Invalidates the in-memory license status cache."""
+    from django.core.cache import cache
+    cache.delete('software_license_status')
+
+
+def get_license_status(force_refresh: bool = False) -> dict:
     """
     Retrieves and parses current software license activation and expiry status.
+    Uses RAM cache (60s) to eliminate repeated database queries across middleware checks.
     """
+    from django.core.cache import cache
+    CACHE_KEY = 'software_license_status'
+    if not force_refresh:
+        cached = cache.get(CACHE_KEY)
+        if cached is not None:
+            return cached
+
     keys = ['license_is_active', 'license_expiry_date', 'license_developer_note', 'license_client_name']
     settings_qs = SystemSetting.objects.filter(key__in=keys)
     data = {s.key: s.value for s in settings_qs}
@@ -61,7 +75,7 @@ def get_license_status() -> dict:
     is_expired = now > expiry_dt
     days_remaining = 0 if is_expired else max(0, (expiry_dt - now).days)
 
-    return {
+    res = {
         'isActive': is_active,
         'expiryDate': expiry_dt.isoformat(),
         'isExpired': is_expired,
@@ -69,6 +83,8 @@ def get_license_status() -> dict:
         'developerNote': developer_note,
         'clientName': client_name,
     }
+    cache.set(CACHE_KEY, res, 60)
+    return res
 
 
 import json

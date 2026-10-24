@@ -48,7 +48,7 @@
       </div>
       <div class="text-right text-xs">
         <p class="font-bold text-slate-900 text-xs">
-          Session: {{ target_session.display_name|default:target_session.name|default:"Consolidated" }}
+          Session: {% if target_session %}{{ target_session.display_name|default:target_session.name }}{% else %}Consolidated{% endif %}
         </p>
         <p class="text-slate-600 text-[10px]">
           Campus / Branch: {% if selected_branch_id == 'ALL' %}All Campuses Combined{% else %}{% for b in branches %}{% if b.id == selected_branch_id %}{{ b.name }}{% endif %}{% endfor %}{% endif %}
@@ -104,7 +104,7 @@
           Target Academic Session
         </span>
         <h2 class="text-base sm:text-lg font-bold text-foreground flex items-center gap-2 mt-0.5">
-          <span>{{ session_audit.session.displayName|default:session_audit.session.name }}</span>
+          <span>{% if session_audit.session %}{{ session_audit.session.displayName|default:session_audit.session.name }}{% else %}Consolidated{% endif %}</span>
           {% if session_audit.session.isCurrent %}
             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
               Active Current
@@ -237,7 +237,7 @@
           <span>Campus &amp; Branch Performance Breakdown</span>
         </h3>
         <span class="text-xs text-muted-foreground">
-          Comparing all branches in session {{ session_audit.session.name }}
+          Comparing all branches in session {% if session_audit.session %}{{ session_audit.session.name }}{% else %}Consolidated{% endif %}
         </span>
       </div>
       <div class="overflow-x-auto">
@@ -345,34 +345,58 @@
 
       <!-- Monthly Trend Table -->
       <div class="report-section-card bg-card border rounded-xl shadow-xs overflow-hidden">
-        <div class="report-section-header py-3 px-4 border-b bg-muted/20">
+        <div class="report-section-header py-3 px-4 border-b bg-muted/20 flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-sm font-bold flex items-center gap-2">
             <i data-lucide="calendar" class="w-4 h-4 text-primary print:hidden"></i>
             <span>Session Monthly Cash Movement</span>
           </h3>
+
+          {% if session_audit.monthlyTrendTotals.activeMonthsCount > 0 %}
+          <div class="flex items-center gap-2 text-xs no-print">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground text-[11px] font-medium select-none">
+              <input
+                type="checkbox"
+                id="toggleActiveMonthsOnlyCheckbox"
+                checked
+                onchange="toggleActiveMonthsOnly(this)"
+                class="rounded border-input text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
+              />
+              <span>Active months only ({{ session_audit.monthlyTrendTotals.activeMonthsCount }})</span>
+            </label>
+          </div>
+          {% endif %}
         </div>
         <div class="overflow-x-auto">
-          <table class="report-table w-full text-xs">
+          <table class="report-table w-full text-xs" id="monthlyCashMovementTable">
             <thead>
               <tr class="bg-[#28375C] hover:bg-[#28375C] text-white">
-                <th class="py-2 px-3 text-left font-semibold text-white">Month</th>
-                <th class="py-2 px-3 text-right font-semibold text-white">Collections (₹)</th>
-                <th class="py-2 px-3 text-right font-semibold text-white">Expenses (₹)</th>
-                <th class="py-2 px-3 text-right font-semibold text-white">Net Movement</th>
+                <th class="py-2.5 px-3 text-left font-semibold text-white">Month</th>
+                <th class="py-2.5 px-3 text-right font-semibold text-white">Collections (₹)</th>
+                <th class="py-2.5 px-3 text-right font-semibold text-white">Expenses (₹)</th>
+                <th class="py-2.5 px-3 text-right font-semibold text-white">Net Movement</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-border">
               {% for m in session_audit.monthlyTrend %}
-                <tr class="hover:bg-muted/40 transition-colors">
-                  <td class="py-2 px-3 font-semibold text-foreground">{{ m.monthLabel }}</td>
-                  <td class="py-2 px-3 text-right font-bold text-emerald-700 dark:text-emerald-400">
+                <tr class="hover:bg-muted/40 transition-colors month-row {% if m.has_activity %}month-active-row bg-emerald-50/20 dark:bg-emerald-950/10 font-semibold{% else %}month-inactive-row opacity-60 text-muted-foreground{% endif %}">
+                  <td class="py-2.5 px-3 text-foreground">
+                    <div class="flex items-center gap-2">
+                      <span>{{ m.monthLabel }}</span>
+                      {% if m.has_activity %}
+                        <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                          Active Inflow
+                        </span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="py-2.5 px-3 text-right font-bold {% if m.collections > 0 %}text-emerald-700 dark:text-emerald-400 font-mono{% else %}text-muted-foreground{% endif %}">
                     ₹{{ m.collections|floatformat:0|intcomma }}
                   </td>
-                  <td class="py-2 px-3 text-right font-medium text-rose-700 dark:text-rose-400">
+                  <td class="py-2.5 px-3 text-right font-medium {% if m.expenses > 0 %}text-rose-700 dark:text-rose-400 font-mono{% else %}text-muted-foreground{% endif %}">
                     ₹{{ m.expenses|floatformat:0|intcomma }}
                   </td>
-                  <td class="py-2 px-3 text-right font-black">
-                    <span class="{% if m.net >= 0 %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+                  <td class="py-2.5 px-3 text-right font-black font-mono">
+                    <span class="{% if m.net > 0 %}text-emerald-700 dark:text-emerald-300{% elif m.net < 0 %}text-rose-700 dark:text-rose-300{% else %}text-muted-foreground font-normal{% endif %}">
                       {% if m.net >= 0 %}₹{{ m.net|floatformat:0|intcomma }}{% else %}-₹{{ m.net_abs|floatformat:0|intcomma }}{% endif %}
                     </span>
                   </td>
@@ -385,6 +409,26 @@
                 </tr>
               {% endfor %}
             </tbody>
+            {% if session_audit.monthlyTrend %}
+            <tfoot>
+              <tr class="border-t-2 border-[#28375C] bg-muted/40 font-bold text-xs">
+                <td class="py-2.5 px-3 text-foreground font-black uppercase tracking-wider">
+                  Total Movement
+                </td>
+                <td class="py-2.5 px-3 text-right text-emerald-700 dark:text-emerald-400 font-black font-mono text-sm">
+                  ₹{{ session_audit.monthlyTrendTotals.collections|floatformat:0|intcomma }}
+                </td>
+                <td class="py-2.5 px-3 text-right text-rose-700 dark:text-rose-400 font-black font-mono text-sm">
+                  ₹{{ session_audit.monthlyTrendTotals.expenses|floatformat:0|intcomma }}
+                </td>
+                <td class="py-2.5 px-3 text-right font-black font-mono text-sm">
+                  <span class="{% if session_audit.monthlyTrendTotals.net >= 0 %}text-emerald-700 dark:text-emerald-300{% else %}text-rose-700 dark:text-rose-300{% endif %}">
+                    {% if session_audit.monthlyTrendTotals.net >= 0 %}₹{{ session_audit.monthlyTrendTotals.net|floatformat:0|intcomma }}{% else %}-₹{{ session_audit.monthlyTrendTotals.net_abs|floatformat:0|intcomma }}{% endif %}
+                  </span>
+                </td>
+              </tr>
+            </tfoot>
+            {% endif %}
           </table>
         </div>
       </div>
@@ -898,6 +942,20 @@
 
 {% block extra_scripts %}
 <script>
+  function toggleActiveMonthsOnly(checkbox) {
+    const inactiveRows = document.querySelectorAll('.month-inactive-row');
+    inactiveRows.forEach(row => {
+      row.style.display = checkbox.checked ? 'none' : '';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const cb = document.getElementById('toggleActiveMonthsOnlyCheckbox');
+    if (cb) {
+      toggleActiveMonthsOnly(cb);
+    }
+  });
+
   function printFinancialReport() {
     document.body.classList.add('printing-report');
     window.print();

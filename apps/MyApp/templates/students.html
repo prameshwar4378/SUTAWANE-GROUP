@@ -224,7 +224,9 @@
         <div class="text-xl font-extrabold text-amber-800 dark:text-amber-200 mt-1">
           ₹{{ metrics.total_overall_pending|floatformat:0|intcomma }}
         </div>
-        <p class="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 font-medium">All sessions + prior dues</p>
+        <p class="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 font-medium">
+          {% if filters.q %}Matching student all-sessions dues{% else %}All sessions + prior dues{% endif %}
+        </p>
       </div>
     </div>
 
@@ -663,7 +665,7 @@
               class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
             >
               {% for b in branches %}
-              <option value="{{ b.id }}" {% if selected_branch.id == b.id %}selected{% endif %}>{{ b.name }} ({{ b.code }})</option>
+              <option value="{{ b.id }}" {% if selected_branch and selected_branch.id == b.id %}selected{% endif %}>{{ b.name }} ({{ b.code }})</option>
               {% endfor %}
             </select>
           </div>
@@ -677,7 +679,7 @@
               class="w-full text-xs rounded-md border border-input bg-background p-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
             >
               {% for s in sessions %}
-              <option value="{{ s.id }}" {% if selected_session.id == s.id or s.is_current %}selected{% endif %}>{{ s.display_name|default:s.name }}</option>
+              <option value="{{ s.id }}" {% if selected_session and selected_session.id == s.id or s.is_current %}selected{% endif %}>{{ s.display_name|default:s.name }}</option>
               {% endfor %}
             </select>
           </div>

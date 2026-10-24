@@ -288,7 +288,7 @@
         <div class="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300">
           <div class="flex items-center gap-2 min-w-0">
             <i data-lucide="info" class="w-4 h-4 shrink-0 text-amber-600"></i>
-            <span>No transactions recorded under <strong>{{ selected_session.display_name|default:selected_session.name }}</strong> in the past 6 months.</span>
+            <span>No transactions recorded under <strong>{% if selected_session %}{{ selected_session.display_name|default:selected_session.name }}{% else %}All Sessions{% endif %}</strong> in the past 6 months.</span>
           </div>
           {% if not is_all_sessions %}
           <a href="{% url 'switch_session' 'ALL' %}" class="inline-flex items-center gap-1 shrink-0 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-medium text-[11px] transition-colors shadow-2xs">

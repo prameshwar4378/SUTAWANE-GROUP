@@ -95,6 +95,9 @@ class Branch(models.Model):
 
     class Meta:
         db_table = 'Branch'
+        indexes = [
+            models.Index(fields=['is_active', 'name']),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.code})"
@@ -113,6 +116,10 @@ class AcademicSession(models.Model):
 
     class Meta:
         db_table = 'AcademicSession'
+        indexes = [
+            models.Index(fields=['isActive', 'start_date']),
+            models.Index(fields=['is_current']),
+        ]
 
     def __str__(self):
         return self.display_name or self.name
@@ -138,6 +145,7 @@ class Course(models.Model):
         indexes = [
             models.Index(fields=['name']),
             models.Index(fields=['is_active']),
+            models.Index(fields=['is_active', 'sort_order']),
         ]
         constraints = [
             models.CheckConstraint(condition=models.Q(default_fee__gte=0), name='course_default_fee_non_negative'),
@@ -168,6 +176,7 @@ class Student(models.Model):
         indexes = [
             models.Index(fields=['full_name']),
             models.Index(fields=['parent_phone']),
+            models.Index(fields=['created_at']),
         ]
 
     def __str__(self):
@@ -196,6 +205,11 @@ class StudentAdmission(models.Model):
             models.Index(fields=['branch']),
             models.Index(fields=['session']),
             models.Index(fields=['standard']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['roll_number']),
+            models.Index(fields=['student', 'is_active']),
+            models.Index(fields=['branch', 'session', 'is_active']),
+            models.Index(fields=['created_at']),
         ]
 
     def __str__(self):
@@ -264,6 +278,8 @@ class Installment(models.Model):
         db_table = 'Installment'
         indexes = [
             models.Index(fields=['due_date']),
+            models.Index(fields=['fee_plan', 'installment_no']),
+            models.Index(fields=['fee_plan', 'due_date']),
         ]
         constraints = [
             models.CheckConstraint(condition=models.Q(amount_due__gte=0), name='installment_amount_non_negative'),
@@ -361,6 +377,10 @@ class Payment(models.Model):
             models.Index(fields=['session']),
             models.Index(fields=['previous_due']),
             models.Index(fields=['payment_date']),
+            models.Index(fields=['is_reversed']),
+            models.Index(fields=['is_reversed', 'payment_date']),
+            models.Index(fields=['session', 'is_reversed', 'payment_date']),
+            models.Index(fields=['branch', 'is_reversed', 'payment_date']),
         ]
         constraints = [
             models.CheckConstraint(condition=models.Q(total_amount__gte=0), name='payment_total_non_negative'),
@@ -419,6 +439,9 @@ class ExpenseCategory(models.Model):
 
     class Meta:
         db_table = 'ExpenseCategory'
+        indexes = [
+            models.Index(fields=['is_active', 'sort_order']),
+        ]
 
     def __str__(self):
         return self.name
@@ -451,6 +474,8 @@ class Expense(models.Model):
             models.Index(fields=['branch']),
             models.Index(fields=['category']),
             models.Index(fields=['expense_date']),
+            models.Index(fields=['branch', 'expense_date']),
+            models.Index(fields=['category', 'expense_date']),
         ]
         constraints = [
             models.CheckConstraint(condition=models.Q(amount__gte=0), name='expense_amount_non_negative'),
