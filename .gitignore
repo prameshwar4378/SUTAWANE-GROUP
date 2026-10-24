@@ -26,9 +26,16 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Logs
-*.log
+# Environment & Secrets (Never commit secrets to git!)
+.env
 local_settings.py
+
+# Generated staticfiles (generated via collectstatic)
+staticfiles/
+
+# Logs & Diagnostics
+*.log
+logs/
 
 # OS generated
 .DS_Store

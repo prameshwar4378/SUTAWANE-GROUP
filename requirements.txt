@@ -1,0 +1,37 @@
+# =============================================================================
+# Sutawane Classes Management Software - Production Requirements
+# =============================================================================
+
+# Core Web Framework
+Django>=5.0.0,<7.0.0
+asgiref>=3.8.0
+sqlparse>=0.5.0
+
+# Production Static Asset Compression & Serving
+whitenoise>=6.6.0
+
+# Environment Variable Management
+python-dotenv>=1.0.0
+
+# Production WSGI Servers
+# Use gunicorn on Linux/Docker/Cloud, or waitress on Windows Server
+gunicorn>=21.2.0
+waitress>=3.0.0
+
+# Excel Spreadsheets & Report Engines
+openpyxl>=3.1.2
+et_xmlfile>=1.1.0
+
+# High-Resolution PDF Generation & Branding
+reportlab>=4.0.0
+pillow>=10.0.0
+pypdf>=4.0.0
+
+# Date & Time Utilities
+python-dateutil>=2.9.0
+pytz>=2024.1
+
+# HTTP Clients & Integrations
+requests>=2.31.0
+urllib3>=2.0.0
+certifi>=2024.2.2

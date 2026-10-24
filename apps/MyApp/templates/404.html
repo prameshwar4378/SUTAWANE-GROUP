@@ -1,0 +1,70 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found | Sutawane Classes</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/lucide.min.js' %}"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 text-slate-100">
+
+  <div class="max-w-md w-full bg-slate-900/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md text-center space-y-6">
+    <!-- Brand Icon -->
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shadow-inner">
+      <i data-lucide="compass" class="w-8 h-8"></i>
+    </div>
+
+    <!-- Error Codes & Message -->
+    <div class="space-y-2">
+      <span class="text-xs font-mono font-bold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+        HTTP 404 Error
+      </span>
+      <h1 class="text-2xl font-black tracking-tight text-white mt-3">
+        Page Not Found
+      </h1>
+      <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+        The requested URL was not found on this server or has been relocated within the Sutawane Classes Management Portal.
+      </p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="pt-2 flex flex-col sm:flex-row gap-3">
+      <a
+        href="/app/"
+        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition-colors"
+      >
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+        <span>Return to Dashboard</span>
+      </a>
+      <a
+        href="javascript:history.back()"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition-colors"
+      >
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>Go Back</span>
+      </a>
+    </div>
+
+    <!-- Footer Note -->
+    <div class="pt-4 border-t border-slate-800 text-[11px] text-slate-500">
+      Sutawane Classes Management Software • Official Institutional Portal
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    });
+  </script>
+</body>
+</html>

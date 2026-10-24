@@ -1,0 +1,26 @@
+# =============================================================================
+# Sutawane Classes Management Software - Docker Compose Production Setup
+# =============================================================================
+services:
+  web:
+    build: .
+    container_name: sutawane_classes_app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_DEBUG=False
+      - DJANGO_ALLOWED_HOSTS=*
+      - PORT=8000
+    volumes:
+      - sutawane_media:/app/media
+      - sutawane_data:/app/data
+      - sutawane_logs:/app/logs
+
+volumes:
+  sutawane_media:
+    driver: local
+  sutawane_data:
+    driver: local
+  sutawane_logs:
+    driver: local
