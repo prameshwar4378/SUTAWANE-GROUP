@@ -28,19 +28,20 @@ def verify_password(password: str, stored_hash: str, salt: str) -> bool:
 
 def invalidate_license_cache():
     """Invalidates the in-memory license status cache."""
-    from django.core.cache import cache
-    cache.delete('software_license_status')
+    from .cache_utils import safe_cache_delete, invalidate_namespace
+    safe_cache_delete('software_license_status')
+    invalidate_namespace('license')
 
 
 def get_license_status(force_refresh: bool = False) -> dict:
     """
     Retrieves and parses current software license activation and expiry status.
-    Uses RAM cache (60s) to eliminate repeated database queries across middleware checks.
+    Uses RAM cache with automated invalidation to eliminate repeated database queries across middleware checks.
     """
-    from django.core.cache import cache
+    from .cache_utils import safe_cache_get, safe_cache_set, TTL_LICENSE
     CACHE_KEY = 'software_license_status'
     if not force_refresh:
-        cached = cache.get(CACHE_KEY)
+        cached = safe_cache_get(CACHE_KEY)
         if cached is not None:
             return cached
 
@@ -83,7 +84,7 @@ def get_license_status(force_refresh: bool = False) -> dict:
         'developerNote': developer_note,
         'clientName': client_name,
     }
-    cache.set(CACHE_KEY, res, 60)
+    safe_cache_set(CACHE_KEY, res, TTL_LICENSE)
     return res
 
 

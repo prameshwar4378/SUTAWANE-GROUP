@@ -31,3 +31,8 @@ class MyAppConfig(AppConfig):
 
     def ready(self):
         connection_created.connect(configure_sqlite_pragmas)
+        try:
+            import MyApp.signals  # noqa: F401
+        except Exception as exc:
+            import logging
+            logging.getLogger('MyApp').error("Failed to connect cache invalidation signals: %s", exc)

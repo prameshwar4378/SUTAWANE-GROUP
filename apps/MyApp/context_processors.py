@@ -1,42 +1,50 @@
 import os
 from django.conf import settings as django_settings
-from django.core.cache import cache
 from .models import Branch, AcademicSession, SystemSetting, User
+from .cache_utils import (
+    safe_cache_get,
+    safe_cache_set,
+    safe_cache_delete,
+    build_cache_key,
+    invalidate_context_cache,
+    TTL_CONTEXT,
+)
 
 
 def get_cached_branches():
-    """Returns active branches cached in RAM for 60s."""
-    branches = cache.get('global_active_branches')
+    """Returns active branches cached with automated signal-based invalidation."""
+    cache_key = build_cache_key('context', 'active_branches')
+    branches = safe_cache_get(cache_key)
     if branches is None:
         branches = list(Branch.objects.filter(is_active=True).order_by('name'))
-        cache.set('global_active_branches', branches, 60)
+        safe_cache_set(cache_key, branches, TTL_CONTEXT)
     return branches
 
 
 def get_cached_sessions():
-    """Returns active academic sessions cached in RAM for 60s."""
-    sessions = cache.get('global_active_sessions')
+    """Returns active academic sessions cached with automated signal-based invalidation."""
+    cache_key = build_cache_key('context', 'active_sessions')
+    sessions = safe_cache_get(cache_key)
     if sessions is None:
         sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
-        cache.set('global_active_sessions', sessions, 60)
+        safe_cache_set(cache_key, sessions, TTL_CONTEXT)
     return sessions
 
 
 def get_cached_settings_dict():
-    """Returns system settings dictionary cached in RAM for 60s."""
-    s_dict = cache.get('global_system_settings_dict')
+    """Returns system settings dictionary cached with automated signal-based invalidation."""
+    cache_key = build_cache_key('context', 'system_settings_dict')
+    s_dict = safe_cache_get(cache_key)
     if s_dict is None:
         settings_qs = SystemSetting.objects.all()
         s_dict = {s.key: s.value for s in settings_qs}
-        cache.set('global_system_settings_dict', s_dict, 60)
+        safe_cache_set(cache_key, s_dict, TTL_CONTEXT)
     return s_dict
 
 
 def invalidate_global_context_cache():
-    """Immediately clears in-memory caches for branches, sessions, and system settings."""
-    cache.delete('global_active_branches')
-    cache.delete('global_active_sessions')
-    cache.delete('global_system_settings_dict')
+    """Immediately clears caches for branches, sessions, and system settings."""
+    invalidate_context_cache()
 
 
 
@@ -101,12 +109,12 @@ def global_context(request):
     # Validate file exists on disk if it points to /media/ (with fast cache)
     if active_logo_url and active_logo_url.startswith('/media/'):
         cache_key = f"logo_exists_{active_logo_url}"
-        exists_on_disk = cache.get(cache_key)
+        exists_on_disk = safe_cache_get(cache_key)
         if exists_on_disk is None:
             rel_p = active_logo_url[len('/media/'):]
             full_p = os.path.join(django_settings.MEDIA_ROOT, rel_p.replace('/', os.sep))
             exists_on_disk = os.path.exists(full_p)
-            cache.set(cache_key, exists_on_disk, 300)
+            safe_cache_set(cache_key, exists_on_disk, 600)
         if not exists_on_disk:
             active_logo_url = '/static/images/logo-master.png'
     elif not active_logo_url:

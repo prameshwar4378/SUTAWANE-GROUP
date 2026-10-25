@@ -55,6 +55,15 @@ from .backup_service import (
     create_full_backup_snapshot, execute_restore_from_file,
     list_backups, delete_backup,
 )
+from .cache_utils import (
+    safe_cache_get,
+    safe_cache_set,
+    build_cache_key,
+    TTL_DASHBOARD,
+    TTL_REPORTS,
+    TTL_SEARCH,
+    TTL_PUBLIC,
+)
 
 SYSTEM_ADMIN_ROLES = {'CLASS_OWNER', 'DEVELOPER', 'SUPER_ADMIN'}
 MONEY_QUANTUM = Decimal('0.01')
@@ -574,249 +583,263 @@ def dashboard_view(request):
     now = timezone.localtime()
     today_date = now.date()
 
-    # 3. Today's Inflows, Outflows & Net Movement
-    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    # Fail-Safe High-Performance Dashboard Metric Caching
+    dash_cache_key = build_cache_key(
+        'dashboard',
+        f"dash_{selected_branch_id}_{selected_session_id}_{today_date}"
+    )
+    metrics = safe_cache_get(dash_cache_key)
 
-    today_payments = payments_qs.filter(payment_date__range=[start_of_today, end_of_today])
-    today_collections = today_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+    if metrics is None:
+        # 3. Today's Inflows, Outflows & Net Movement
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    today_expenses_list = expenses_qs.filter(expense_date__range=[start_of_today, end_of_today])
-    today_expenses = today_expenses_list.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
-    today_net_movement = today_collections - today_expenses
+        today_payments = payments_qs.filter(payment_date__range=[start_of_today, end_of_today])
+        today_collections = today_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
 
-    # 4. Month's Inflows, Outflows & Net Movement
-    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    next_m = (now.replace(day=28) + timedelta(days=4)).replace(day=1)
-    end_of_month = (next_m - timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+        today_expenses_list = expenses_qs.filter(expense_date__range=[start_of_today, end_of_today])
+        today_expenses = today_expenses_list.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
+        today_net_movement = today_collections - today_expenses
 
-    month_payments = payments_qs.filter(payment_date__range=[start_of_month, end_of_month])
-    month_collections = month_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+        # 4. Month's Inflows, Outflows & Net Movement
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_m = (now.replace(day=28) + timedelta(days=4)).replace(day=1)
+        end_of_month = (next_m - timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    month_expenses_list = expenses_qs.filter(expense_date__range=[start_of_month, end_of_month])
-    month_expenses = month_expenses_list.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
-    month_net_movement = month_collections - month_expenses
+        month_payments = payments_qs.filter(payment_date__range=[start_of_month, end_of_month])
+        month_collections = month_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
 
-    # 5. Session Cumulative Macro Metrics
-    active_students_count = admissions_qs.count()
-    total_expected_fees = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
-    # Fee-plan collection metrics must exclude payments made against carried-forward
-    # previous-session dues. Those receipts are cash movement, but not current
-    # admission fee collections.
-    current_fee_payments_qs = payments_qs.filter(
-        admission__isnull=False,
-        admission__session_id=active_session.id if active_session and not is_all_sessions else None,
-    ) if active_session and not is_all_sessions else payments_qs.filter(admission__isnull=False)
-    total_collected_fees = current_fee_payments_qs.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
-    total_pending_fees = max(MONEY_ZERO, total_expected_fees - total_collected_fees)
+        month_expenses_list = expenses_qs.filter(expense_date__range=[start_of_month, end_of_month])
+        month_expenses = month_expenses_list.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
+        month_net_movement = month_collections - month_expenses
 
-    # 6. Installments Due Today & Overdue Dues
-    due_today_count = 0
-    due_today_amount = MONEY_ZERO
-    overdue_count = 0
-    overdue_amount = MONEY_ZERO
+        # 5. Session Cumulative Macro Metrics
+        active_students_count = admissions_qs.count()
+        total_expected_fees = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+        # Fee-plan collection metrics must exclude payments made against carried-forward
+        # previous-session dues. Those receipts are cash movement, but not current
+        # admission fee collections.
+        current_fee_payments_qs = payments_qs.filter(
+            admission__isnull=False,
+            admission__session_id=active_session.id if active_session and not is_all_sessions else None,
+        ) if active_session and not is_all_sessions else payments_qs.filter(admission__isnull=False)
+        total_collected_fees = current_fee_payments_qs.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+        total_pending_fees = max(MONEY_ZERO, total_expected_fees - total_collected_fees)
 
-    installments = Installment.objects.filter(
-        fee_plan__admission__in=admissions_qs
-    ).select_related('fee_plan').prefetch_related('allocations__payment')
+        # 6. Installments Due Today & Overdue Dues
+        due_today_count = 0
+        due_today_amount = MONEY_ZERO
+        overdue_count = 0
+        overdue_amount = MONEY_ZERO
 
-    for inst in installments:
-        paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
-        bal = max(MONEY_ZERO, inst.amount_due - paid)
-        if bal > 0 and inst.due_date:
-            inst_date = timezone.localtime(inst.due_date).date()
-            if inst_date == today_date:
-                due_today_count += 1
-                due_today_amount += bal
-            elif inst_date < today_date:
-                overdue_count += 1
-                overdue_amount += bal
+        installments = Installment.objects.filter(
+            fee_plan__admission__in=admissions_qs
+        ).select_related('fee_plan').prefetch_related('allocations__payment')
 
-    # 7. Monthly Financial Trend (Past 6 Months)
-    monthly_trend = []
-    max_trend_val = 1.0
+        for inst in installments:
+            paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
+            bal = max(MONEY_ZERO, inst.amount_due - paid)
+            if bal > 0 and inst.due_date:
+                inst_date = timezone.localtime(inst.due_date).date()
+                if inst_date == today_date:
+                    due_today_count += 1
+                    due_today_amount += bal
+                elif inst_date < today_date:
+                    overdue_count += 1
+                    overdue_amount += bal
 
-    for i in range(5, -1, -1):
-        year = now.year
-        month = now.month - i
-        while month <= 0:
-            month += 12
-            year -= 1
+        # 7. Monthly Financial Trend (Past 6 Months)
+        monthly_trend = []
+        max_trend_val = 1.0
 
-        m_start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
-        if month == 12:
-            next_month_start = timezone.make_aware(datetime(year + 1, 1, 1, 0, 0, 0))
-        else:
-            next_month_start = timezone.make_aware(datetime(year, month + 1, 1, 0, 0, 0))
-        m_end = next_month_start - timedelta(microseconds=1)
+        for i in range(5, -1, -1):
+            year = now.year
+            month = now.month - i
+            while month <= 0:
+                month += 12
+                year -= 1
 
-        m_label = m_start.strftime('%b %y')
+            m_start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
+            if month == 12:
+                next_month_start = timezone.make_aware(datetime(year + 1, 1, 1, 0, 0, 0))
+            else:
+                next_month_start = timezone.make_aware(datetime(year, month + 1, 1, 0, 0, 0))
+            m_end = next_month_start - timedelta(microseconds=1)
 
-        m_coll_filter = Payment.objects.filter(is_reversed=False, payment_date__range=[m_start, m_end])
-        m_exp_filter = Expense.objects.filter(expense_date__range=[m_start, m_end])
+            m_label = m_start.strftime('%b %y')
 
-        if not is_all_branches:
-            m_coll_filter = m_coll_filter.filter(branch_id=selected_branch_id)
-            m_exp_filter = m_exp_filter.filter(branch_id=selected_branch_id)
+            m_coll_filter = Payment.objects.filter(is_reversed=False, payment_date__range=[m_start, m_end])
+            m_exp_filter = Expense.objects.filter(expense_date__range=[m_start, m_end])
 
-        if not is_all_sessions and active_session:
-            m_coll_filter = m_coll_filter.filter(session_id=active_session.id)
+            if not is_all_branches:
+                m_coll_filter = m_coll_filter.filter(branch_id=selected_branch_id)
+                m_exp_filter = m_exp_filter.filter(branch_id=selected_branch_id)
 
-        m_coll = m_coll_filter.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
-        m_exp = m_exp_filter.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
-        max_trend_val = max(float(max_trend_val), float(m_coll), float(m_exp))
-
-        monthly_trend.append({
-            'month': m_label,
-            'month_short': m_start.strftime('%b'),
-            'month_full': m_start.strftime('%B %Y'),
-            'collections': float(m_coll),
-            'expenses': float(m_exp),
-            'net': float(m_coll - m_exp),
-        })
-
-    trend_total_collections = sum(m['collections'] for m in monthly_trend)
-    trend_total_expenses = sum(m['expenses'] for m in monthly_trend)
-    trend_net_movement = trend_total_collections - trend_total_expenses
-    trend_has_data = (trend_total_collections > 0 or trend_total_expenses > 0)
-
-    # Normalized percentages for responsive SVG/CSS chart
-    max_trend_float = float(max_trend_val) if max_trend_val else 1.0
-    for mt in monthly_trend:
-        mt['coll_pct'] = round((mt['collections'] / max_trend_float) * 85, 1) if max_trend_float > 0 else 0
-        mt['exp_pct'] = round((mt['expenses'] / max_trend_float) * 85, 1) if max_trend_float > 0 else 0
-
-    # 8. Live Recent Transactions Feed (Latest 10 Actions)
-    recent_payments = Payment.objects.select_related('student', 'branch').all()
-    recent_expenses = Expense.objects.select_related('category', 'branch').all()
-
-    if not is_all_branches:
-        recent_payments = recent_payments.filter(branch_id=selected_branch_id)
-        recent_expenses = recent_expenses.filter(branch_id=selected_branch_id)
-
-    if not is_all_sessions and active_session:
-        recent_payments = recent_payments.filter(session_id=active_session.id)
-
-    recent_payments = recent_payments.order_by('-created_at')[:15]
-    recent_expenses = recent_expenses.order_by('-created_at')[:15]
-
-    merged_activity = []
-    for p in recent_payments:
-        act_dt = p.reversed_at if (p.is_reversed and p.reversed_at) else (p.created_at or p.payment_date)
-        merged_activity.append({
-            'id': p.id,
-            'type': 'FEE_REVERSAL' if p.is_reversed else 'FEE_COLLECTION',
-            'title': f"Fee Reversed: {p.student.full_name}" if p.is_reversed else f"Fee: {p.student.full_name}",
-            'subtitle': f"Receipt: {p.receipt_number} ({p.payment_mode}) • {p.reversal_reason}" if p.is_reversed else f"Receipt: {p.receipt_number} ({p.payment_mode})",
-            'amount': p.total_amount,
-            'timestamp': act_dt,
-            'time_display': format_relative_activity_time(act_dt),
-            'branch_name': p.branch.name if p.branch else 'Main Center',
-            'payment_mode': p.payment_mode,
-            'student_id': p.student_id,
-            'is_income': not p.is_reversed,
-            'is_reversed': p.is_reversed,
-        })
-
-    for e in recent_expenses:
-        act_dt = e.created_at or e.expense_date
-        merged_activity.append({
-            'id': e.id,
-            'type': 'EXPENSE',
-            'title': f"Expense: {e.description}",
-            'subtitle': f"Category: {e.category.name if e.category else 'General'} ({e.payment_mode}{(' • ' + e.vendor) if e.vendor else ''})",
-            'amount': e.amount,
-            'timestamp': act_dt,
-            'time_display': format_relative_activity_time(act_dt),
-            'branch_name': e.branch.name if e.branch else 'Main Center',
-            'payment_mode': e.payment_mode,
-            'student_id': None,
-            'is_income': False,
-            'is_reversed': False,
-        })
-
-    merged_activity.sort(key=lambda x: x['timestamp'] or timezone.now(), reverse=True)
-    recent_transactions = merged_activity[:10]
-
-    # 9. Multi-Branch Consolidated Performance Comparison
-    branch_comparison = []
-    if is_all_branches:
-        active_branches = Branch.objects.filter(is_active=True).order_by('name')
-        for b in active_branches:
-            b_adms = StudentAdmission.objects.filter(branch=b, is_active=True)
             if not is_all_sessions and active_session:
-                b_adms = b_adms.filter(session=active_session)
-            b_expected = FeePlan.objects.filter(admission__in=b_adms).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+                m_coll_filter = m_coll_filter.filter(session_id=active_session.id)
 
-            b_payments = Payment.objects.filter(branch=b, is_reversed=False)
-            if not is_all_sessions and active_session:
-                b_payments = b_payments.filter(session=active_session)
-            b_collections = b_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+            m_coll = m_coll_filter.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+            m_exp = m_exp_filter.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
+            max_trend_val = max(float(max_trend_val), float(m_coll), float(m_exp))
 
-            b_expenses_q = Expense.objects.filter(branch=b)
-            if not is_all_sessions and active_session and active_session.start_date and active_session.end_date:
-                b_expenses_q = b_expenses_q.filter(expense_date__range=[active_session.start_date, active_session.end_date])
-            b_expenses = b_expenses_q.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
-
-            branch_comparison.append({
-                'branch_id': b.id,
-                'branch_name': b.name,
-                'branch_code': b.code,
-                'active_students': b_adms.count(),
-                'total_collections': b_collections,
-                'total_expenses': b_expenses,
-                'net_movement': b_collections - b_expenses,
-                'pending_dues': max(MONEY_ZERO, b_expected - b_collections),
+            monthly_trend.append({
+                'month': m_label,
+                'month_short': m_start.strftime('%b'),
+                'month_full': m_start.strftime('%B %Y'),
+                'collections': float(m_coll),
+                'expenses': float(m_exp),
+                'net': float(m_coll - m_exp),
             })
 
+        trend_total_collections = sum(m['collections'] for m in monthly_trend)
+        trend_total_expenses = sum(m['expenses'] for m in monthly_trend)
+        trend_net_movement = trend_total_collections - trend_total_expenses
+        trend_has_data = (trend_total_collections > 0 or trend_total_expenses > 0)
+
+        # Normalized percentages for responsive SVG/CSS chart
+        max_trend_float = float(max_trend_val) if max_trend_val else 1.0
+        for mt in monthly_trend:
+            mt['coll_pct'] = round((mt['collections'] / max_trend_float) * 85, 1) if max_trend_float > 0 else 0
+            mt['exp_pct'] = round((mt['expenses'] / max_trend_float) * 85, 1) if max_trend_float > 0 else 0
+
+        # 8. Live Recent Transactions Feed (Latest 10 Actions)
+        recent_payments = Payment.objects.select_related('student', 'branch').all()
+        recent_expenses = Expense.objects.select_related('category', 'branch').all()
+
+        if not is_all_branches:
+            recent_payments = recent_payments.filter(branch_id=selected_branch_id)
+            recent_expenses = recent_expenses.filter(branch_id=selected_branch_id)
+
+        if not is_all_sessions and active_session:
+            recent_payments = recent_payments.filter(session_id=active_session.id)
+
+        recent_payments = recent_payments.order_by('-created_at')[:15]
+        recent_expenses = recent_expenses.order_by('-created_at')[:15]
+
+        merged_activity = []
+        for p in recent_payments:
+            act_dt = p.reversed_at if (p.is_reversed and p.reversed_at) else (p.created_at or p.payment_date)
+            merged_activity.append({
+                'id': p.id,
+                'type': 'FEE_REVERSAL' if p.is_reversed else 'FEE_COLLECTION',
+                'title': f"Fee Reversed: {p.student.full_name}" if p.is_reversed else f"Fee: {p.student.full_name}",
+                'subtitle': f"Receipt: {p.receipt_number} ({p.payment_mode}) • {p.reversal_reason}" if p.is_reversed else f"Receipt: {p.receipt_number} ({p.payment_mode})",
+                'amount': p.total_amount,
+                'timestamp': act_dt,
+                'time_display': format_relative_activity_time(act_dt),
+                'branch_name': p.branch.name if p.branch else 'Main Center',
+                'payment_mode': p.payment_mode,
+                'student_id': p.student_id,
+                'is_income': not p.is_reversed,
+                'is_reversed': p.is_reversed,
+            })
+
+        for e in recent_expenses:
+            act_dt = e.created_at or e.expense_date
+            merged_activity.append({
+                'id': e.id,
+                'type': 'EXPENSE',
+                'title': f"Expense: {e.description}",
+                'subtitle': f"Category: {e.category.name if e.category else 'General'} ({e.payment_mode}{(' • ' + e.vendor) if e.vendor else ''})",
+                'amount': e.amount,
+                'timestamp': act_dt,
+                'time_display': format_relative_activity_time(act_dt),
+                'branch_name': e.branch.name if e.branch else 'Main Center',
+                'payment_mode': e.payment_mode,
+                'student_id': None,
+                'is_income': False,
+                'is_reversed': False,
+            })
+
+        merged_activity.sort(key=lambda x: x['timestamp'] or timezone.now(), reverse=True)
+        recent_transactions = merged_activity[:10]
+
+        # 9. Multi-Branch Consolidated Performance Comparison
+        branch_comparison = []
+        if is_all_branches:
+            active_branches = Branch.objects.filter(is_active=True).order_by('name')
+            for b in active_branches:
+                b_adms = StudentAdmission.objects.filter(branch=b, is_active=True)
+                if not is_all_sessions and active_session:
+                    b_adms = b_adms.filter(session=active_session)
+                b_expected = FeePlan.objects.filter(admission__in=b_adms).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+
+                b_payments = Payment.objects.filter(branch=b, is_reversed=False)
+                if not is_all_sessions and active_session:
+                    b_payments = b_payments.filter(session=active_session)
+                b_collections = b_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+
+                b_expenses_q = Expense.objects.filter(branch=b)
+                if not is_all_sessions and active_session and active_session.start_date and active_session.end_date:
+                    b_expenses_q = b_expenses_q.filter(expense_date__range=[active_session.start_date, active_session.end_date])
+                b_expenses = b_expenses_q.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
+
+                branch_comparison.append({
+                    'branch_id': b.id,
+                    'branch_name': b.name,
+                    'branch_code': b.code,
+                    'active_students': b_adms.count(),
+                    'total_collections': b_collections,
+                    'total_expenses': b_expenses,
+                    'net_movement': b_collections - b_expenses,
+                    'pending_dues': max(MONEY_ZERO, b_expected - b_collections),
+                })
+
+        total_expenses_all = expenses_qs.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
+
+        metrics = {
+            'today': {
+                'collections': today_collections,
+                'expenses': today_expenses,
+                'net_movement': today_net_movement,
+                'transaction_count': today_payments.count() + today_expenses_list.count(),
+            },
+            'month': {
+                'collections': month_collections,
+                'expenses': month_expenses,
+                'net_movement': month_net_movement,
+            },
+            'session_stats': {
+                'active_students_count': active_students_count,
+                'total_expected_fees': total_expected_fees,
+                'total_collected_fees': total_collected_fees,
+                'total_pending_fees': total_pending_fees,
+            },
+            'dues': {
+                'due_today_count': due_today_count,
+                'due_today_amount': due_today_amount,
+                'overdue_count': overdue_count,
+                'overdue_amount': overdue_amount,
+            },
+            'monthly_trend': monthly_trend,
+            'trend_summary': {
+                'total_collections': trend_total_collections,
+                'total_expenses': trend_total_expenses,
+                'net_movement': trend_net_movement,
+                'has_data': trend_has_data,
+            },
+            'recent_transactions': recent_transactions,
+            'branch_comparison': branch_comparison,
+            'total_students': active_students_count,
+            'total_collections': total_collected_fees,
+            'total_expenses': total_expenses_all,
+            'total_dues': total_pending_fees,
+        }
+        safe_cache_set(dash_cache_key, metrics, TTL_DASHBOARD)
+
     context = {
-        'today': {
-            'collections': today_collections,
-            'expenses': today_expenses,
-            'net_movement': today_net_movement,
-            'transaction_count': today_payments.count() + today_expenses_list.count(),
-        },
-        'month': {
-            'collections': month_collections,
-            'expenses': month_expenses,
-            'net_movement': month_net_movement,
-        },
-        'session_stats': {
-            'active_students_count': active_students_count,
-            'total_expected_fees': total_expected_fees,
-            'total_collected_fees': total_collected_fees,
-            'total_pending_fees': total_pending_fees,
-        },
-        'dues': {
-            'due_today_count': due_today_count,
-            'due_today_amount': due_today_amount,
-            'overdue_count': overdue_count,
-            'overdue_amount': overdue_amount,
-        },
-        'monthly_trend': monthly_trend,
-        'trend_summary': {
-            'total_collections': trend_total_collections,
-            'total_expenses': trend_total_expenses,
-            'net_movement': trend_net_movement,
-            'has_data': trend_has_data,
-        },
-        'recent_transactions': recent_transactions,
-        'branch_comparison': branch_comparison,
+        **metrics,
         'selected_branch': active_branch,
         'selected_session': active_session,
         'is_all_branches': is_all_branches,
         'is_all_sessions': is_all_sessions,
-        # Legacy backwards compatibility
-        'total_students': active_students_count,
-        'total_collections': total_collected_fees,
-        'total_expenses': sum(e.amount for e in expenses_qs),
-        'total_dues': total_pending_fees,
     }
 
     if request.GET.get('format') == 'json':
         # Serialize datetime objects for JSON
         serialized_recent = []
-        for t in recent_transactions:
+        for t in metrics['recent_transactions']:
             tc = dict(t)
             if 'timestamp' in tc and isinstance(tc['timestamp'], (datetime, timezone.datetime)):
                 tc['timestamp'] = tc['timestamp'].isoformat()
@@ -824,38 +847,38 @@ def dashboard_view(request):
 
         return JsonResponse({
             'today': {
-                'collections': today_collections,
-                'expenses': today_expenses,
-                'netMovement': today_net_movement,
-                'net_movement': today_net_movement,
-                'transactionCount': today_payments.count() + today_expenses_list.count(),
+                'collections': metrics['today']['collections'],
+                'expenses': metrics['today']['expenses'],
+                'netMovement': metrics['today']['net_movement'],
+                'net_movement': metrics['today']['net_movement'],
+                'transactionCount': metrics['today']['transaction_count'],
             },
             'month': {
-                'collections': month_collections,
-                'expenses': month_expenses,
-                'netMovement': month_net_movement,
-                'net_movement': month_net_movement,
+                'collections': metrics['month']['collections'],
+                'expenses': metrics['month']['expenses'],
+                'netMovement': metrics['month']['net_movement'],
+                'net_movement': metrics['month']['net_movement'],
             },
             'session': {
-                'activeStudentsCount': active_students_count,
-                'totalExpectedFees': total_expected_fees,
-                'totalCollectedFees': total_collected_fees,
-                'totalPendingFees': total_pending_fees,
+                'activeStudentsCount': metrics['session_stats']['active_students_count'],
+                'totalExpectedFees': metrics['session_stats']['total_expected_fees'],
+                'totalCollectedFees': metrics['session_stats']['total_collected_fees'],
+                'totalPendingFees': metrics['session_stats']['total_pending_fees'],
             },
             'dues': {
-                'dueTodayCount': due_today_count,
-                'dueTodayAmount': due_today_amount,
-                'overdueCount': overdue_count,
-                'overdueAmount': overdue_amount,
+                'dueTodayCount': metrics['dues']['due_today_count'],
+                'dueTodayAmount': metrics['dues']['due_today_amount'],
+                'overdueCount': metrics['dues']['overdue_count'],
+                'overdueAmount': metrics['dues']['overdue_amount'],
             },
-            'monthlyTrend': monthly_trend,
+            'monthlyTrend': metrics['monthly_trend'],
             'trendSummary': {
-                'totalCollections': trend_total_collections,
-                'totalExpenses': trend_total_expenses,
-                'netMovement': trend_net_movement,
-                'hasData': trend_has_data,
+                'totalCollections': metrics['trend_summary']['total_collections'],
+                'totalExpenses': metrics['trend_summary']['total_expenses'],
+                'netMovement': metrics['trend_summary']['net_movement'],
+                'hasData': metrics['trend_summary']['has_data'],
             },
-            'branchComparison': branch_comparison,
+            'branchComparison': metrics['branch_comparison'],
             'recentTransactions': serialized_recent,
         })
 
@@ -895,6 +918,11 @@ def quick_search_api_view(request):
 
     branch_id, session_id, active_branch, active_session = get_active_scope(request)
 
+    search_cache_key = build_cache_key('search', f"qs_{branch_id}_{session_id}_{q.lower()}")
+    cached_results = safe_cache_get(search_cache_key)
+    if cached_results is not None:
+        return JsonResponse(cached_results, safe=False)
+
     admissions = StudentAdmission.objects.filter(is_active=True).select_related('student', 'branch', 'session')
 
     if branch_id and branch_id != 'ALL':
@@ -932,6 +960,7 @@ def quick_search_api_view(request):
             'pending_fees': pending,
         })
 
+    safe_cache_set(search_cache_key, results, TTL_SEARCH)
     return JsonResponse(results, safe=False)
 
 
@@ -4374,16 +4403,21 @@ def financial_reports_view(request):
 
     # 1. SESSION AUDIT DATA
     if active_tab == 'SESSION_AUDIT':
-        active_admissions = []
-        archived_admissions = []
-        total_fees_agreed = MONEY_ZERO
-        total_collections = MONEY_ZERO
-        total_pending_dues = MONEY_ZERO
-        collection_efficiency = 0.0
-        total_expenses = MONEY_ZERO
-        net_surplus = MONEY_ZERO
-        is_surplus = True
-        branch_breakdown = []
+        audit_cache_key = build_cache_key('reports', f"audit_{selected_branch_id}_{selected_session_id}")
+        cached_audit = safe_cache_get(audit_cache_key)
+        if cached_audit is not None:
+            session_audit_data = cached_audit
+        else:
+            active_admissions = []
+            archived_admissions = []
+            total_fees_agreed = MONEY_ZERO
+            total_collections = MONEY_ZERO
+            total_pending_dues = MONEY_ZERO
+            collection_efficiency = 0.0
+            total_expenses = MONEY_ZERO
+            net_surplus = MONEY_ZERO
+            is_surplus = True
+            branch_breakdown = []
         standard_breakdown = []
         monthly_trend = []
         trend_totals = {
@@ -4605,6 +4639,7 @@ def financial_reports_view(request):
             'monthlyTrend': monthly_trend,
             'monthlyTrendTotals': trend_totals,
         }
+        safe_cache_set(audit_cache_key, session_audit_data, TTL_REPORTS)
     else:
         session_audit_data = {
             'session': {
@@ -4629,55 +4664,61 @@ def financial_reports_view(request):
 
     # 2. PAYMENT MODES DATA
     if active_tab == 'PAYMENT_MODES':
-        p_modes_qs = Payment.objects.filter(is_reversed=False, admission__isnull=False)
-        if selected_branch_id != 'ALL':
-            p_modes_qs = p_modes_qs.filter(branch_id=selected_branch_id)
-        if selected_session_id != 'ALL':
-            p_modes_qs = p_modes_qs.filter(session_id=selected_session_id)
+        pay_modes_cache_key = build_cache_key('reports', f"pay_modes_{selected_branch_id}_{selected_session_id}")
+        cached_modes = safe_cache_get(pay_modes_cache_key)
+        if cached_modes is not None:
+            payment_modes_data = cached_modes
+        else:
+            p_modes_qs = Payment.objects.filter(is_reversed=False, admission__isnull=False)
+            if selected_branch_id != 'ALL':
+                p_modes_qs = p_modes_qs.filter(branch_id=selected_branch_id)
+            if selected_session_id != 'ALL':
+                p_modes_qs = p_modes_qs.filter(session_id=selected_session_id)
 
-        mode_map = {
-            'CASH': {'amount': MONEY_ZERO, 'count': 0},
-            'UPI': {'amount': MONEY_ZERO, 'count': 0},
-            'BANK_TRANSFER': {'amount': MONEY_ZERO, 'count': 0},
-            'CHEQUE': {'amount': MONEY_ZERO, 'count': 0},
-            'OTHER': {'amount': MONEY_ZERO, 'count': 0},
-        }
-        tot_col_modes = MONEY_ZERO
-        tot_txns_modes = 0
+            mode_map = {
+                'CASH': {'amount': MONEY_ZERO, 'count': 0},
+                'UPI': {'amount': MONEY_ZERO, 'count': 0},
+                'BANK_TRANSFER': {'amount': MONEY_ZERO, 'count': 0},
+                'CHEQUE': {'amount': MONEY_ZERO, 'count': 0},
+                'OTHER': {'amount': MONEY_ZERO, 'count': 0},
+            }
+            tot_col_modes = MONEY_ZERO
+            tot_txns_modes = 0
 
-        mode_aggs = p_modes_qs.values('payment_mode').annotate(
-            total_amt=Sum('total_amount'),
-            txn_count=Count('id')
-        )
-        for row in mode_aggs:
-            m_key = (row['payment_mode'] or 'OTHER').upper()
-            amt = row['total_amt'] or MONEY_ZERO
-            cnt = row['txn_count'] or 0
-            if m_key not in mode_map:
-                mode_map[m_key] = {'amount': MONEY_ZERO, 'count': 0}
-            mode_map[m_key]['amount'] += amt
-            mode_map[m_key]['count'] += cnt
-            tot_col_modes += amt
-            tot_txns_modes += cnt
+            mode_aggs = p_modes_qs.values('payment_mode').annotate(
+                total_amt=Sum('total_amount'),
+                txn_count=Count('id')
+            )
+            for row in mode_aggs:
+                m_key = (row['payment_mode'] or 'OTHER').upper()
+                amt = row['total_amt'] or MONEY_ZERO
+                cnt = row['txn_count'] or 0
+                if m_key not in mode_map:
+                    mode_map[m_key] = {'amount': MONEY_ZERO, 'count': 0}
+                mode_map[m_key]['amount'] += amt
+                mode_map[m_key]['count'] += cnt
+                tot_col_modes += amt
+                tot_txns_modes += cnt
 
-        modes_list = []
-        for m_key, m_info in mode_map.items():
-            pct = round((float(m_info['amount']) / float(tot_col_modes) * 100), 1) if tot_col_modes and float(tot_col_modes) > 0 else 0.0
-            avg = round(float(m_info['amount']) / m_info['count'], 2) if m_info['count'] > 0 else 0.0
-            modes_list.append({
-                'mode': m_key,
-                'label': m_key.replace('_', ' '),
-                'amount': m_info['amount'],
-                'count': m_info['count'],
-                'average': avg,
-                'percentage': pct,
-            })
-        modes_list.sort(key=lambda x: x['amount'], reverse=True)
-        payment_modes_data = {
-            'totalCollected': tot_col_modes,
-            'totalTransactions': tot_txns_modes,
-            'modes': modes_list,
-        }
+            modes_list = []
+            for m_key, m_info in mode_map.items():
+                pct = round((float(m_info['amount']) / float(tot_col_modes) * 100), 1) if tot_col_modes and float(tot_col_modes) > 0 else 0.0
+                avg = round(float(m_info['amount']) / m_info['count'], 2) if m_info['count'] > 0 else 0.0
+                modes_list.append({
+                    'mode': m_key,
+                    'label': m_key.replace('_', ' '),
+                    'amount': m_info['amount'],
+                    'count': m_info['count'],
+                    'average': avg,
+                    'percentage': pct,
+                })
+            modes_list.sort(key=lambda x: x['amount'], reverse=True)
+            payment_modes_data = {
+                'totalCollected': tot_col_modes,
+                'totalTransactions': tot_txns_modes,
+                'modes': modes_list,
+            }
+            safe_cache_set(pay_modes_cache_key, payment_modes_data, TTL_REPORTS)
     else:
         payment_modes_data = {
             'totalCollected': MONEY_ZERO,
@@ -4687,49 +4728,55 @@ def financial_reports_view(request):
 
     # 3. EXPENSE CATEGORIES DATA
     if active_tab == 'EXPENSE_CATEGORIES':
-        e_cats_qs = Expense.objects.all()
-        if selected_branch_id != 'ALL':
-            e_cats_qs = e_cats_qs.filter(branch_id=selected_branch_id)
-        if selected_session_id != 'ALL' and target_session:
-            e_cats_qs = e_cats_qs.filter(expense_date__gte=target_session.start_date, expense_date__lte=target_session.end_date)
+        exp_cats_cache_key = build_cache_key('reports', f"exp_cats_{selected_branch_id}_{selected_session_id}")
+        cached_cats = safe_cache_get(exp_cats_cache_key)
+        if cached_cats is not None:
+            expense_categories_data = cached_cats
+        else:
+            e_cats_qs = Expense.objects.all()
+            if selected_branch_id != 'ALL':
+                e_cats_qs = e_cats_qs.filter(branch_id=selected_branch_id)
+            if selected_session_id != 'ALL' and target_session:
+                e_cats_qs = e_cats_qs.filter(expense_date__gte=target_session.start_date, expense_date__lte=target_session.end_date)
 
-        cat_aggs = e_cats_qs.values('category_id', 'category__name').annotate(
-            total_amt=Sum('amount'),
-            voucher_count=Count('id')
-        )
-        cat_map = {}
-        tot_exp_cats = MONEY_ZERO
-        tot_vouchers_cats = 0
-        for row in cat_aggs:
-            c_id = row['category_id'] or 'uncategorized'
-            c_name = row['category__name'] or 'General Operations'
-            amt = row['total_amt'] or MONEY_ZERO
-            cnt = row['voucher_count'] or 0
-            if c_id not in cat_map:
-                cat_map[c_id] = {'categoryId': c_id, 'categoryName': c_name, 'amount': MONEY_ZERO, 'count': 0}
-            cat_map[c_id]['amount'] += amt
-            cat_map[c_id]['count'] += cnt
-            tot_exp_cats += amt
-            tot_vouchers_cats += cnt
+            cat_aggs = e_cats_qs.values('category_id', 'category__name').annotate(
+                total_amt=Sum('amount'),
+                voucher_count=Count('id')
+            )
+            cat_map = {}
+            tot_exp_cats = MONEY_ZERO
+            tot_vouchers_cats = 0
+            for row in cat_aggs:
+                c_id = row['category_id'] or 'uncategorized'
+                c_name = row['category__name'] or 'General Operations'
+                amt = row['total_amt'] or MONEY_ZERO
+                cnt = row['voucher_count'] or 0
+                if c_id not in cat_map:
+                    cat_map[c_id] = {'categoryId': c_id, 'categoryName': c_name, 'amount': MONEY_ZERO, 'count': 0}
+                cat_map[c_id]['amount'] += amt
+                cat_map[c_id]['count'] += cnt
+                tot_exp_cats += amt
+                tot_vouchers_cats += cnt
 
-        categories_list = []
-        for c_id, c_info in cat_map.items():
-            pct = round((float(c_info['amount']) / float(tot_exp_cats) * 100), 1) if tot_exp_cats and float(tot_exp_cats) > 0 else 0.0
-            avg = round(float(c_info['amount']) / c_info['count'], 2) if c_info['count'] > 0 else 0.0
-            categories_list.append({
-                'categoryId': c_id,
-                'categoryName': c_info['categoryName'],
-                'amount': c_info['amount'],
-                'count': c_info['count'],
-                'average': avg,
-                'percentage': pct,
-            })
-        categories_list.sort(key=lambda x: x['amount'], reverse=True)
-        expense_categories_data = {
-            'totalExpenses': tot_exp_cats,
-            'totalVouchers': tot_vouchers_cats,
-            'categories': categories_list,
-        }
+            categories_list = []
+            for c_id, c_info in cat_map.items():
+                pct = round((float(c_info['amount']) / float(tot_exp_cats) * 100), 1) if tot_exp_cats and float(tot_exp_cats) > 0 else 0.0
+                avg = round(float(c_info['amount']) / c_info['count'], 2) if c_info['count'] > 0 else 0.0
+                categories_list.append({
+                    'categoryId': c_id,
+                    'categoryName': c_info['categoryName'],
+                    'amount': c_info['amount'],
+                    'count': c_info['count'],
+                    'average': avg,
+                    'percentage': pct,
+                })
+            categories_list.sort(key=lambda x: x['amount'], reverse=True)
+            expense_categories_data = {
+                'totalExpenses': tot_exp_cats,
+                'totalVouchers': tot_vouchers_cats,
+                'categories': categories_list,
+            }
+            safe_cache_set(exp_cats_cache_key, expense_categories_data, TTL_REPORTS)
     else:
         expense_categories_data = {
             'totalExpenses': MONEY_ZERO,

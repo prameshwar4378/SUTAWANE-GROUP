@@ -68,16 +68,57 @@ MIDDLEWARE = [
     'MyApp.middleware.SoftwareLicenseAndAuthMiddleware',
 ]
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'sutawane-classes-cache',
-        'TIMEOUT': 120,
-        'OPTIONS': {
-            'MAX_ENTRIES': 2000,
+# -----------------------------------------------------------------------------
+# Production Caching Architecture (Redis / File-Based / LocMem)
+# -----------------------------------------------------------------------------
+# Supports Redis (REDIS_URL or CACHE_URL), FileBasedCache, or high-capacity LocMemCache.
+REDIS_URL = os.getenv('REDIS_URL') or os.getenv('CACHE_URL')
+CACHE_BACKEND_CHOICE = os.getenv('DJANGO_CACHE_BACKEND', '').lower()
+
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'TIMEOUT': 300,
+            'KEY_PREFIX': 'sutawane',
+            'OPTIONS': {
+                'socket_connect_timeout': 3,
+                'socket_timeout': 3,
+            }
         }
     }
-}
+elif CACHE_BACKEND_CHOICE == 'filebased':
+    CACHE_DIR = BASE_DIR / 'cache_storage'
+    try:
+        CACHE_DIR.mkdir(exist_ok=True)
+    except Exception:
+        pass
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': str(CACHE_DIR),
+            'TIMEOUT': 300,
+            'KEY_PREFIX': 'sutawane',
+            'OPTIONS': {
+                'MAX_ENTRIES': 10000,
+                'CULL_FREQUENCY': 3,
+            }
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'sutawane-classes-cache',
+            'TIMEOUT': 300,
+            'KEY_PREFIX': 'sutawane',
+            'OPTIONS': {
+                'MAX_ENTRIES': 5000,
+                'CULL_FREQUENCY': 3,
+            }
+        }
+    }
 
 ROOT_URLCONF = 'SUTAWANE_EDUCATION.urls'
 
