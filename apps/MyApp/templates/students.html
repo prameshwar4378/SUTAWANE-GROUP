@@ -481,6 +481,7 @@
                   </a>
 
                   <!-- WhatsApp Fee Reminder -->
+                  {% if whatsapp_show_manual_buttons %}
                   <button
                     type="button"
                     onclick="sendWhatsAppReminder('{{ item.student.parent_phone }}', '{{ item.student.full_name|escapejs }}', '{{ item.student.student_code|escapejs }}', '{{ item.admission.roll_number|escapejs }}', '{{ item.admission.standard|escapejs }}', {{ item.pending_fees }}, {{ item.previous_dues }}, {{ item.overall_pending }}, '{{ item.admission.branch.name|escapejs }}', '{{ item.admission.session.name|escapejs }}')"
@@ -489,6 +490,7 @@
                   >
                     <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
                   </button>
+                  {% endif %}
 
                   <!-- Toggle Archive Form -->
                   <form method="POST" action="{% url 'students_list' %}" class="inline">

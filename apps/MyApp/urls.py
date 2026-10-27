@@ -56,5 +56,6 @@ urlpatterns = [
     path('settings/', views.settings_manage_view, name='settings_manage'),
     path('api/settings/', views.api_settings_view, name='api_settings'),
     path('api/settings/logo/', views.api_settings_logo_view, name='api_settings_logo'),
+    path('api/settings/whatsapp-status/', views.api_whatsapp_status_view, name='api_whatsapp_status'),
     path('developer-portal/', views.developer_portal_view, name='developer_portal'),
 ]

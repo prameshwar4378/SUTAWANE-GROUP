@@ -53,6 +53,7 @@
     <!-- Action Buttons Cluster -->
     <div class="flex flex-wrap items-center gap-2">
       <!-- WhatsApp Alert Button -->
+      {% if whatsapp_show_manual_buttons %}
       <button
         type="button"
         onclick="sendWhatsAppReminder('{{ student.parent_phone }}', '{{ student.full_name|escapejs }}', '{{ student.student_code|escapejs }}', '{{ current_admission.roll_number|default:''|escapejs }}', '{{ current_admission.standard|default:''|escapejs }}', {{ fee_summary.session_pending }}, {{ fee_summary.previous_dues_pending }}, {{ fee_summary.overall_pending }}, '{{ current_admission.branch.name|default:''|escapejs }}', '{{ current_admission.session.name|default:''|escapejs }}')"
@@ -62,6 +63,7 @@
         <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
         <span>WhatsApp Alert</span>
       </button>
+      {% endif %}
 
       <!-- Collect Fee Button -->
       <button
@@ -80,11 +82,12 @@
           type="button"
           onclick="toggleStatementDropdown(event)"
           class="inline-flex items-center justify-center rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white h-8 px-3 gap-1.5 transition-colors cursor-pointer shadow-2xs"
+          style="background-color: #4f46e5 !important; color: #ffffff !important;"
           title="Official Multi-Session Account Statement & Ledger Report"
         >
-          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
-          <span>Account Statement</span>
-          <i data-lucide="chevron-down" class="w-3 h-3 ml-0.5"></i>
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-white"></i>
+          <span class="text-white font-semibold">Account Statement</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 ml-0.5 text-white"></i>
         </button>
         <div
           id="statementDropdownMenu"
@@ -954,7 +957,7 @@
             </td>
             <td class="text-right py-3 px-4 pr-5 whitespace-nowrap">
               <div class="flex items-center justify-end gap-1.5">
-                {% if not p.is_reversed %}
+                {% if not p.is_reversed and whatsapp_show_manual_buttons %}
                   {% if p.whatsapp_url %}
                   <a
                     href="{{ p.whatsapp_url }}"

@@ -1,251 +1,1777 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Institute Settings &amp; Master Branding — Sutawane Classes{% endblock %}
+{% block title %}Settings &amp; Configurations — Sutawane Classes{% endblock %}
 
 {% block content %}
-<div class="space-y-6 w-full">
-  <!-- Page Header -->
-  <div class="pb-2 border-b">
-    <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-      <i data-lucide="settings" class="w-6 h-6 text-primary"></i>
-      <span>Institute Settings &amp; Master Branding</span>
-    </h1>
-    <p class="text-sm text-muted-foreground mt-0.5">
-      Configure central coaching branding, default institute logo, receipt templates, and organization profile.
-    </p>
-  </div>
+<style>
+  /* Guaranteed responsive grid & full-screen containment for Settings */
+  .settings-layout-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 0;
+    width: 100%;
+  }
+  @media (min-width: 1024px) {
+    .settings-layout-grid {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr) !important;
+      gap: 1.5rem !important;
+      align-items: start !important;
+    }
+  }
+  @media (min-width: 1280px) {
+    .settings-layout-grid {
+      grid-template-columns: minmax(0, 1.9fr) minmax(350px, 1fr) !important;
+      gap: 1.75rem !important;
+    }
+  }
 
-  <!-- SECTION 1: Common Master Institute Logo -->
-  <div class="bg-card rounded-xl border shadow-xs overflow-hidden">
-    <div class="py-4 px-5 border-b bg-muted/20">
-      <h2 class="text-base font-semibold text-foreground flex items-center gap-2">
-        <i data-lucide="image" class="w-4 h-4 text-primary"></i>
-        <span>Common Master Institute Logo</span>
-      </h2>
+  .form-row-2col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+    width: 100%;
+  }
+  @media (min-width: 640px) {
+    .form-row-2col {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+      gap: 1.25rem !important;
+    }
+  }
+
+  /* Universal Element Boundary & Truncation Guards */
+  .settings-layout-grid > *,
+  .form-row-2col > *,
+  .tab-panel,
+  .bg-card {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  select, input, textarea {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  select {
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  .logs-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
+  }
+  @media (min-width: 768px) {
+    .logs-kpi-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+  }
+
+  /* Responsive Breakpoint Utilities */
+  @media (min-width: 640px) {
+    .sm\:flex-row { flex-direction: row !important; }
+    .sm\:items-center { align-items: center !important; }
+    .sm\:self-auto { align-self: auto !important; }
+    .sm\:self-center { align-self: center !important; }
+    .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .sm\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+    .sm\:col-span-5 { grid-column: span 5 / span 5 !important; }
+    .sm\:col-span-7 { grid-column: span 7 / span 7 !important; }
+    .sm\:text-sm { font-size: 0.875rem !important; line-height: 1.25rem !important; }
+    .sm\:p-5 { padding: 1.25rem !important; }
+    .sm\:p-6 { padding: 1.5rem !important; }
+    .sm\:p-8 { padding: 2rem !important; }
+    .sm\:px-5 { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+    .sm\:py-2\.5 { padding-top: 0.625rem !important; padding-bottom: 0.625rem !important; }
+  }
+  @media (min-width: 768px) {
+    .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    .md\:col-span-2 { grid-column: span 2 / span 2 !important; }
+  }
+
+  /* Brand and Accent Color Utility Fallbacks */
+  .bg-indigo-600 { background-color: #4f46e5 !important; }
+  .bg-purple-600 { background-color: #9333ea !important; }
+  .bg-sky-600 { background-color: #0284c7 !important; }
+  .bg-teal-600 { background-color: #0d9488 !important; }
+  .text-sky-600 { color: #0284c7 !important; }
+  .text-indigo-600 { color: #4f46e5 !important; }
+  .text-purple-600 { color: #9333ea !important; }
+  .text-teal-600 { color: #0d9488 !important; }
+
+  /* Soft Micro-Badge Backgrounds */
+  .bg-blue-500\/10 { background-color: rgba(59, 130, 246, 0.12) !important; }
+  .bg-indigo-500\/10 { background-color: rgba(99, 102, 241, 0.12) !important; }
+  .bg-purple-500\/10 { background-color: rgba(168, 85, 247, 0.12) !important; }
+  .bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.12) !important; }
+  .bg-sky-500\/10 { background-color: rgba(14, 165, 233, 0.12) !important; }
+  .bg-teal-500\/10 { background-color: rgba(20, 184, 166, 0.12) !important; }
+  .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.12) !important; }
+  .bg-rose-500\/10 { background-color: rgba(244, 63, 94, 0.12) !important; }
+
+  /* Micro-Badge Border Tints */
+  .border-blue-500\/20 { border-color: rgba(59, 130, 246, 0.25) !important; }
+  .border-indigo-500\/20 { border-color: rgba(99, 102, 241, 0.25) !important; }
+  .border-purple-500\/20 { border-color: rgba(168, 85, 247, 0.25) !important; }
+  .border-emerald-500\/20 { border-color: rgba(16, 185, 129, 0.25) !important; }
+  .border-sky-500\/20 { border-color: rgba(14, 165, 233, 0.25) !important; }
+  .border-teal-500\/20 { border-color: rgba(20, 184, 166, 0.25) !important; }
+  .border-amber-500\/20 { border-color: rgba(245, 158, 11, 0.25) !important; }
+  .border-rose-500\/20 { border-color: rgba(244, 63, 94, 0.25) !important; }
+
+  /* High-Contrast Test Ping Dispatch Button */
+  .btn-send-test {
+    background-color: #0d9488 !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35) !important;
+    transition: all 0.18s ease-in-out !important;
+  }
+  .btn-send-test:hover {
+    background-color: #0f766e !important;
+    box-shadow: 0 6px 18px rgba(13, 148, 136, 0.45) !important;
+    transform: translateY(-1px) !important;
+  }
+  .btn-send-test:active {
+    transform: translateY(0) scale(0.99) !important;
+  }
+</style>
+
+<div class="space-y-6 w-full pb-12">
+  
+  <!-- =========================================================================
+       PAGE HEADER (Matching Reference Layout)
+       ========================================================================= -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
       <p class="text-xs text-muted-foreground mt-0.5">
-        This master logo will be used by default across all branches, fee receipts, identity cards, and application headers.
+        Manage institute information, headers, bank accounts, receipt configurations, and notifications
       </p>
     </div>
+    
+    <!-- Date Badge (Top Right) -->
+    <div class="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/80 bg-muted/40 text-xs font-semibold text-muted-foreground shadow-2xs">
+      <i data-lucide="calendar" class="w-3.5 h-3.5 text-muted-foreground"></i>
+      <span>{{ today_display }}</span>
+    </div>
+  </div>
 
-    <div class="p-6">
-      <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-        <!-- Logo Display Box -->
-        <div class="relative group w-36 h-36 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-          {% if settings.logo_url %}
-            <img
-              src="{{ settings.logo_url }}"
-              alt="Institute Master Logo"
-              class="w-full h-full object-contain p-2"
-              id="masterLogoImg"
-            >
-          {% else %}
-            <div class="text-center p-3" id="noLogoPlaceholder">
-              <i data-lucide="building-2" class="w-10 h-10 text-muted-foreground/50 mx-auto mb-1"></i>
-              <span class="text-[11px] text-muted-foreground font-medium block">
-                No logo uploaded
+  <!-- =========================================================================
+       EXECUTIVE SEGMENTED TABS NAVIGATION (High-Visibility Creative Ribbon)
+       ========================================================================= -->
+  <div class="bg-slate-100/90 dark:bg-slate-900/60 p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+    <nav class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none" id="settingsTabNav" aria-label="Settings Tabs">
+      
+      <!-- Tab 1: Institute Profile -->
+      <button 
+        type="button" 
+        class="tab-btn group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" 
+        data-target="tab-profile"
+        data-active-bg="bg-blue-600"
+        data-inactive-bg="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+      >
+        <div class="tab-icon-wrap w-7 h-7 rounded-lg flex items-center justify-center transition-all bg-blue-600 text-white shadow-2xs">
+          <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+        </div>
+        <span>Institute Profile</span>
+      </button>
+
+      <!-- Tab 2: Bank Accounts -->
+      <button 
+        type="button" 
+        class="tab-btn group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/50" 
+        data-target="tab-bank"
+        data-active-bg="bg-indigo-600"
+        data-inactive-bg="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+      >
+        <div class="tab-icon-wrap w-7 h-7 rounded-lg flex items-center justify-center transition-all bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:scale-105">
+          <i data-lucide="landmark" class="w-4 h-4"></i>
+        </div>
+        <span>Bank Accounts</span>
+      </button>
+
+      <!-- Tab 3: Receipt Sequences -->
+      <button 
+        type="button" 
+        class="tab-btn group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/50" 
+        data-target="tab-receipts"
+        data-active-bg="bg-purple-600"
+        data-inactive-bg="bg-purple-500/10 text-purple-600 dark:text-purple-400"
+      >
+        <div class="tab-icon-wrap w-7 h-7 rounded-lg flex items-center justify-center transition-all bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105">
+          <i data-lucide="receipt" class="w-4 h-4"></i>
+        </div>
+        <span>Receipt Sequences</span>
+      </button>
+
+      <!-- Tab 4: WhatsApp & SMS Notifications -->
+      <button 
+        type="button" 
+        class="tab-btn group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/50" 
+        data-target="tab-whatsapp"
+        data-active-bg="bg-emerald-600"
+        data-inactive-bg="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      >
+        <div class="tab-icon-wrap w-7 h-7 rounded-lg flex items-center justify-center transition-all bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:scale-105">
+          <i data-lucide="message-square" class="w-4 h-4"></i>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span>WhatsApp &amp; SMS</span>
+          <span class="inline-flex w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Gateway Ready"></span>
+        </div>
+      </button>
+
+      <!-- Tab 5: Notification Logs -->
+      <button 
+        type="button" 
+        class="tab-btn group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/50" 
+        data-target="tab-logs"
+        data-active-bg="bg-sky-600"
+        data-inactive-bg="bg-sky-500/10 text-sky-600 dark:text-sky-400"
+      >
+        <div class="tab-icon-wrap w-7 h-7 rounded-lg flex items-center justify-center transition-all bg-sky-500/10 text-sky-600 dark:text-sky-400 group-hover:scale-105">
+          <i data-lucide="history" class="w-4 h-4"></i>
+        </div>
+        <span>Notification Logs</span>
+      </button>
+
+    </nav>
+  </div>
+
+  <!-- =========================================================================
+       MAIN CONTENT CARD CONTAINER
+       ========================================================================= -->
+  <div class="bg-card rounded-2xl border border-border/80 shadow-xs p-4 sm:p-6 lg:p-8 w-full min-w-0">
+
+    <!-- =====================================================================
+         TAB PANEL 1: INSTITUTE PROFILE & BRANDING
+         ===================================================================== -->
+    <div id="tab-profile" class="tab-panel space-y-8">
+      
+      <!-- SUBSECTION 1: Class / Institute Identity & Branding -->
+      <div class="space-y-6">
+        <div class="flex items-start gap-3.5 pb-4 border-b border-border/60">
+          <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-bold text-foreground">1. Class / Institute Identity &amp; Branding</h2>
+              <span class="text-muted-foreground/60 cursor-pointer" title="Coaching class name, tagline, and official logo displayed on fee receipts and student reports">
+                <i data-lucide="info" class="w-3.5 h-3.5"></i>
               </span>
             </div>
-          {% endif %}
-        </div>
-
-        <!-- Logo Actions and Instructions -->
-        <div class="space-y-3 flex-1 text-xs">
-          <div>
-            <h3 class="font-semibold text-foreground text-sm">Upload Central Brand Logo</h3>
-            <p class="text-muted-foreground mt-0.5 leading-relaxed">
-              Recommended dimensions: <strong>400 &times; 400 px or horizontal logo (PNG, JPG, SVG, WebP)</strong>. Transparent backgrounds work best on printed receipts. Maximum file size: 5 MB.
+            <p class="text-xs text-muted-foreground mt-0.5">
+              Class name, tagline, and official logo displayed on fee receipts and student reports
             </p>
           </div>
+        </div>
 
-          <div class="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-900 dark:text-blue-200 text-[11px] leading-relaxed">
-            <strong>Branch Override Support:</strong> If an individual coaching branch has its own different logo (e.g., Nagpur Center vs. Wardha Academy), you can upload a branch-specific logo in <strong>Branch Management</strong>. If no branch logo is set, this master logo will be automatically used.
+        <form method="POST" action="{% url 'settings_manage' %}" enctype="multipart/form-data" id="profileForm" class="space-y-6">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_profile">
+          <input type="hidden" name="active_tab" value="profile">
+
+          <!-- Name & Tagline Row -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Class / Institute Name</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="institute_name"
+                value="{{ settings.institute_name }}"
+                placeholder="e.g. Sutawane Classes Vaijapur"
+                required
+                class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+              <p class="text-[11px] text-muted-foreground/75">Official coaching name printed as primary header on receipts</p>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Tagline / Motto</span>
+              </label>
+              <input
+                type="text"
+                name="tagline"
+                value="{{ settings.tagline }}"
+                placeholder="e.g. Academy of Excellence — Science &amp; Competitive Exams"
+                class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+              <p class="text-[11px] text-muted-foreground/75">Printed directly below class name on receipts and statements</p>
+            </div>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2 pt-1">
-            <!-- Upload Logo Form -->
-            <form method="POST" action="{% url 'settings_manage' %}" enctype="multipart/form-data" id="logoUploadForm">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="upload_logo">
+          <!-- Single Class / Institute Official Logo Card -->
+          <div class="p-4 sm:p-5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-muted/20">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-xl border border-dashed border-border bg-white dark:bg-slate-900 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                  {% if settings.logo_url %}
+                    <img src="{{ settings.logo_url }}" alt="Class Logo" class="w-full h-full object-contain p-1.5">
+                  {% else %}
+                    <i data-lucide="graduation-cap" class="w-7 h-7 text-muted-foreground/50"></i>
+                  {% endif %}
+                </div>
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-foreground">Class / Institute Official Logo</span>
+                    {% if settings.logo_url %}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Active</span>
+                    {% else %}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-muted-foreground">Default Fallback</span>
+                    {% endif %}
+                  </div>
+                  <p class="text-[11px] text-muted-foreground">
+                    Printed on official student fee receipts, ID cards, and statements. Supports PNG, JPG, JPEG, WEBP or SVG (Max 5 MB).
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2.5 sm:self-center">
+                <button
+                  type="button"
+                  onclick="document.getElementById('masterLogoFileInput').click()"
+                  class="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xs transition-colors cursor-pointer"
+                >
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span>{% if settings.logo_url %}Change Logo{% else %}Upload Logo{% endif %}</span>
+                </button>
+                {% if settings.logo_url %}
+                  <button
+                    type="button"
+                    onclick="document.getElementById('removeLogoTriggerBtn').click()"
+                    class="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors cursor-pointer"
+                  >
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <span>Remove</span>
+                  </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBSECTION 2: 2. Institute Location & Contacts -->
+          <div class="space-y-6 pt-6">
+            <div class="flex items-start gap-3.5 pb-4 border-b border-border/60">
+              <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs">
+                <i data-lucide="map-pin" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-sm font-bold text-foreground">2. Institute Location &amp; Contacts</h2>
+                  <span class="text-muted-foreground/60 cursor-pointer" title="Geographical particulars and phone numbers printed on all invoices and fee receipts">
+                    <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                  </span>
+                </div>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  Geographical particulars and phone numbers printed on all invoices
+                </p>
+              </div>
+            </div>
+
+            <!-- Address Line 1 & Line 2 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                  <span>Address Line 1</span>
+                  <span class="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value="{{ settings.address }}"
+                  placeholder="e.g. Subhadra Complex, Station Road"
+                  required
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase">
+                  <span>Address Line 2</span>
+                </label>
+                <input
+                  type="text"
+                  name="address_line_2"
+                  value="{{ settings.address_line_2 }}"
+                  placeholder="e.g. Opp. Central Bus Stand"
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+            </div>
+
+            <!-- City, Taluka, District -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                  <span>City / Town</span>
+                  <span class="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value="{{ settings.city }}"
+                  placeholder="e.g. Vaijapur"
+                  required
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase">
+                  <span>Taluka</span>
+                </label>
+                <input
+                  type="text"
+                  name="taluka"
+                  value="{{ settings.taluka }}"
+                  placeholder="e.g. Vaijapur"
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                  <span>District</span>
+                  <span class="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="district"
+                  value="{{ settings.district }}"
+                  placeholder="e.g. Chhatrapati Sambhajinagar"
+                  required
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+            </div>
+
+            <!-- State, Pin Code, Mobile Numbers -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                  <span>State</span>
+                  <span class="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  value="{{ settings.state }}"
+                  placeholder="e.g. Maharashtra"
+                  required
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                  <span>Pin Code</span>
+                  <span class="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="pincode"
+                  value="{{ settings.pincode }}"
+                  placeholder="e.g. 423701"
+                  required
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                  <span>Central Mobile Number</span>
+                  <span class="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="phone"
+                  value="{{ settings.phone }}"
+                  placeholder="+91 98765 43210"
+                  required
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+            </div>
+
+            <!-- Email & Website -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase">
+                  <span>Official Email Address</span>
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value="{{ settings.email }}"
+                  placeholder="contact@sutawaneclasses.com"
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase">
+                  <span>Official Website / WebApp URL</span>
+                </label>
+                <input
+                  type="text"
+                  name="website"
+                  value="{{ settings.website }}"
+                  placeholder="www.sutawaneclasses.com"
+                  class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Save Button Bar -->
+          <div class="pt-6 border-t border-border/80 flex items-center justify-between">
+            <span class="text-xs text-muted-foreground">Changes reflect instantly across all student receipts and reports.</span>
+            <button
+              type="submit"
+              class="inline-flex items-center gap-2 text-xs font-semibold h-10 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-colors cursor-pointer"
+            >
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Save Institute Profile</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+    </div>
+
+    <!-- =====================================================================
+         TAB PANEL 2: BANK ACCOUNTS & PAYMENT MODES
+         ===================================================================== -->
+    <div id="tab-bank" class="tab-panel space-y-8 hidden">
+      
+      <div class="space-y-6">
+        <div class="flex items-start gap-3.5 pb-4 border-b border-border/60">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <i data-lucide="landmark" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-bold text-foreground">1. Official Coaching Fee Deposit Accounts</h2>
+              <span class="text-muted-foreground/60 cursor-pointer" title="Direct deposit account numbers and IFSC code printed on student invoices">
+                <i data-lucide="info" class="w-3.5 h-3.5"></i>
+              </span>
+            </div>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              Official institutional bank accounts and UPI IDs shared with parents for online fee settlement
+            </p>
+          </div>
+        </div>
+
+        <form method="POST" action="{% url 'settings_manage' %}" class="space-y-6">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_profile">
+          <input type="hidden" name="active_tab" value="bank">
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Account Beneficiary Name</span>
+                <span class="text-rose-500">*</span>
+              </label>
               <input
-                type="file"
-                name="logo"
-                id="logoFileInput"
-                accept="image/png, image/jpeg, image/webp, image/svg+xml"
-                class="hidden"
-                onchange="document.getElementById('logoUploadForm').submit()"
+                type="text"
+                name="bank_beneficiary_name"
+                value="{{ settings.bank_beneficiary_name }}"
+                placeholder="e.g. Sutawane Classes"
+                required
+                class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
               >
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Bank Name</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="bank_name"
+                value="{{ settings.bank_name }}"
+                placeholder="e.g. State Bank of India"
+                required
+                class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Account Number</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="bank_account_no"
+                value="{{ settings.bank_account_no }}"
+                placeholder="e.g. 398201938472"
+                required
+                class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>IFSC Code</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="bank_ifsc"
+                value="{{ settings.bank_ifsc }}"
+                placeholder="e.g. SBIN0001234"
+                required
+                class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
+              >
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase">
+                <span>Bank Branch Location</span>
+              </label>
+              <input
+                type="text"
+                name="bank_branch"
+                value="{{ settings.bank_branch }}"
+                placeholder="e.g. Vaijapur Main Branch"
+                class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>UPI ID / VPA (For Instant QR Generation)</span>
+              </label>
+              <input
+                type="text"
+                name="upi_id"
+                value="{{ settings.upi_id }}"
+                placeholder="e.g. sutawaneclasses@sbi"
+                class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+            </div>
+          </div>
+
+          <!-- Account Preview Card -->
+          <div class="p-4 rounded-xl border border-indigo-200/60 dark:border-indigo-900/40 bg-indigo-50/40 dark:bg-indigo-950/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="space-y-1 text-xs">
+              <span class="inline-flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-bold">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                <span>Printed on Official Fee Receipts &amp; Challans</span>
+              </span>
+              <p class="text-muted-foreground">
+                Parents can scan UPI QR or wire funds to <strong>{{ settings.bank_name }} (A/C: {{ settings.bank_account_no }})</strong>.
+              </p>
+            </div>
+            <div class="px-3 py-1.5 rounded-lg bg-background border border-border text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+              UPI: {{ settings.upi_id }}
+            </div>
+          </div>
+
+          <!-- Save Button Bar -->
+          <div class="pt-6 border-t border-border/80 flex items-center justify-end">
+            <button
+              type="submit"
+              class="inline-flex items-center gap-2 text-xs font-semibold h-10 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-colors cursor-pointer"
+            >
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Save Bank Account Settings</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+    </div>
+
+    <!-- =====================================================================
+         TAB PANEL 3: BILL / RECEIPT NUMBER SEQUENCES
+         ===================================================================== -->
+    <div id="tab-receipts" class="tab-panel space-y-8 hidden">
+      
+      <!-- SUBSECTION 1: Receipt Template & Legal Terms -->
+      <div class="space-y-6">
+        <div class="flex items-start gap-3.5 pb-4 border-b border-border/60">
+          <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <i data-lucide="receipt" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-bold text-foreground">1. Fee Receipt Template &amp; Terms</h2>
+              <span class="text-muted-foreground/60 cursor-pointer" title="Prefix format, disclaimer, and authorized signature title printed on all fee receipts">
+                <i data-lucide="info" class="w-3.5 h-3.5"></i>
+              </span>
+            </div>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              Prefix notation, disclaimer notes, and authorized signature title
+            </p>
+          </div>
+        </div>
+
+        <form method="POST" action="{% url 'settings_manage' %}" class="space-y-6">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_profile">
+          <input type="hidden" name="active_tab" value="receipts">
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Receipt Number Prefix</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="receipt_prefix"
+                value="{{ settings.receipt_prefix }}"
+                placeholder="e.g. SC"
+                required
+                class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
+              >
+              <p class="text-[11px] text-muted-foreground/75">Format: <code>PREFIX/SESSION/BRANCH/REC-0001</code></p>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Authorized Signatory Title</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="receipt_signatory"
+                value="{{ settings.receipt_signatory }}"
+                placeholder="e.g. Director / Accounts Officer"
+                required
+                class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >
+              <p class="text-[11px] text-muted-foreground/75">Appears below signature seal on printed A4 &amp; thermal receipts</p>
+            </div>
+
+            <div class="space-y-1.5 md:col-span-2">
+              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 tracking-wider uppercase flex items-center gap-1">
+                <span>Receipt Footer Terms &amp; Conditions</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <textarea
+                name="receipt_footer"
+                rows="2"
+                required
+                class="w-full p-3 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              >{{ settings.receipt_footer }}</textarea>
+              <p class="text-[11px] text-muted-foreground/75">Printed at bottom of all student payment receipts and statements.</p>
+            </div>
+          </div>
+
+          <!-- Save Button Bar -->
+          <div class="pt-4 border-t border-border/80 flex items-center justify-end">
+            <button
+              type="submit"
+              class="inline-flex items-center gap-2 text-xs font-semibold h-10 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-colors cursor-pointer"
+            >
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Save Receipt Terms</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- SUBSECTION 2: Active Receipt Number Sequences -->
+        <div class="space-y-4 pt-6 border-t border-border/80">
+          <div class="flex items-start gap-3.5 pb-4 border-b border-border/60">
+            <div class="w-9 h-9 rounded-xl bg-slate-500/10 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 shadow-2xs">
+              <i data-lucide="list-ordered" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-bold text-foreground">2. Active Fee Receipt Number Sequences</h2>
+                <span class="text-muted-foreground/60 cursor-pointer" title="Per-center automated receipt counters">
+                  <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                </span>
+              </div>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                Automated continuous sequences maintained per coaching branch center and academic session
+              </p>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-border overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+              <thead class="bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                <tr>
+                  <th class="py-3 px-4">Coaching Branch</th>
+                  <th class="py-3 px-4">Academic Session</th>
+                  <th class="py-3 px-4">Financial Year</th>
+                  <th class="py-3 px-4 text-center">Last Receipt No.</th>
+                  <th class="py-3 px-4">Sample Generated Sequence</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border/60">
+                {% for counter in receipt_counters %}
+                  <tr class="hover:bg-muted/20 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-foreground">
+                      {{ counter.branch.name }}
+                      <span class="text-[10px] text-muted-foreground block font-mono">CODE: {{ counter.branch.code }}</span>
+                    </td>
+                    <td class="py-3 px-4 text-muted-foreground font-medium">
+                      {{ counter.session.name }}
+                    </td>
+                    <td class="py-3 px-4 font-mono text-muted-foreground">
+                      {{ counter.financial_year|default:"2026-2027" }}
+                    </td>
+                    <td class="py-3 px-4 text-center font-mono font-bold text-primary">
+                      #{{ counter.last_receipt_number }}
+                    </td>
+                    <td class="py-3 px-4 font-mono text-xs text-slate-700 dark:text-slate-300">
+                      <span class="px-2 py-1 rounded bg-muted/60 border border-border/80">
+                        {{ settings.receipt_prefix }}/{{ counter.session.name }}/{{ counter.branch.code }}/REC-{% widthratio counter.last_receipt_number 1 1 as rec_num %}{{ counter.last_receipt_number|stringformat:"04d" }}
+                      </span>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="5" class="py-8 text-center text-xs text-muted-foreground">
+                      Receipt counters initialize automatically upon first fee collection in each branch.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- =====================================================================
+         TAB PANEL 4: WHATSAPP & SMS NOTIFICATIONS (Responsive Executive Layout)
+         ===================================================================== -->
+    <div id="tab-whatsapp" class="tab-panel space-y-8 hidden">
+      
+      <div class="settings-layout-grid" id="whatsappBridgeContainer">
+        
+        <!-- Left Column: Main Gateway Configuration -->
+        <div class="space-y-6">
+          <form method="POST" action="{% url 'settings_manage' %}" id="whatsappConfigForm" class="space-y-6">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_whatsapp">
+            <input type="hidden" name="active_tab" value="whatsapp">
+
+            <!-- 1. Master Gateway Switch & Provider Card -->
+            <div class="bg-card rounded-2xl border border-border/90 p-6 shadow-xs space-y-6">
+              
+              <div class="flex items-center justify-between pb-4 border-b border-border/70">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-sm shadow-2xs">
+                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-1.5">
+                      <h3 class="text-sm font-bold text-foreground">Gateway Provider &amp; Engine</h3>
+                      <span class="text-muted-foreground/60 cursor-pointer" title="Choose between Local PC WhatsApp (Free/Zero API), Simulator Mode, or Cloud APIs">
+                        <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                      </span>
+                    </div>
+                    <p class="text-xs text-muted-foreground">Choose between Local PC WhatsApp (Free/Zero API), Simulator Mode, or Cloud APIs</p>
+                  </div>
+                </div>
+
+                <!-- Service Active Toggle -->
+                <label class="relative inline-flex items-center cursor-pointer gap-2 select-none">
+                  <input 
+                    type="checkbox" 
+                    name="whatsapp_enabled" 
+                    value="true" 
+                    {% if settings.whatsapp_enabled != 'false' %}checked{% endif %}
+                    class="rounded border-input text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                  >
+                  <span class="text-xs font-bold text-foreground">Service Active</span>
+                </label>
+              </div>
+
+              <!-- Row 1: Provider & Mode (2 Equal Columns with Guaranteed Containment) -->
+              <div class="form-row-2col">
+                
+                <!-- Gateway Provider -->
+                <div class="space-y-1.5 min-w-0">
+                  <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
+                    Gateway Provider <span class="text-rose-500">*</span>
+                  </label>
+                  <select 
+                    name="whatsapp_provider" 
+                    id="whatsappProviderSelect"
+                    class="w-full h-10 px-3 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer truncate"
+                  >
+                    <option value="LOCAL_WHATSAPP" {% if settings.whatsapp_provider == 'LOCAL_WHATSAPP' %}selected{% endif %}>
+                      Local WhatsApp Gateway (Free / Zero API)
+                    </option>
+                    <option value="MANUAL_DEEPLINK" {% if settings.whatsapp_provider == 'MANUAL_DEEPLINK' %}selected{% endif %}>
+                      Manual Deep-Link (WhatsApp Web 1-Click)
+                    </option>
+                    <option value="SIMULATOR" {% if settings.whatsapp_provider == 'SIMULATOR' %}selected{% endif %}>
+                      Simulator / Dev Logger (No Gateway)
+                    </option>
+                  </select>
+                  <p class="text-[11px] text-muted-foreground leading-normal">Send free automated messages via local bridge on this PC.</p>
+                </div>
+
+                <!-- Dispatch Mode (Automatic vs Manual vs Both) -->
+                <div class="space-y-1.5 min-w-0">
+                  <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
+                    Dispatch Mode &amp; Button Control <span class="text-rose-500">*</span>
+                  </label>
+                  <select 
+                    name="whatsapp_mode" 
+                    id="whatsappModeSelect"
+                    class="w-full h-10 px-3 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer truncate"
+                  >
+                    <option value="both" {% if settings.whatsapp_mode == 'both' or not settings.whatsapp_mode %}selected{% endif %}>
+                      Both (Auto Dispatch + Manual Buttons)
+                    </option>
+                    <option value="automatic" {% if settings.whatsapp_mode == 'automatic' %}selected{% endif %}>
+                      Automatic Only (Auto Dispatch; Hide Buttons)
+                    </option>
+                    <option value="manual" {% if settings.whatsapp_mode == 'manual' %}selected{% endif %}>
+                      Manual Only (Deep Links; No Auto Dispatch)
+                    </option>
+                    <option value="off" {% if settings.whatsapp_mode == 'off' %}selected{% endif %}>
+                      Disabled (Hide all buttons &amp; dispatches)
+                    </option>
+                  </select>
+                  <p class="text-[11px] text-muted-foreground leading-normal">Control whether messages send in background or manually.</p>
+                </div>
+
+              </div>
+
+              <!-- Row 2: Full-Width Local WhatsApp Bridge Interactive Card -->
+              <div id="localBridgeCard" class="w-full rounded-2xl border p-5 transition-all bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-emerald-50/50 dark:from-emerald-950/20 dark:via-slate-900/40 dark:to-emerald-950/20 border-emerald-300 dark:border-emerald-800/60 shadow-2xs">
+                
+                <div class="flex items-center justify-between pb-3 border-b border-emerald-200 dark:border-emerald-900/50">
+                  <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-2xs bg-emerald-600 text-white">
+                      <i data-lucide="message-circle" class="w-4 h-4"></i>
+                    </span>
+                    <div>
+                      <h4 class="text-xs font-bold text-foreground">Local PC WhatsApp Bridge</h4>
+                      <p class="text-[10px] text-muted-foreground">100% Free Self-Hosted Gateway • Runs on this computer without cloud API tokens</p>
+                    </div>
+                  </div>
+
+                  <!-- Live Status Badge Container -->
+                  <div id="bridgeStatusBadge">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span id="bridgeStatusText">CONNECTED &amp; READY</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 1. Connected Device Sub-Card (Full Width & Responsive Wrapping) -->
+                <div id="bridgeConnectedView" class="pt-4 space-y-3">
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs">
+                    <div class="space-y-1">
+                      <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Linked WhatsApp Device</span>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm font-bold text-foreground flex items-center gap-1.5" id="bridgeConnectedName">
+                          <i data-lucide="smartphone" class="w-4 h-4 text-emerald-600"></i>
+                          Ram Pawar - Ultoxy Technology
+                        </span>
+                        <span class="font-mono text-emerald-700 dark:text-emerald-400 text-xs font-bold bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800" id="bridgeConnectedPhone">
+                          (+917776824564)
+                        </span>
+                      </div>
+                      <p class="text-[11px] text-muted-foreground pt-0.5">
+                        All student fee receipts, reminders, and admission alerts will be sent automatically via this number.
+                      </p>
+                    </div>
+                    <button 
+                      type="button" 
+                      onclick="unlinkBridgeDevice()" 
+                      class="px-4 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-center shadow-2xs"
+                    >
+                      <i data-lucide="unlink" class="w-3.5 h-3.5"></i>
+                      <span>Unlink Device</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 2. QR Code Ready View (Hidden by default, shown if QR_READY) -->
+                <div id="bridgeQrView" class="pt-4 hidden">
+                  <div class="grid grid-cols-1 sm:grid-cols-12 gap-5 items-center bg-white dark:bg-slate-900 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 shadow-2xs">
+                    <div class="sm:col-span-5 text-center flex flex-col items-center justify-center p-2 bg-muted/40 rounded-xl border border-border">
+                      <img id="bridgeQrImg" src="" alt="Scan WhatsApp QR" class="w-48 h-48 rounded-lg shadow-xs hidden" />
+                      <div id="bridgeQrPlaceholder" class="w-48 h-48 flex items-center justify-center text-muted-foreground text-xs">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Generating QR...
+                      </div>
+                      <a href="http://localhost:3000/qr" target="_blank" class="text-[11px] font-bold text-blue-600 hover:underline mt-2 flex items-center gap-1">
+                        <i data-lucide="external-link" class="w-3 h-3"></i> Open in New Window
+                      </a>
+                    </div>
+                    <div class="sm:col-span-7 space-y-2.5 text-xs text-foreground">
+                      <h5 class="text-sm font-bold text-foreground flex items-center gap-1.5">
+                        <i data-lucide="qr-code" class="w-4 h-4 text-amber-600"></i> Scan to Link Your Phone
+                      </h5>
+                      <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-muted-foreground font-medium">
+                        <li>Open <strong>WhatsApp</strong> on your institute phone.</li>
+                        <li>Tap <strong>Settings</strong> (iOS) or <strong>Menu ⋮</strong> (Android).</li>
+                        <li>Tap <strong>Linked Devices</strong> &rarr; <strong>Link a Device</strong>.</li>
+                        <li>Point your phone camera at this QR code to connect.</li>
+                      </ol>
+                      <p class="text-[10px] text-muted-foreground italic">This screen will update automatically as soon as your phone is linked.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. Offline State View (Hidden by default, shown if OFFLINE) -->
+                <div id="bridgeOfflineView" class="pt-4 space-y-3 hidden">
+                  <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border text-xs text-foreground space-y-2">
+                    <p class="font-bold text-foreground flex items-center gap-1.5">
+                      <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i> Bridge service is not currently running on this PC.
+                    </p>
+                    <p class="text-[11px] text-muted-foreground">To start the local WhatsApp service, double click the launcher script located in your project root:</p>
+                    <div class="bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] flex items-center justify-between">
+                      <code>start_whatsapp_bridge.bat</code>
+                      <span class="text-[10px] text-emerald-400">Windows 1-Click Launcher (Port 3000)</span>
+                    </div>
+                    <div class="flex items-center gap-2 pt-1">
+                      <button 
+                        type="button" 
+                        id="checkConnectionAgainBtn" 
+                        onclick="checkLocalBridgeStatus(true)" 
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                      >
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        <span>Check Connection Again</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Row 3: API Endpoint & Helpline Phone (2 Columns with Guaranteed Containment) -->
+              <div class="form-row-2col">
+                
+                <!-- API Endpoint / Webhook URL -->
+                <div class="space-y-1.5 min-w-0">
+                  <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
+                    API Endpoint / Webhook URL
+                  </label>
+                  <input
+                    type="text"
+                    name="whatsapp_endpoint"
+                    id="whatsappEndpointInput"
+                    value="{{ settings.whatsapp_endpoint|default:'http://localhost:3000/send' }}"
+                    placeholder="http://localhost:3000/send"
+                    class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all truncate"
+                  >
+                  <p class="text-[11px] text-muted-foreground truncate">Default: <code class="bg-muted px-1.5 py-0.5 rounded text-blue-600 dark:text-blue-400 font-bold font-mono">http://localhost:3000/send</code></p>
+                </div>
+
+                <!-- Sender / Helpline Phone -->
+                <div class="space-y-1.5 min-w-0">
+                  <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
+                    Accounts / Helpline Phone (In Footer)
+                  </label>
+                  <input
+                    type="text"
+                    name="whatsapp_sender_phone"
+                    value="{{ settings.whatsapp_sender_phone }}"
+                    placeholder="+91 7776824564"
+                    class="w-full h-10 px-3.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all truncate"
+                  >
+                  <p class="text-[11px] text-muted-foreground truncate">Appears in WhatsApp message signatures &amp; receipts</p>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- 2. Automation Triggers Card -->
+            <div class="bg-card rounded-2xl border border-border/90 p-6 shadow-xs space-y-4">
+              <div class="flex items-center gap-3 pb-4 border-b border-border/70">
+                <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center text-sm shadow-2xs">
+                  <i data-lucide="zap" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h3 class="text-sm font-bold text-foreground">Institute Event Automation Triggers</h3>
+                    <span class="text-muted-foreground/60 cursor-pointer" title="Choose which events automatically dispatch instant WhatsApp notifications">
+                      <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                    </span>
+                  </div>
+                  <p class="text-xs text-muted-foreground">Choose which student transactions trigger instant WhatsApp notifications</p>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                
+                <!-- Trigger 1: Fee Receipt -->
+                <div class="flex items-start justify-between p-3.5 rounded-xl border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div>
+                    <span class="text-xs font-bold text-foreground block">Auto-send Payment Receipts</span>
+                    <span class="text-[11px] text-muted-foreground leading-relaxed">
+                      Automatically sends official fee receipt with receipt number, amount collected, and updated session balance whenever a payment is recorded.
+                    </span>
+                  </div>
+                  <div class="pt-0.5 ml-4">
+                    <input 
+                      type="checkbox" 
+                      name="whatsapp_receipt_auto" 
+                      value="true" 
+                      {% if settings.whatsapp_receipt_auto != 'false' %}checked{% endif %}
+                      class="rounded border-input text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                    >
+                  </div>
+                </div>
+
+                <!-- Trigger 2: Fee Reminders -->
+                <div class="flex items-start justify-between p-3.5 rounded-xl border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div>
+                    <span class="text-xs font-bold text-foreground block">Auto-send Installment Due Reminders</span>
+                    <span class="text-[11px] text-muted-foreground leading-relaxed">
+                      Allows 1-click batch dispatch of personalized fee due reminders to parents with pending installment balances.
+                    </span>
+                  </div>
+                  <div class="pt-0.5 ml-4">
+                    <input 
+                      type="checkbox" 
+                      name="whatsapp_reminder_auto" 
+                      value="true" 
+                      {% if settings.whatsapp_reminder_auto != 'false' %}checked{% endif %}
+                      class="rounded border-input text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                    >
+                  </div>
+                </div>
+
+                <!-- Trigger 3: Admission Welcome -->
+                <div class="flex items-start justify-between p-3.5 rounded-xl border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div>
+                    <span class="text-xs font-bold text-foreground block">Auto-send Admission Confirmation Alerts</span>
+                    <span class="text-[11px] text-muted-foreground leading-relaxed">
+                      Sends congratulations notice with student ID, roll number, course, and center details upon new admission registration.
+                    </span>
+                  </div>
+                  <div class="pt-0.5 ml-4">
+                    <input 
+                      type="checkbox" 
+                      name="whatsapp_admission_auto" 
+                      value="true" 
+                      {% if settings.whatsapp_admission_auto != 'false' %}checked{% endif %}
+                      class="rounded border-input text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                    >
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Submit Button Bar -->
+            <div class="pt-2 flex items-center justify-end">
               <button
-                type="button"
-                onclick="document.getElementById('logoFileInput').click()"
-                class="inline-flex items-center gap-1.5 text-xs h-8 px-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+                type="submit"
+                class="inline-flex items-center gap-2 text-xs font-semibold h-10 px-5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
               >
-                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                <span>{% if settings.logo_url %}Change Master Logo{% else %}Upload Logo{% endif %}</span>
+                <i data-lucide="check" class="w-4 h-4"></i>
+                <span>Save Notification Configuration</span>
+              </button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- Right Column: Dispatch Test Alert & Recent Dispatches (Guaranteed 100% Button Visibility) -->
+        <div class="space-y-6">
+          
+          <!-- Card 1: Dispatch Test Alert -->
+          <div class="bg-card rounded-2xl border border-border/90 p-5 sm:p-6 shadow-xs space-y-4">
+            <div class="flex items-center gap-3 pb-3 border-b border-border/70">
+              <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 flex items-center justify-center text-sm shadow-2xs">
+                <i data-lucide="send" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h4 class="text-xs sm:text-sm font-bold text-foreground">Dispatch Test Alert</h4>
+                <p class="text-[11px] text-muted-foreground">Verify gateway credentials with a test ping</p>
+              </div>
+            </div>
+
+            <form method="POST" action="{% url 'settings_manage' %}" class="space-y-4">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="test_whatsapp">
+              <input type="hidden" name="active_tab" value="whatsapp">
+
+              <div class="space-y-1.5">
+                <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase">
+                  Target Mobile Number <span class="text-rose-500">*</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-500 select-none pointer-events-none">
+                    +91
+                  </span>
+                  <input 
+                    type="tel" 
+                    name="test_recipient" 
+                    placeholder="98765 43210" 
+                    maxlength="10"
+                    pattern="[0-9]{10}"
+                    required
+                    class="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/50 pl-12 pr-3.5 text-xs font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition shadow-xs"
+                  >
+                </div>
+              </div>
+
+              <div class="p-3 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-[11px] text-emerald-950 dark:text-emerald-200 leading-relaxed shadow-2xs">
+                <span class="font-bold flex items-center gap-1.5 mb-1 text-emerald-800 dark:text-emerald-300">
+                  <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                  Local WhatsApp Gateway:
+                </span>
+                Sends directly to <strong>any valid 10-digit mobile number</strong> from your linked phone without token limits or per-message billing.
+              </div>
+
+              <!-- High-Contrast Guaranteed Visible Button -->
+              <button 
+                type="submit" 
+                class="btn-send-test w-full h-11 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              >
+                <i data-lucide="send" class="w-4 h-4 text-white"></i>
+                <span class="text-white font-bold tracking-wide">Send Test Ping</span>
               </button>
             </form>
+          </div>
 
-            {% if settings.logo_url %}
-              <!-- Remove Logo Form -->
-              <form method="POST" action="{% url 'settings_manage' %}" id="logoRemoveForm">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="remove_logo">
-                <button
-                  type="submit"
-                  class="inline-flex items-center gap-1.5 text-xs h-8 px-3 rounded-md border border-rose-200 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium transition-colors cursor-pointer"
-                >
-                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                  <span>Remove Logo</span>
-                </button>
-              </form>
-            {% endif %}
+          <!-- Card 2: Recent Dispatches Widget -->
+          <div class="bg-card rounded-2xl border border-border/90 p-5 sm:p-6 shadow-xs space-y-3.5">
+            <div class="flex items-center justify-between pb-3 border-b border-border/70">
+              <div class="flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4 text-muted-foreground"></i>
+                <h4 class="text-xs sm:text-sm font-bold text-foreground">Recent Dispatches</h4>
+              </div>
+              <button 
+                type="button" 
+                onclick="document.querySelector('[data-target=\'tab-logs\']').click()" 
+                class="text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer inline-flex items-center gap-1"
+              >
+                <span>View All</span>
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              </button>
+            </div>
+
+            <div class="space-y-2.5">
+              {% for log in recent_dispatches %}
+                <div class="p-3 rounded-xl border border-border/70 hover:bg-muted/30 transition-colors text-xs space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono font-bold text-foreground flex items-center gap-1.5">
+                      <i data-lucide="phone" class="w-3 h-3 text-muted-foreground"></i>
+                      +{{ log.recipient_mobile }}
+                    </span>
+                    {% if log.status == 'SENT' %}
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">SENT</span>
+                    {% elif log.status == 'SIMULATED' %}
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 border border-sky-500/20">SIMULATED</span>
+                    {% else %}
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20" title="{{ log.response_payload }}">FAILED</span>
+                    {% endif %}
+                  </div>
+                  <div class="text-[11px] text-muted-foreground truncate">
+                    {{ log.get_message_type_display }}: {{ log.entity_id|default:"-" }}
+                  </div>
+                  <div class="text-[10px] text-muted-foreground/75 flex items-center justify-between pt-0.5">
+                    <span class="font-mono">{{ log.provider }}</span>
+                    <span>{{ log.created_at|date:"d M, H:i" }}</span>
+                  </div>
+                </div>
+              {% empty %}
+                <p class="text-xs text-muted-foreground text-center py-4">No notifications dispatched yet.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- =====================================================================
+         TAB PANEL 5: NOTIFICATION AUDIT TRAIL & LOGS (Matching Reference)
+         ===================================================================== -->
+    <div id="tab-logs" class="tab-panel space-y-6 hidden">
+      
+      <!-- Top Title Banner -->
+      <div class="bg-card rounded-xl border border-border/80 p-4 shadow-xs">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0">
+            <i data-lucide="history" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h2 class="text-base font-bold text-foreground tracking-tight">Notification Audit Trail &amp; Dispatch Logs</h2>
+              <span class="text-muted-foreground/60 cursor-pointer" title="Chronological audit trail of all automated WhatsApp and SMS alerts sent to students and parents">
+                <i data-lucide="info" class="w-3.5 h-3.5"></i>
+              </span>
+            </div>
+            <p class="text-xs text-muted-foreground">Chronological audit trail of all automated WhatsApp and SMS alerts sent to student parents.</p>
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- SECTION 2: Institute Profile & Receipt Terms -->
-  <div class="bg-card rounded-xl border shadow-xs overflow-hidden">
-    <div class="py-4 px-5 border-b bg-muted/20">
-      <h2 class="text-base font-semibold text-foreground flex items-center gap-2">
-        <i data-lucide="building-2" class="w-4 h-4 text-primary"></i>
-        <span>Institute Profile &amp; Receipt Configuration</span>
-      </h2>
-      <p class="text-xs text-muted-foreground mt-0.5">
-        These parameters appear on official student fee receipts, reports, and tax declarations.
-      </p>
-    </div>
-
-    <div class="p-6">
-      <form method="POST" action="{% url 'settings_manage' %}" class="space-y-4">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="save_profile">
-
-        <!-- Row 1: Name & Tagline -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground"></i>
-              <span>Institute Name (Printed on Receipts) *</span>
-            </label>
-            <input
-              type="text"
-              name="institute_name"
-              value="{{ settings.institute_name }}"
-              placeholder="e.g. Sutawane Classes"
-              required
-              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
-            >
+      <!-- KPI Metric Cards Grid (Matching Reference Screenshot 2) -->
+      <div class="logs-kpi-grid">
+        
+        <!-- Total Messages -->
+        <div class="bg-card rounded-xl border border-border/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-muted-foreground uppercase">Total Messages</span>
+            <div class="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center text-xs">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            </div>
           </div>
-
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <i data-lucide="file-text" class="w-3.5 h-3.5 text-muted-foreground"></i>
-              <span>Tagline / Academic Subtitle</span>
-            </label>
-            <input
-              type="text"
-              name="tagline"
-              value="{{ settings.tagline }}"
-              placeholder="e.g. Excellence in Coaching &amp; Board Preparations"
-              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
-            >
-          </div>
+          <p class="text-2xl font-black text-foreground font-mono">{{ total_notifications }}</p>
         </div>
 
-        <!-- Row 2: Phone, Email, Website -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <i data-lucide="phone" class="w-3.5 h-3.5 text-muted-foreground"></i>
-              <span>Central Contact Phone</span>
-            </label>
-            <input
-              type="text"
-              name="phone"
-              value="{{ settings.phone }}"
-              placeholder="+91 98765 43210"
-              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
+        <!-- Successfully Sent -->
+        <div class="bg-card rounded-xl border border-border/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-muted-foreground uppercase">Successfully Sent</span>
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-xs">
+              <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <p class="text-2xl font-black text-emerald-600 font-mono">{{ sent_notifications }}</p>
+        </div>
+
+        <!-- Simulated (Dev) -->
+        <div class="bg-card rounded-xl border border-border/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-muted-foreground uppercase">Simulated (Dev)</span>
+            <div class="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center text-xs">
+              <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <p class="text-2xl font-black text-sky-600 font-mono">{{ simulated_notifications }}</p>
+        </div>
+
+        <!-- Delivery Failed -->
+        <div class="bg-card rounded-xl border border-border/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-muted-foreground uppercase">Delivery Failed</span>
+            <div class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 flex items-center justify-center text-xs">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <p class="text-2xl font-black text-rose-600 font-mono">{{ failed_notifications }}</p>
+        </div>
+
+      </div>
+
+      <!-- Search & Filter Toolbar -->
+      <div class="bg-card rounded-xl border border-border/80 p-3 shadow-xs">
+        <form method="GET" action="{% url 'settings_manage' %}" class="flex flex-wrap items-center gap-3">
+          <input type="hidden" name="tab" value="logs">
+
+          <div class="relative flex-1 min-w-[220px]">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            <input 
+              type="text" 
+              name="q" 
+              value="{{ search_query }}"
+              placeholder="Search mobile, document ref, message content..."
+              class="w-full h-9 pl-8 pr-3 text-xs bg-background text-foreground border border-input rounded-lg placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-xs"
             >
           </div>
 
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <i data-lucide="mail" class="w-3.5 h-3.5 text-muted-foreground"></i>
-              <span>Official Email Address</span>
-            </label>
-            <input
-              type="email"
-              name="email"
-              value="{{ settings.email }}"
-              placeholder="contact@sutawaneclasses.com"
-              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
-            >
+          <div class="w-44">
+            <select name="status" class="w-full h-9 px-3 text-xs bg-background text-foreground border border-input rounded-lg focus:outline-hidden focus:border-blue-500 transition-all cursor-pointer">
+              <option value="">All Statuses</option>
+              <option value="SENT" {% if current_status == 'SENT' %}selected{% endif %}>Sent (Live Gateway)</option>
+              <option value="SIMULATED" {% if current_status == 'SIMULATED' %}selected{% endif %}>Simulated (Dev)</option>
+              <option value="FAILED" {% if current_status == 'FAILED' %}selected{% endif %}>Failed</option>
+            </select>
           </div>
 
-          <div class="space-y-1.5">
-            <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <i data-lucide="globe" class="w-3.5 h-3.5 text-muted-foreground"></i>
-              <span>Official Website / Portal</span>
-            </label>
-            <input
-              type="text"
-              name="website"
-              value="{{ settings.website }}"
-              placeholder="www.sutawaneclasses.com"
-              class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
-            >
+          <div class="w-52">
+            <select name="type" class="w-full h-9 px-3 text-xs bg-background text-foreground border border-input rounded-lg focus:outline-hidden focus:border-blue-500 transition-all cursor-pointer">
+              <option value="">All Notification Types</option>
+              <option value="PAYMENT_RECEIPT" {% if current_type == 'PAYMENT_RECEIPT' %}selected{% endif %}>Payment Receipt</option>
+              <option value="FEE_REMINDER" {% if current_type == 'FEE_REMINDER' %}selected{% endif %}>Fee Reminder</option>
+              <option value="ADMISSION_NOTICE" {% if current_type == 'ADMISSION_NOTICE' %}selected{% endif %}>Admission Notice</option>
+              <option value="SYSTEM_TEST" {% if current_type == 'SYSTEM_TEST' %}selected{% endif %}>Gateway Test Ping</option>
+              <option value="CUSTOM" {% if current_type == 'CUSTOM' %}selected{% endif %}>Custom Alert</option>
+            </select>
           </div>
-        </div>
 
-        <!-- Row 3: Address -->
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-muted-foreground"></i>
-            <span>Central Head Office Address</span>
-          </label>
-          <input
-            type="text"
-            name="address"
-            value="{{ settings.address }}"
-            placeholder="Central Head Office, Station Road, Maharashtra"
-            class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
-          >
-        </div>
-
-        <!-- Row 4: Receipt Footer Terms -->
-        <div class="space-y-1.5">
-          <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <i data-lucide="file-text" class="w-3.5 h-3.5 text-muted-foreground"></i>
-            <span>Receipt Footer Terms &amp; Conditions</span>
-          </label>
-          <input
-            type="text"
-            name="receipt_footer"
-            value="{{ settings.receipt_footer }}"
-            placeholder="e.g. Fees once paid are non-refundable. Receipts must be preserved."
-            class="w-full text-xs h-9 px-3 rounded-md border border-input bg-background focus:outline-hidden focus:ring-2 focus:ring-primary/30"
-          >
-        </div>
-
-        <div class="pt-4 border-t flex justify-end">
-          <button
-            type="submit"
-            class="inline-flex items-center gap-2 text-xs h-9 px-4 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors cursor-pointer"
-          >
-            <i data-lucide="save" class="w-4 h-4"></i>
-            <span>Save Institute Settings</span>
+          <button type="submit" class="h-9 px-4 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+            <i data-lucide="filter" class="w-3.5 h-3.5"></i> Filter
           </button>
+
+          {% if search_query or current_status or current_type %}
+            <a href="{% url 'settings_manage' %}?tab=logs" class="h-9 px-3 text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Clear
+            </a>
+          {% endif %}
+        </form>
+      </div>
+
+      <!-- Logs High-Density Table Card (Matching Reference Screenshot 2) -->
+      <div class="bg-card rounded-2xl border border-border/90 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-900 text-slate-100 uppercase tracking-wider text-[11px] font-bold border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-3.5 text-center w-12 text-slate-400">#</th>
+                <th class="py-3 px-3.5">Dispatched At</th>
+                <th class="py-3 px-3.5">Recipient Mobile</th>
+                <th class="py-3 px-3.5">Category</th>
+                <th class="py-3 px-3.5">Ref / Entity</th>
+                <th class="py-3 px-3.5">Gateway</th>
+                <th class="py-3 px-3.5 text-center">Delivery Status</th>
+                <th class="py-3 px-4">Message Snippet</th>
+                <th class="py-3 px-3 text-right">Sent By</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border/60 bg-card">
+              {% for log in audit_logs %}
+                <tr class="hover:bg-muted/30 transition-colors">
+                  <td class="py-2.5 px-3.5 text-center font-mono font-bold text-muted-foreground text-[11px]">
+                    {{ forloop.counter }}
+                  </td>
+                  <td class="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
+                    {{ log.created_at|date:"d M Y, H:i" }}
+                  </td>
+                  <td class="py-2.5 px-3.5 font-mono font-bold text-foreground whitespace-nowrap">
+                    <a href="tel:+{{ log.recipient_mobile }}" class="hover:text-blue-600 flex items-center gap-1">
+                      <i data-lucide="phone" class="w-3 h-3 text-muted-foreground"></i>
+                      <span>+{{ log.recipient_mobile }}</span>
+                    </a>
+                  </td>
+                  <td class="py-2.5 px-3.5 whitespace-nowrap">
+                    <span class="text-xs font-semibold text-foreground">{{ log.get_message_type_display }}</span>
+                  </td>
+                  <td class="py-2.5 px-3.5 font-mono text-xs text-foreground whitespace-nowrap">
+                    {{ log.entity_id|default:"-" }}
+                  </td>
+                  <td class="py-2.5 px-3.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                    {{ log.provider }}
+                  </td>
+                  <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
+                    {% if log.status == 'SENT' %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> SENT
+                      </span>
+                    {% elif log.status == 'SIMULATED' %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span> SIMULATED
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20" title="{{ log.response_payload }}">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> FAILED
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="py-2.5 px-4 text-xs text-muted-foreground max-w-xs truncate" title="{{ log.message_text }}">
+                    {{ log.message_text|truncatechars:75 }}
+                  </td>
+                  <td class="py-2.5 px-3 text-right font-medium text-muted-foreground whitespace-nowrap">
+                    {{ log.sent_by|default:"admin" }}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="9" class="py-8 text-center text-xs text-muted-foreground">
+                    No notification dispatch records match the selected filters.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
-      </form>
+      </div>
+
     </div>
+
   </div>
+
 </div>
 
+<!-- Hidden Helper Forms for Logo Upload & Removal -->
+<form method="POST" action="{% url 'settings_manage' %}" enctype="multipart/form-data" id="masterLogoUploadForm" class="hidden">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="upload_logo">
+  <input type="hidden" name="active_tab" value="profile">
+  <input
+    type="file"
+    name="logo"
+    id="masterLogoFileInput"
+    accept="image/png, image/jpeg, image/webp, image/svg+xml"
+    onchange="document.getElementById('masterLogoUploadForm').submit()"
+  >
+</form>
+
+<form method="POST" action="{% url 'settings_manage' %}" id="masterLogoRemoveForm" class="hidden">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="remove_logo">
+  <input type="hidden" name="active_tab" value="profile">
+  <button type="submit" id="removeLogoTriggerBtn"></button>
+</form>
+
+<!-- =========================================================================
+     TAB SWITCHING & INTERACTIVITY JAVASCRIPT
+     ========================================================================= -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
+
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+
+    function setActiveTab(targetId) {
+      if (!targetId) targetId = 'tab-profile';
+      if (!targetId.startsWith('tab-')) targetId = 'tab-' + targetId;
+
+      const targetPanel = document.getElementById(targetId);
+      if (!targetPanel) targetId = 'tab-profile';
+
+      // Update Tab Button States
+      tabButtons.forEach(btn => {
+        const isMatch = btn.getAttribute('data-target') === targetId;
+        const iconWrap = btn.querySelector('.tab-icon-wrap');
+        const activeBg = btn.getAttribute('data-active-bg') || 'bg-blue-600';
+        const inactiveBg = btn.getAttribute('data-inactive-bg') || 'bg-blue-500/10 text-blue-600';
+
+        if (isMatch) {
+          btn.className = 'tab-btn group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs';
+          if (iconWrap) {
+            iconWrap.className = `tab-icon-wrap w-7 h-7 rounded-lg flex items-center justify-center transition-all text-white shadow-2xs ${activeBg}`;
+          }
+        } else {
+          btn.className = 'tab-btn group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap border border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/50';
+          if (iconWrap) {
+            iconWrap.className = `tab-icon-wrap w-7 h-7 rounded-lg flex items-center justify-center transition-all group-hover:scale-105 ${inactiveBg}`;
+          }
+        }
+      });
+
+      // Update Panel Visibility
+      tabPanels.forEach(panel => {
+        if (panel.id === targetId) {
+          panel.classList.remove('hidden');
+        } else {
+          panel.classList.add('hidden');
+        }
+      });
+
+      // Update hidden inputs in all forms
+      const cleanTabName = targetId.replace('tab-', '');
+      document.querySelectorAll('input[name="active_tab"]').forEach(input => {
+        input.value = cleanTabName;
+      });
+
+      // Sync URL hash
+      if (history.replaceState) {
+        history.replaceState(null, null, '#tab=' + cleanTabName);
+      }
+    }
+
+    // Attach click listeners to tabs
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const target = this.getAttribute('data-target');
+        setActiveTab(target);
+      });
+    });
+
+    // Check URL parameters or hash on load
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryTab = urlParams.get('tab');
+    const hash = window.location.hash;
+    let initialTab = 'tab-profile';
+
+    if (queryTab) {
+      initialTab = 'tab-' + queryTab;
+    } else if (hash && hash.includes('tab=')) {
+      initialTab = 'tab-' + hash.split('tab=')[1];
+    } else if ("{{ active_tab }}") {
+      initialTab = 'tab-{{ active_tab }}';
+    }
+
+    setActiveTab(initialTab);
+
+    // --- Local WhatsApp Bridge Status Poller & Device Management ---
+    let bridgePollTimer = null;
+
+    async function checkLocalBridgeStatus(isManual = false) {
+      const btn = document.getElementById('checkConnectionAgainBtn');
+      if (isManual && btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Checking Port 3000...</span>';
+        lucide.createIcons();
+      }
+
+      const statusBadge = document.getElementById('bridgeStatusBadge');
+      const connectedView = document.getElementById('bridgeConnectedView');
+      const qrView = document.getElementById('bridgeQrView');
+      const offlineView = document.getElementById('bridgeOfflineView');
+      const connectedName = document.getElementById('bridgeConnectedName');
+      const connectedPhone = document.getElementById('bridgeConnectedPhone');
+      const qrImg = document.getElementById('bridgeQrImg');
+      const qrPlaceholder = document.getElementById('bridgeQrPlaceholder');
+      const bridgeCard = document.getElementById('localBridgeCard');
+      const endpointInput = document.getElementById('whatsappEndpointInput');
+
+      let data = null;
+
+      // 1. First try high-speed server-side proxy (Zero CORS / Zero Private Network Access blocks)
+      try {
+        const proxyRes = await fetch('/api/settings/whatsapp-status/', {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (proxyRes.ok) {
+          data = await proxyRes.json();
+        }
+      } catch (e) {}
+
+      // 2. Direct fallback to port 3000 if proxy was unreachable
+      if (!data || data.status === 'OFFLINE') {
+        const directEndpoints = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+        for (const ep of directEndpoints) {
+          try {
+            const res = await fetch(`${ep}/health`, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' }
+            });
+            if (res.ok) {
+              data = await res.json();
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+
+      // Auto-correct any legacy port 8000 in the UI input to port 3000
+      if (endpointInput && endpointInput.value.includes(':8000')) {
+        endpointInput.value = 'http://localhost:3000/send';
+      }
+
+      if (data && data.status === 'READY') {
+        // Status: CONNECTED & READY
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> CONNECTED &amp; READY
+            </span>
+          `;
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-emerald-50/50 dark:from-emerald-950/20 dark:via-slate-900/40 dark:to-emerald-950/20 border-emerald-300 dark:border-emerald-800/60 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.remove('hidden');
+        if (qrView) qrView.classList.add('hidden');
+        if (offlineView) offlineView.classList.add('hidden');
+
+        if (connectedName) connectedName.textContent = data.connectedName || 'Linked Account';
+        if (connectedPhone) connectedPhone.textContent = data.connectedPhone ? `(+${data.connectedPhone})` : '';
+        lucide.createIcons();
+
+      } else if (data && data.status === 'QR_READY') {
+        // Status: SCAN QR TO LINK
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs">
+              <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> SCAN QR TO LINK
+            </span>
+          `;
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-amber-50/80 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.add('hidden');
+        if (qrView) qrView.classList.remove('hidden');
+        if (offlineView) offlineView.classList.add('hidden');
+
+        if (data.qrDataUrl && qrImg) {
+          qrImg.src = data.qrDataUrl;
+          qrImg.classList.remove('hidden');
+          if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
+        } else {
+          try {
+            const qrRes = await fetch('http://localhost:3000/qr?json=true');
+            if (qrRes.ok) {
+              const qrd = await qrRes.json();
+              if (qrd.qrDataUrl && qrImg) {
+                qrImg.src = qrd.qrDataUrl;
+                qrImg.classList.remove('hidden');
+                if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
+              }
+            }
+          } catch(e) {}
+        }
+        lucide.createIcons();
+
+      } else {
+        // Status: OFFLINE
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+              <i data-lucide="power-off" class="w-3 h-3"></i> BRIDGE OFFLINE
+            </span>
+          `;
+          lucide.createIcons();
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.add('hidden');
+        if (qrView) qrView.classList.add('hidden');
+        if (offlineView) offlineView.classList.remove('hidden');
+      }
+
+      if (isManual && btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Check Connection Again</span>';
+        lucide.createIcons();
+      }
+    }
+
+    window.unlinkBridgeDevice = async function() {
+      if (!confirm('Are you sure you want to unlink this WhatsApp device? You will need to scan a new QR code to reconnect.')) {
+        return;
+      }
+      try {
+        await fetch('http://localhost:3000/logout', { method: 'POST' });
+        checkLocalBridgeStatus(true);
+      } catch (err) {
+        alert('Error unlinking device: ' + err.message);
+      }
+    };
+
+    window.checkLocalBridgeStatus = checkLocalBridgeStatus;
+
+    // Check bridge status initially and start rapid poll timer
+    checkLocalBridgeStatus();
+    bridgePollTimer = setInterval(checkLocalBridgeStatus, 2500);
   });
 </script>
 {% endblock %}

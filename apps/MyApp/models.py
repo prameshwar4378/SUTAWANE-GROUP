@@ -38,6 +38,44 @@ class HealthLog(models.Model):
         return f"[{self.created_at}] Status: {self.status}"
 
 
+class NotificationLog(models.Model):
+    """
+    Audit log of all SMS / WhatsApp messages dispatched to parents and students.
+    """
+    MESSAGE_TYPE_CHOICES = [
+        ('PAYMENT_RECEIPT', 'Payment Receipt'),
+        ('FEE_REMINDER', 'Fee Reminder'),
+        ('ADMISSION_NOTICE', 'Admission Confirmation'),
+        ('SYSTEM_TEST', 'Gateway Test Ping'),
+        ('CUSTOM', 'Custom Message'),
+    ]
+
+    STATUS_CHOICES = [
+        ('SENT', 'Sent Successfully'),
+        ('FAILED', 'Failed'),
+        ('SIMULATED', 'Simulated / Logged'),
+    ]
+
+    id = models.CharField(primary_key=True, max_length=36, default=generate_uuid, editable=False)
+    recipient_mobile = models.CharField(max_length=50)
+    recipient_name = models.CharField(max_length=150, default='Parent')
+    message_type = models.CharField(max_length=50, choices=MESSAGE_TYPE_CHOICES, default='CUSTOM')
+    message_text = models.TextField()
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='SENT')
+    response_payload = models.TextField(null=True, blank=True)
+    entity_id = models.CharField(max_length=100, null=True, blank=True)
+    provider = models.CharField(max_length=50, default='LOCAL_WHATSAPP')
+    sent_by = models.CharField(max_length=150, default='System')
+    created_at = models.DateTimeField(default=timezone.now, db_column='createdAt')
+
+    class Meta:
+        db_table = 'NotificationLog'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.created_at:%d-%b %H:%M}] {self.recipient_mobile} ({self.status})"
+
+
 # -------------------------------------------------------------
 # Authentication & User Accounts (CLASS_OWNER & DEVELOPER)
 # -------------------------------------------------------------

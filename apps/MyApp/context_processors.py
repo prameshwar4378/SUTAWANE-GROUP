@@ -132,7 +132,13 @@ def global_context(request):
     is_developer = current_user.role == 'DEVELOPER' if current_user else False
 
     # 5. UI Preferences
-    is_sidebar_collapsed = request.session.get('is_sidebar_collapsed', False)
+    is_sidebar_collapsed = bool(request.session.get('is_sidebar_collapsed', False))
+
+    # 6. WhatsApp Configuration & Visibility Controls
+    whatsapp_enabled = settings_dict.get('whatsapp_enabled', 'true') != 'false'
+    whatsapp_mode = settings_dict.get('whatsapp_mode', 'both')  # 'automatic' | 'manual' | 'both' | 'off'
+    whatsapp_show_manual_buttons = whatsapp_enabled and (whatsapp_mode in ('manual', 'both'))
+    whatsapp_auto_enabled = whatsapp_enabled and (whatsapp_mode in ('automatic', 'both'))
 
     return {
         'branches': branches,
@@ -147,4 +153,9 @@ def global_context(request):
         'current_user': current_user,
         'is_developer': is_developer,
         'is_sidebar_collapsed': is_sidebar_collapsed,
+        'whatsapp_enabled': whatsapp_enabled,
+        'whatsapp_mode': whatsapp_mode,
+        'whatsapp_show_manual_buttons': whatsapp_show_manual_buttons,
+        'whatsapp_auto_enabled': whatsapp_auto_enabled,
     }
+

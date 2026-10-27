@@ -37,6 +37,15 @@ staticfiles/
 *.log
 logs/
 
+# SQLite WAL/SHM
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Node & WhatsApp Web session auth
+node_modules/
+.wwebjs_auth/
+.wwebjs_cache/
+
 # OS generated
 .DS_Store
 Thumbs.db

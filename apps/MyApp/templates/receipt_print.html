@@ -116,7 +116,7 @@
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-2">
-        {% if whatsapp_url %}
+        {% if whatsapp_show_manual_buttons and whatsapp_url %}
         <a
           href="{{ whatsapp_url }}"
           target="_blank"

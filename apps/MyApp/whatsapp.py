@@ -348,3 +348,157 @@ def build_general_notice_whatsapp_message(
         f"*{institute} Office*\n"
         f"{helpline_text}"
     )
+
+
+# -----------------------------------------------------------------------------
+# Central Notification Dispatch Engine (Local Bridge + Logging)
+# -----------------------------------------------------------------------------
+
+import json
+import urllib.request
+import urllib.error
+
+
+def dispatch_whatsapp_message(
+    recipient: str,
+    message: str,
+    message_type: str = 'CUSTOM',
+    recipient_name: str = 'Parent',
+    entity_id: str = '',
+    sent_by: str = 'System',
+    force_provider: str = None
+) -> dict:
+    """
+    Central dispatcher for sending WhatsApp messages via the configured provider
+    (Local WhatsApp Bridge on http://localhost:3000/send, or Simulator).
+    Records audit entry in NotificationLog.
+    Never crashes or interrupts main business transaction.
+    """
+    from .models import NotificationLog
+    from .context_processors import get_cached_settings_dict
+
+    settings_map = get_cached_settings_dict()
+    is_enabled = settings_map.get('whatsapp_enabled', 'true') != 'false'
+    provider = force_provider or settings_map.get('whatsapp_provider', 'LOCAL_WHATSAPP')
+    endpoint = (settings_map.get('whatsapp_endpoint') or 'http://localhost:3000/send').strip()
+
+    norm_phone = format_whatsapp_number(recipient)
+
+    if not is_enabled:
+        return {'success': False, 'status': 'DISABLED', 'error': 'WhatsApp notifications are disabled in settings.'}
+
+    if not norm_phone or len(norm_phone) < 10:
+        log = NotificationLog.objects.create(
+            recipient_mobile=recipient or 'UNKNOWN',
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='FAILED',
+            response_payload='Invalid mobile number format (must be 10-digit Indian mobile).',
+            entity_id=entity_id,
+            provider=provider,
+            sent_by=sent_by
+        )
+        return {'success': False, 'status': 'FAILED', 'error': 'Invalid phone number', 'log_id': log.id}
+
+    if provider == 'SIMULATOR':
+        log = NotificationLog.objects.create(
+            recipient_mobile=norm_phone,
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='SIMULATED',
+            response_payload='Successfully simulated in test/development mode without gateway charges.',
+            entity_id=entity_id,
+            provider=provider,
+            sent_by=sent_by
+        )
+        return {'success': True, 'status': 'SIMULATED', 'log_id': log.id}
+
+    # LOCAL_WHATSAPP Gateway (Node bridge at http://localhost:3000/send)
+    try:
+        payload = json.dumps({
+            "to": norm_phone,
+            "message": message
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            endpoint,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            method='POST'
+        )
+
+        with urllib.request.urlopen(req, timeout=12) as response:
+            resp_body = response.read().decode('utf-8')
+            resp_data = json.loads(resp_body) if resp_body else {}
+
+        log = NotificationLog.objects.create(
+            recipient_mobile=norm_phone,
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='SENT',
+            response_payload=resp_body,
+            entity_id=entity_id,
+            provider='LOCAL_WHATSAPP',
+            sent_by=sent_by
+        )
+        return {'success': True, 'status': 'SENT', 'log_id': log.id, 'response': resp_data}
+
+    except urllib.error.HTTPError as err:
+        try:
+            body = err.read().decode('utf-8')
+            data = json.loads(body)
+            err_msg = data.get('error') or f"Gateway Error (HTTP {err.code})"
+        except Exception:
+            err_msg = f"Gateway Error (HTTP {err.code}: {err.reason})"
+
+        log = NotificationLog.objects.create(
+            recipient_mobile=norm_phone,
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='FAILED',
+            response_payload=f"HTTPError {err.code}: {err_msg}",
+            entity_id=entity_id,
+            provider='LOCAL_WHATSAPP',
+            sent_by=sent_by
+        )
+        return {'success': False, 'status': 'FAILED', 'error': err_msg, 'log_id': log.id}
+
+    except urllib.error.URLError as err:
+        err_msg = str(err)
+        if "refused" in err_msg.lower() or "10061" in err_msg:
+            err_msg = "Local WhatsApp Bridge is not running on port 3000. Please start 'start_whatsapp_bridge.bat'."
+        
+        log = NotificationLog.objects.create(
+            recipient_mobile=norm_phone,
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='FAILED',
+            response_payload=f"URLError: {err_msg}",
+            entity_id=entity_id,
+            provider='LOCAL_WHATSAPP',
+            sent_by=sent_by
+        )
+        return {'success': False, 'status': 'FAILED', 'error': err_msg, 'log_id': log.id}
+
+    except Exception as exc:
+        log = NotificationLog.objects.create(
+            recipient_mobile=norm_phone,
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='FAILED',
+            response_payload=f"Exception: {str(exc)}",
+            entity_id=entity_id,
+            provider='LOCAL_WHATSAPP',
+            sent_by=sent_by
+        )
+        return {'success': False, 'status': 'FAILED', 'error': str(exc), 'log_id': log.id}
+

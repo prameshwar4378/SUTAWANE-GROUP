@@ -20,7 +20,7 @@ from django.core.paginator import Paginator
 from .models import (
     Branch, AcademicSession, Student, StudentAdmission,
     FeePlan, Installment, Payment, Expense, ExpenseCategory, ExpenseAttachment,
-    Course, User, SystemSetting,
+    Course, User, SystemSetting, HealthLog, NotificationLog,
     PaymentAllocation, FeeDiscount, PreviousSessionDue, ReceiptCounter
 )
 from .auth_utils import (
@@ -32,7 +32,8 @@ from .context_processors import invalidate_global_context_cache, get_cached_sett
 from .whatsapp import (
     format_whatsapp_number, generate_whatsapp_url,
     build_receipt_whatsapp_message, build_fee_reminder_whatsapp_message,
-    build_admission_whatsapp_message, build_general_notice_whatsapp_message
+    build_admission_whatsapp_message, build_general_notice_whatsapp_message,
+    dispatch_whatsapp_message
 )
 from .dues_export import export_dues_to_excel, export_dues_to_pdf
 from .expenses_export import export_expenses_to_excel, export_expenses_to_pdf
@@ -3219,6 +3220,48 @@ def collect_fee_modal_view(request, student_id):
                             break
 
         remaining_after = max(MONEY_ZERO, pending_due - amount)
+
+        # Automatic WhatsApp Receipt Dispatch Trigger
+        inst_settings = get_institute_settings_dict()
+        auto_whatsapp = (
+            inst_settings.get('whatsapp_enabled', 'true') != 'false' and
+            inst_settings.get('whatsapp_receipt_auto', 'true') != 'false' and
+            inst_settings.get('whatsapp_mode', 'both') in ('automatic', 'both')
+        )
+        whatsapp_dispatched = False
+        whatsapp_url = None
+        target_phone = student.parent_phone or student.student_phone
+        if target_phone:
+            inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
+            helpline = inst_settings.get('whatsapp_sender_phone', '')
+            branch_name = target_adm.branch.name if target_adm and target_adm.branch else ''
+            rcpt_msg = build_receipt_whatsapp_message(
+                institute_name=inst_name,
+                student_name=student.full_name,
+                student_code=student.student_code or '',
+                roll_number=target_adm.roll_number if target_adm else '',
+                standard=target_adm.standard if target_adm else 'General',
+                receipt_number=receipt_no,
+                total_amount=float(amount),
+                payment_date=parsed_payment_date.strftime('%d-%b-%Y'),
+                payment_mode=payment_mode,
+                reference_number=reference_number or '',
+                remaining_balance=float(remaining_after),
+                branch_name=branch_name,
+                helpline=helpline
+            )
+            whatsapp_url = generate_whatsapp_url(target_phone, rcpt_msg)
+            if auto_whatsapp:
+                disp_res = dispatch_whatsapp_message(
+                    recipient=target_phone,
+                    message=rcpt_msg,
+                    message_type='PAYMENT_RECEIPT',
+                    recipient_name=student.full_name,
+                    entity_id=receipt_no,
+                    sent_by=request.current_user.name if hasattr(request, 'current_user') and request.current_user else 'Staff'
+                )
+                whatsapp_dispatched = disp_res.get('success', False)
+
         context = {
             'student': student,
             'current_admission': target_adm,
@@ -3226,6 +3269,8 @@ def collect_fee_modal_view(request, student_id):
             'payment': payment,
             'amount_paid': amount,
             'remaining_after': remaining_after,
+            'whatsapp_dispatched': whatsapp_dispatched,
+            'whatsapp_url': whatsapp_url,
             'success': True,
         }
         return render(request, 'modals/collect_fee_modal.html', context)
@@ -5802,16 +5847,43 @@ def api_backup_delete_view(request, file_name):
 def get_institute_settings_dict():
     """Returns dictionary of all system settings with robust fallbacks from RAM cache."""
     settings_map = get_cached_settings_dict()
-    return {
-        'institute_name': settings_map.get('institute_name', 'Sutawane Classes'),
+    res = {
+        'institute_name': settings_map.get('institute_name', 'Sutawane Classes Vaijapur'),
         'tagline': settings_map.get('tagline', 'Excellence in Coaching & Board Preparations'),
         'phone': settings_map.get('phone', '+91 98765 43210'),
         'email': settings_map.get('email', 'contact@sutawaneclasses.com'),
-        'address': settings_map.get('address', 'Main Head Office, Maharashtra'),
+        'address': settings_map.get('address', 'Central Head Office, Station Road'),
+        'address_line_2': settings_map.get('address_line_2', 'Near Bus Stand, Station Road'),
+        'city': settings_map.get('city', 'Vaijapur'),
+        'taluka': settings_map.get('taluka', 'Vaijapur'),
+        'district': settings_map.get('district', 'Chhatrapati Sambhajinagar'),
+        'state': settings_map.get('state', 'Maharashtra'),
+        'pincode': settings_map.get('pincode', '423701'),
         'website': settings_map.get('website', 'www.sutawaneclasses.com'),
-        'receipt_footer': settings_map.get('receipt_footer', 'Fees once paid are non-refundable. Thank you!'),
+        'receipt_footer': settings_map.get('receipt_footer', 'Fees once paid are non-refundable. Receipts must be preserved.'),
+        'receipt_prefix': settings_map.get('receipt_prefix', 'SC'),
+        'receipt_signatory': settings_map.get('receipt_signatory', 'Director / Accounts Officer'),
+        'bank_beneficiary_name': settings_map.get('bank_beneficiary_name', 'Sutawane Classes'),
+        'bank_name': settings_map.get('bank_name', 'State Bank of India'),
+        'bank_account_no': settings_map.get('bank_account_no', '398201938472'),
+        'bank_ifsc': settings_map.get('bank_ifsc', 'SBIN0001234'),
+        'bank_branch': settings_map.get('bank_branch', 'Vaijapur Main Branch'),
+        'upi_id': settings_map.get('upi_id', 'sutawaneclasses@sbi'),
+        'whatsapp_enabled': settings_map.get('whatsapp_enabled', 'true'),
+        'whatsapp_provider': settings_map.get('whatsapp_provider', 'LOCAL_WHATSAPP'),
+        'whatsapp_mode': settings_map.get('whatsapp_mode', 'both'),
+        'whatsapp_endpoint': settings_map.get('whatsapp_endpoint', 'http://localhost:3000/send'),
+        'whatsapp_sender_phone': settings_map.get('whatsapp_sender_phone', '+91 7776824564'),
+        'whatsapp_receipt_auto': settings_map.get('whatsapp_receipt_auto', 'true'),
+        'whatsapp_reminder_auto': settings_map.get('whatsapp_reminder_auto', 'true'),
+        'whatsapp_admission_auto': settings_map.get('whatsapp_admission_auto', 'true'),
         'logo_url': settings_map.get('logo_url') or '',
     }
+    res.update(settings_map)
+    # Ensure obsolete port 8000 is always corrected to active local bridge port 3000
+    if ':8000' in str(res.get('whatsapp_endpoint', '')):
+        res['whatsapp_endpoint'] = res['whatsapp_endpoint'].replace(':8000', ':3000')
+    return res
 
 
 def save_master_logo(file_obj):
@@ -5888,42 +5960,91 @@ def settings_manage_view(request):
     """
     if request.method == 'POST':
         action = request.POST.get('action', 'save_profile')
+        active_tab = request.POST.get('active_tab', 'profile')
 
         if action == 'upload_logo':
             if not request.FILES.get('logo'):
-                messages.error(request, "Please select an image file to upload as master logo.")
-                return redirect('settings_manage')
+                messages.error(request, "Please select an image file to upload as the class logo.")
+                return redirect(f"/settings/?tab={active_tab}")
             logo_file = request.FILES['logo']
             if logo_file.size > 5 * 1024 * 1024:
                 messages.error(request, "Logo file size must not exceed 5 MB.")
-                return redirect('settings_manage')
+                return redirect(f"/settings/?tab={active_tab}")
             try:
                 save_master_logo(logo_file)
-                messages.success(request, "Master institute logo uploaded successfully!")
+                messages.success(request, "Class / Institute logo uploaded successfully!")
             except Exception as e:
                 messages.error(request, f"Failed to upload logo: {str(e)}")
-            return redirect('settings_manage')
+            return redirect(f"/settings/?tab={active_tab}")
 
         elif action == 'remove_logo':
             try:
                 remove_master_logo()
-                messages.success(request, "Master institute logo removed.")
+                messages.success(request, "Class / Institute logo removed.")
             except Exception as e:
                 messages.error(request, f"Failed to remove logo: {str(e)}")
-            return redirect('settings_manage')
+            return redirect(f"/settings/?tab={active_tab}")
+
+        elif action == 'test_whatsapp' or request.POST.get('action_test_send'):
+            test_recipient = request.POST.get('test_recipient', '').strip()
+            if not test_recipient:
+                messages.error(request, "Please enter a valid 10-digit mobile number for the test alert.")
+                return redirect("/settings/?tab=whatsapp")
+
+            # Persist any updated provider/mode/endpoint if submitted along with test
+            for k in ['whatsapp_enabled', 'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone']:
+                if k in request.POST:
+                    SystemSetting.objects.update_or_create(key=k, defaults={'value': request.POST.get(k, '').strip()})
+            invalidate_global_context_cache()
+
+            sender_name = request.current_user.name if hasattr(request, 'current_user') and request.current_user else 'Admin'
+            now_str = timezone.localtime().strftime('%d-%b-%Y %I:%M %p')
+            msg_text = (
+                f"🌟 *TEST PING — Sutawane Classes ERP* 🚀\n\n"
+                f"Namaskar! Greetings from Sutawane Classes.\n"
+                f"✅ Your Local WhatsApp Gateway is *ONLINE, CONNECTED & FUNCTIONAL* on this computer!\n\n"
+                f"• Gateway: 100% Free Self-Hosted Local Bridge (Port 3000)\n"
+                f"• Verified At: {now_str}\n"
+                f"• Zero cloud API costs or message charges.\n\n"
+                f"Student fee receipts, reminders, and admission alerts are now active."
+            )
+            res = dispatch_whatsapp_message(
+                recipient=test_recipient,
+                message=msg_text,
+                message_type='SYSTEM_TEST',
+                recipient_name='Test Recipient',
+                entity_id='SYSTEM_TEST',
+                sent_by=sender_name
+            )
+            if res.get('success'):
+                messages.success(request, f"Test WhatsApp alert dispatched successfully to +{test_recipient}!")
+            else:
+                messages.error(request, f"Failed to dispatch test alert: {res.get('error')}")
+            return redirect("/settings/?tab=whatsapp")
 
         else:
-            # Save Institute Profile & Receipt Terms
-            fields = [
+            # Handle checkboxes specifically when saving WhatsApp tab
+            if active_tab == 'whatsapp':
+                whatsapp_checkboxes = ['whatsapp_enabled', 'whatsapp_receipt_auto', 'whatsapp_reminder_auto', 'whatsapp_admission_auto']
+                for cb in whatsapp_checkboxes:
+                    val = 'true' if request.POST.get(cb) in ('true', 'on', '1') else 'false'
+                    SystemSetting.objects.update_or_create(key=cb, defaults={'value': val})
+
+            # Save any other fields posted in the request
+            all_fields = [
                 'institute_name', 'tagline', 'phone', 'email',
-                'address', 'website', 'receipt_footer'
+                'address', 'address_line_2', 'city', 'taluka', 'district', 'state', 'pincode',
+                'website', 'receipt_footer', 'receipt_prefix', 'receipt_signatory',
+                'bank_beneficiary_name', 'bank_name', 'bank_account_no', 'bank_ifsc', 'bank_branch', 'upi_id',
+                'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone'
             ]
-            for f in fields:
-                val = request.POST.get(f, '').strip()
-                SystemSetting.objects.update_or_create(
-                    key=f,
-                    defaults={'value': val}
-                )
+            for f in all_fields:
+                if f in request.POST:
+                    val = request.POST.get(f, '').strip()
+                    SystemSetting.objects.update_or_create(
+                        key=f,
+                        defaults={'value': val}
+                    )
 
             # Optional logo upload bundled with the form
             if request.FILES.get('logo'):
@@ -5932,18 +6053,68 @@ def settings_manage_view(request):
                     try:
                         save_master_logo(logo_file)
                     except Exception as e:
-                        messages.warning(request, f"Profile saved, but logo upload failed: {str(e)}")
+                        messages.warning(request, f"Settings saved, but logo upload failed: {str(e)}")
 
             invalidate_global_context_cache()
-            messages.success(request, "Institute settings saved successfully!")
-            return redirect('settings_manage')
+            messages.success(request, "Settings updated successfully!")
+            return redirect(f"/settings/?tab={active_tab}")
 
     settings_dict = get_institute_settings_dict()
 
     if request.GET.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
         return JsonResponse(settings_dict)
 
-    return render(request, 'settings.html', {'settings': settings_dict})
+    receipt_counters = ReceiptCounter.objects.select_related('branch', 'session').order_by('branch__name', '-session__start_date')[:25]
+    health_logs = HealthLog.objects.order_by('-created_at')[:30]
+
+    # Notification Logs & Metric Statistics (Tabs 4 & 5)
+    notif_qs = NotificationLog.objects.all().order_by('-created_at')
+    total_notifications = notif_qs.count()
+    sent_notifications = notif_qs.filter(status='SENT').count()
+    simulated_notifications = notif_qs.filter(status='SIMULATED').count()
+    failed_notifications = notif_qs.filter(status='FAILED').count()
+
+    search_q = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    type_filter = request.GET.get('type', '').strip()
+
+    filtered_logs = notif_qs
+    if search_q:
+        filtered_logs = filtered_logs.filter(
+            Q(recipient_mobile__icontains=search_q) |
+            Q(recipient_name__icontains=search_q) |
+            Q(entity_id__icontains=search_q) |
+            Q(message_text__icontains=search_q)
+        )
+    if status_filter:
+        filtered_logs = filtered_logs.filter(status=status_filter)
+    if type_filter:
+        filtered_logs = filtered_logs.filter(message_type=type_filter)
+
+    recent_dispatches = notif_qs[:5]
+    audit_logs = filtered_logs[:100]
+
+    now = timezone.localtime()
+    today_display = now.strftime('%d %b %Y')
+    active_tab = request.GET.get('tab', 'profile')
+
+    context = {
+        'settings': settings_dict,
+        'receipt_counters': receipt_counters,
+        'health_logs': health_logs,
+        'total_notifications': total_notifications,
+        'sent_notifications': sent_notifications,
+        'simulated_notifications': simulated_notifications,
+        'failed_notifications': failed_notifications,
+        'recent_dispatches': recent_dispatches,
+        'audit_logs': audit_logs,
+        'search_query': search_q,
+        'current_status': status_filter,
+        'current_type': type_filter,
+        'today_display': today_display,
+        'active_tab': active_tab,
+    }
+    return render(request, 'settings.html', context)
 
 
 # -----------------------------------------------------------------------------
@@ -5995,18 +6166,64 @@ def api_settings_logo_view(request):
             return JsonResponse({
                 'success': True,
                 'logoUrl': logo_url,
-                'message': 'Master institute logo updated successfully',
+                'message': 'Class / Institute logo updated successfully',
             })
         except Exception as e:
-            return JsonResponse({'error': 'Failed to upload master logo', 'details': str(e)}, status=500)
+            return JsonResponse({'error': 'Failed to upload logo', 'details': str(e)}, status=500)
 
     elif request.method in ('DELETE', 'POST') and (request.method == 'DELETE' or request.POST.get('action') == 'delete'):
         if not can_manage_system(request):
             return JsonResponse({'error': 'You do not have permission to modify the institute logo.'}, status=403)
         try:
             remove_master_logo()
-            return JsonResponse({'success': True, 'message': 'Master logo removed'})
+            return JsonResponse({'success': True, 'message': 'Class / Institute logo removed'})
         except Exception as e:
-            return JsonResponse({'error': 'Failed to delete master logo', 'details': str(e)}, status=500)
+            return JsonResponse({'error': 'Failed to delete logo', 'details': str(e)}, status=500)
 
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+def api_whatsapp_status_view(request):
+    """
+    GET /api/settings/whatsapp-status/
+    High-performance internal proxy for checking local WhatsApp bridge status (Port 3000).
+    Eliminates browser Private Network Access (PNA), Mixed-Content, or cross-port blocks.
+    Returns status: READY | QR_READY | OFFLINE with live account metadata.
+    """
+    import urllib.request
+    import json
+
+    endpoints = [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000'
+    ]
+
+    for base in endpoints:
+        try:
+            req = urllib.request.Request(f"{base}/health", headers={'Accept': 'application/json'})
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode('utf-8'))
+                    if data.get('status') == 'QR_READY':
+                        try:
+                            qr_req = urllib.request.Request(f"{base}/qr?json=true", headers={'Accept': 'application/json'})
+                            with urllib.request.urlopen(qr_req, timeout=2.0) as qr_resp:
+                                if qr_resp.status == 200:
+                                    qr_data = json.loads(qr_resp.read().decode('utf-8'))
+                                    data['qrDataUrl'] = qr_data.get('qrDataUrl')
+                        except Exception:
+                            pass
+                    data['endpoint'] = f"{base}/send"
+                    data['serverProxy'] = True
+                    return JsonResponse(data)
+        except Exception:
+            continue
+
+    return JsonResponse({
+        'success': False,
+        'status': 'OFFLINE',
+        'isReady': False,
+        'error': 'Local WhatsApp Bridge is not running on port 3000.',
+        'endpoint': 'http://localhost:3000/send'
+    })
+
