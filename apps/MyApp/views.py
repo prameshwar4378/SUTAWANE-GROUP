@@ -1268,14 +1268,7 @@ def students_list_view(request):
     search_q = request.GET.get('q', '').strip()
 
     admissions_qs = StudentAdmission.objects.select_related(
-        'student', 'branch', 'session', 'fee_plan'
-    ).prefetch_related(
-        'payments',
-        'fee_plan__installments',
-        'fee_plan__installments__allocations__payment',
-        'student__previous_dues',
-        'student__admissions__fee_plan',
-        'student__admissions__payments',
+        'student', 'branch', 'session'
     )
 
     if branch_id and branch_id != 'ALL':
@@ -1306,36 +1299,82 @@ def students_list_view(request):
 
     admissions_qs = admissions_qs.order_by('-created_at')
 
-    students_data = []
-    total_session_fees = MONEY_ZERO
-    total_session_paid = MONEY_ZERO
-    total_session_pending = MONEY_ZERO
-    total_overall_pending = MONEY_ZERO
-    active_count = 0
-    archived_count = 0
+    # 1. Fast Database-Level Metric Aggregations
+    total_count = admissions_qs.count()
+    if status_filter == 'true':
+        active_count = total_count
+        archived_count = 0
+    elif status_filter == 'false':
+        active_count = 0
+        archived_count = total_count
+    else:
+        active_count = admissions_qs.filter(is_active=True).count()
+        archived_count = max(0, total_count - active_count)
 
-    for adm in admissions_qs:
+    # Fast indexed subquery aggregates
+    tot_session_fees_agg = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+    tot_session_paid_agg = Payment.objects.filter(admission__in=admissions_qs, is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+    total_session_fees = tot_session_fees_agg
+    total_session_paid = tot_session_paid_agg
+    total_session_pending = max(MONEY_ZERO, total_session_fees - total_session_paid)
+
+    # Multi-session overall pending
+    all_adms_qs = StudentAdmission.objects.filter(is_active=True)
+    if branch_id and branch_id != 'ALL':
+        all_adms_qs = all_adms_qs.filter(branch_id=branch_id)
+    tot_all_agreed = FeePlan.objects.filter(admission__in=all_adms_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+    tot_all_paid = Payment.objects.filter(admission__in=all_adms_qs, is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+    all_sess_pending = max(MONEY_ZERO, tot_all_agreed - tot_all_paid)
+
+    prev_dues_agg = PreviousSessionDue.objects.aggregate(
+        tot_out=Sum('outstanding_amount'),
+        tot_col=Sum('collected_amount')
+    )
+    all_prev_pending = max(MONEY_ZERO, (prev_dues_agg['tot_out'] or MONEY_ZERO) - (prev_dues_agg['tot_col'] or MONEY_ZERO))
+    total_overall_pending = all_sess_pending + all_prev_pending
+
+    # 2. Database-Level Pagination (Only pulls requested page rows from database)
+    paginator = Paginator(admissions_qs, page_size)
+    try:
+        page_obj = paginator.get_page(page_num)
+    except Exception:
+        page_obj = paginator.get_page(1)
+
+    # 3. Optimized Page-Level Relation Fetching (Avoids SQL variable limit)
+    page_adm_ids = [adm.id for adm in page_obj.object_list]
+    page_admissions = StudentAdmission.objects.filter(id__in=page_adm_ids).select_related(
+        'student', 'branch', 'session', 'fee_plan'
+    ).prefetch_related(
+        'payments',
+        'fee_plan__installments',
+        'fee_plan__installments__allocations__payment',
+        'student__previous_dues',
+        'student__admissions__fee_plan',
+        'student__admissions__payments',
+    )
+    adm_map = {adm.id: adm for adm in page_admissions}
+    page_ordered_adms = [adm_map[aid] for aid in page_adm_ids if aid in adm_map]
+
+    students_data = []
+    for adm in page_ordered_adms:
         st = adm.student
         plan = getattr(adm, 'fee_plan', None)
         tot_fees = plan.net_payable if plan else MONEY_ZERO
         pd_fees = sum(p.total_amount for p in adm.payments.all() if not p.is_reversed)
         pen_fees = max(MONEY_ZERO, tot_fees - pd_fees)
 
-        # Previous dues carried into this admission's session only.
         if adm.session_id and session_id != 'ALL':
             prev_dues_list = [d for d in st.previous_dues.all() if d.current_session_id == adm.session_id]
         else:
             prev_dues_list = list(st.previous_dues.all())
         prev_dues = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_list), MONEY_ZERO)
 
-        # Overall consolidated pending dues across all academic sessions of this student
         st_all_admissions = st.admissions.all()
         ov_pending = sum(
             max(MONEY_ZERO, (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO) - sum((p.total_amount for p in a.payments.all() if not p.is_reversed), MONEY_ZERO))
             for a in st_all_admissions
         ) + sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in st.previous_dues.all()), MONEY_ZERO)
 
-        # Fee status
         if pen_fees <= 0 and tot_fees > 0:
             calc_fee_status = 'PAID'
         elif pd_fees > 0 and pen_fees > 0:
@@ -1345,29 +1384,6 @@ def students_list_view(request):
         else:
             calc_fee_status = 'PAID'
 
-        # Fee Status Filter check
-        if fee_status_filter == 'PAID' and calc_fee_status != 'PAID':
-            continue
-        elif fee_status_filter == 'PARTIAL' and calc_fee_status != 'PARTIAL':
-            continue
-        elif fee_status_filter == 'UNPAID' and calc_fee_status != 'UNPAID':
-            continue
-        elif fee_status_filter == 'HAS_DUES' and ov_pending <= 0:
-            continue
-
-        if adm.is_active:
-            active_count += 1
-            total_session_fees += tot_fees
-            total_session_pending += pen_fees
-        else:
-            archived_count += 1
-            if status_filter == 'false':
-                total_session_fees += tot_fees
-                total_session_pending += pen_fees
-
-        total_session_paid += pd_fees
-
-        # Earliest unpaid installment due date
         next_due_date = None
         due_status = 'PAID'
         if pen_fees > 0 and plan and plan.installments.all():
@@ -1391,35 +1407,8 @@ def students_list_view(request):
             'due_status': due_status,
         })
 
-    total_count = len(students_data)
-
-    # Consolidated Overall Pending Amount:
-    # When viewing sessions in the institute (or branch scope), calculate the TRUE Grand Total Multi-Session Overall Pending Dues across ALL sessions.
-    # If a specific search query is entered (e.g. searching for a single student), calculate the multi-session dues for that matching student cohort.
-    if search_q:
-        seen_student_ids_for_overall = set()
-        total_overall_pending = MONEY_ZERO
-        for item in students_data:
-            st_id = item['student'].id
-            if st_id not in seen_student_ids_for_overall:
-                seen_student_ids_for_overall.add(st_id)
-                total_overall_pending += item['overall_pending']
-    else:
-        # Grand total multi-session pending across ALL academic sessions for the institute / branch scope
-        all_adms_qs = StudentAdmission.objects.filter(is_active=True).select_related('fee_plan')
-        if branch_id and branch_id != 'ALL':
-            all_adms_qs = all_adms_qs.filter(branch_id=branch_id)
-
-        tot_all_agreed = FeePlan.objects.filter(admission__in=all_adms_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
-        tot_all_paid = Payment.objects.filter(admission__in=all_adms_qs, is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
-        all_sess_pending = max(MONEY_ZERO, tot_all_agreed - tot_all_paid)
-
-        prev_dues_qs = PreviousSessionDue.objects.all()
-        if branch_id and branch_id != 'ALL':
-            prev_dues_qs = prev_dues_qs.filter(student__admissions__branch_id=branch_id).distinct()
-        all_prev_pending = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_qs), MONEY_ZERO)
-
-        total_overall_pending = all_sess_pending + all_prev_pending
+    # Wrap page with computed row data
+    page_obj.object_list = students_data
 
     # EXPORT HANDLING (Excel & Landscape PDF)
     export_type = request.GET.get('export')
@@ -1462,12 +1451,6 @@ def students_list_view(request):
             response = HttpResponse(pdf_bytes, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
-
-    paginator = Paginator(students_data, page_size)
-    try:
-        page_obj = paginator.get_page(page_num)
-    except Exception:
-        page_obj = paginator.get_page(1)
 
     courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
     branches = Branch.objects.filter(is_active=True).order_by('name')
