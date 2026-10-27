@@ -357,6 +357,232 @@ def api_developer_verify_otp_view(request):
 # Developer Management Portal
 # -------------------------------------------------------------------
 
+# ===================================================================
+# TEMPORARY BENCHMARK & STRESS-TEST GENERATOR (SAFE TO REMOVE)
+# Used exclusively for testing system speed, indexing, and capacity.
+# Can be safely deleted without affecting any core ERP logic.
+# ===================================================================
+
+_STRESS_FIRST_NAMES = [
+    'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Ayaan', 'Krishna', 'Ishaan',
+    'Shaurya', 'Atharva', 'Advik', 'Pranav', 'Advaith', 'Aaryan', 'Dhruv', 'Kabir', 'Ritvik', 'Darsh',
+    'Saanvi', 'Aanya', 'Aadhya', 'Aaradhya', 'Ananya', 'Pari', 'Anika', 'Navya', 'Angel', 'Diya',
+    'Myra', 'Sara', 'Ira', 'Avani', 'Riya', 'Prisha', 'Aditi', 'Kiara', 'Kavya', 'Siya',
+    'Rohan', 'Sneha', 'Tanvi', 'Om', 'Sagar', 'Akshay', 'Pooja', 'Neha', 'Pratik', 'Mayur'
+]
+
+_STRESS_LAST_NAMES = [
+    'Sharma', 'Verma', 'Patil', 'Deshmukh', 'Jadhav', 'Pawar', 'Kulkarni', 'Shinde', 'Chavan', 'More',
+    'Gaikwad', 'Bhosale', 'Kadam', 'Sawant', 'Mane', 'Kamble', 'Kale', 'Gore', 'Sutawane', 'Tambe',
+    'Rathod', 'Giri', 'Thakur', 'Bangar', 'Suryavanshi', 'Chaudhari', 'Patel', 'Shah', 'Mehta', 'Gupta'
+]
+
+_STRESS_STANDARDS = [
+    '8th Foundation', '9th Foundation', '10th Board State', '10th Board CBSE',
+    '11th - CET', '11th - NEET', '11th - JEE Main',
+    '12th - CET', '12th - NEET', '12th - JEE Advanced',
+    'Repeaters Batch - NEET', 'Crash Course'
+]
+
+_STRESS_PAYMENT_MODES = ['UPI', 'CASH', 'BANK_TRANSFER', 'CHEQUE']
+
+
+def execute_stress_generation(total_count, mode='both'):
+    """
+    High-performance bulk generator for dummy students and payments.
+    Optimized for testing database limits, pagination, and system capacity.
+    """
+    import random
+    branch = Branch.objects.filter(is_active=True).first() or Branch.objects.first()
+    session = AcademicSession.objects.filter(is_current=True).first() or AcademicSession.objects.first()
+
+    if not branch or not session:
+        return 0, 0, "Error: Active Branch or Academic Session missing in database."
+
+    start_time = time.time()
+    created_students = 0
+    created_payments = 0
+    base_num = int(time.time()) % 1000000
+
+    batch_size = 2000
+
+    if mode in ['both', 'students']:
+        created_so_far = 0
+        now = timezone.now()
+        while created_so_far < total_count:
+            chunk_size = min(batch_size, total_count - created_so_far)
+            students = []
+            admissions = []
+            fee_plans = []
+            payments = []
+
+            for i in range(chunk_size):
+                idx = created_so_far + i + 1
+                uid = str(uuid.uuid4())
+                adm_id = str(uuid.uuid4())
+                fp_id = str(uuid.uuid4())
+                fn = random.choice(_STRESS_FIRST_NAMES)
+                ln = random.choice(_STRESS_LAST_NAMES)
+                code = f"STRESS-SC-{base_num:06d}-{idx:06d}"
+                roll = f"STR-{(base_num % 1000):03d}-{idx:06d}"
+                std = random.choice(_STRESS_STANDARDS)
+                reg_date = now - timedelta(days=random.randint(1, 180))
+
+                # Student
+                students.append(Student(
+                    id=uid,
+                    student_code=code,
+                    full_name=f"{fn} {ln}",
+                    parent_phone=f"91{random.randint(7000000000, 9999999999)}",
+                    student_phone=f"91{random.randint(7000000000, 9999999999)}",
+                    address=f"Plot {random.randint(1, 999)}, Station Road, Maharashtra",
+                    created_at=reg_date
+                ))
+
+                # Admission
+                admissions.append(StudentAdmission(
+                    id=adm_id,
+                    student_id=uid,
+                    branch=branch,
+                    session=session,
+                    roll_number=roll,
+                    standard=std,
+                    admission_date=reg_date,
+                    is_active=True,
+                    created_at=reg_date
+                ))
+
+                # Fee Plan
+                fee_amt = Decimal(random.choice([15000, 20000, 25000, 30000, 40000]))
+                fee_plans.append(FeePlan(
+                    id=fp_id,
+                    admission_id=adm_id,
+                    session=session,
+                    total_fees=fee_amt,
+                    total_discount=Decimal('0.00'),
+                    net_payable=fee_amt,
+                    created_at=reg_date
+                ))
+
+                # If mode is both, generate matching payment
+                if mode == 'both':
+                    pay_amt = Decimal(random.choice([5000, 10000, 15000, 20000]))
+                    pay_date = reg_date + timedelta(days=random.randint(0, 15))
+                    payments.append(Payment(
+                        id=str(uuid.uuid4()),
+                        student_id=uid,
+                        branch=branch,
+                        admission_id=adm_id,
+                        session=session,
+                        receipt_number=f"STRESS-REC-{base_num:06d}-{idx:06d}",
+                        total_amount=pay_amt,
+                        payment_date=pay_date,
+                        payment_mode=random.choice(_STRESS_PAYMENT_MODES),
+                        reference_number=f"UPI-{random.randint(100000000000, 999999999999)}",
+                        notes="Capability testing dummy receipt",
+                        is_reversed=False,
+                        created_at=pay_date
+                    ))
+
+            with transaction.atomic():
+                Student.objects.bulk_create(students, batch_size=chunk_size)
+                StudentAdmission.objects.bulk_create(admissions, batch_size=chunk_size)
+                FeePlan.objects.bulk_create(fee_plans, batch_size=chunk_size)
+                if payments:
+                    Payment.objects.bulk_create(payments, batch_size=chunk_size)
+
+            created_so_far += chunk_size
+            created_students += chunk_size
+            if mode == 'both':
+                created_payments += chunk_size
+
+    elif mode == 'payments':
+        import random
+        # Generate payments for existing students
+        existing_students = list(Student.objects.values_list('id', flat=True)[:5000])
+        if not existing_students:
+            return 0, 0, "No students found to link payments to. Please generate students first."
+
+        created_so_far = 0
+        now = timezone.now()
+        while created_so_far < total_count:
+            chunk_size = min(batch_size, total_count - created_so_far)
+            payments = []
+            for i in range(chunk_size):
+                idx = created_so_far + i + 1
+                sid = random.choice(existing_students)
+                pay_amt = Decimal(random.randint(500, 25000))
+                pay_date = now - timedelta(days=random.randint(0, 180))
+                payments.append(Payment(
+                    id=str(uuid.uuid4()),
+                    student_id=sid,
+                    branch=branch,
+                    session=session,
+                    receipt_number=f"STRESS-REC-{base_num:06d}-{idx:06d}",
+                    total_amount=pay_amt,
+                    payment_date=pay_date,
+                    payment_mode=random.choice(_STRESS_PAYMENT_MODES),
+                    reference_number=f"UPI-{random.randint(100000000000, 999999999999)}",
+                    notes="Capability testing dummy receipt",
+                    is_reversed=False,
+                    created_at=pay_date
+                ))
+
+            with transaction.atomic():
+                Payment.objects.bulk_create(payments, batch_size=chunk_size)
+
+            created_so_far += chunk_size
+            created_payments += chunk_size
+
+    elapsed = time.time() - start_time
+    return created_students, created_payments, f"{elapsed:.2f}"
+
+
+def execute_stress_cleanup():
+    """
+    Safely removes all dummy stress-test records without touching real client data.
+    Strictly deletes in reverse foreign-key order to avoid RestrictedError.
+    """
+    stats = {'payments': 0, 'admissions': 0, 'students': 0, 'fee_plans': 0}
+    with transaction.atomic():
+        # 1. Allocations of dummy payments
+        dummy_payments = Payment.objects.filter(
+            Q(receipt_number__startswith='STRESS-') | Q(student__student_code__startswith='STRESS-')
+        )
+        PaymentAllocation.objects.filter(payment__in=dummy_payments).delete()
+
+        # 2. Delete dummy payments
+        deleted_p, _ = dummy_payments.delete()
+        stats['payments'] = deleted_p
+
+        # 3. Identify dummy students
+        dummy_students = Student.objects.filter(student_code__startswith='STRESS-')
+        dummy_admissions = StudentAdmission.objects.filter(
+            Q(student__in=dummy_students) | Q(roll_number__startswith='STR-')
+        )
+
+        # 4. Delete fee plans & installments of dummy students
+        fee_plans = FeePlan.objects.filter(admission__in=dummy_admissions)
+        installments = Installment.objects.filter(fee_plan__in=fee_plans)
+        PaymentAllocation.objects.filter(installment__in=installments).delete()
+        installments.delete()
+        FeeDiscount.objects.filter(fee_plan__in=fee_plans).delete()
+        deleted_fp, _ = fee_plans.delete()
+        stats['fee_plans'] = deleted_fp
+
+        # 5. Delete dummy admissions
+        deleted_adm, _ = dummy_admissions.delete()
+        stats['admissions'] = deleted_adm
+
+        # 6. Delete dummy students
+        deleted_s, _ = dummy_students.delete()
+        stats['students'] = deleted_s
+
+    return stats
+# ===================================================================
+# END TEMPORARY BENCHMARK & STRESS-TEST GENERATOR
+# ===================================================================
+
 def developer_portal_view(request):
     """
     Super-administrative Developer Portal matching React DeveloperPortalPage.tsx.
@@ -425,6 +651,36 @@ def developer_portal_view(request):
                 messages.success(request, f"Password successfully reset for @{target_user.username}!")
             return redirect('developer_portal')
 
+        # 3. Benchmark Dummy Data Generation (TEMPORARY FOR TESTING)
+        elif action == 'generate_dummy_records':
+            try:
+                count_val = int(request.POST.get('count', 1000))
+                count_val = max(1, min(count_val, 150000))
+            except (ValueError, TypeError):
+                count_val = 1000
+
+            mode_val = request.POST.get('mode', 'both')
+            if mode_val not in ['both', 'students', 'payments']:
+                mode_val = 'both'
+
+            num_s, num_p, elapsed_msg = execute_stress_generation(count_val, mode_val)
+            messages.success(
+                request,
+                f"Generated {num_s:,} Dummy Students and {num_p:,} Dummy Payments in {elapsed_msg}s! "
+                f"Ready for capability & stress testing."
+            )
+            return redirect('developer_portal')
+
+        # 4. Clear Benchmark Dummy Data (TEMPORARY FOR TESTING)
+        elif action == 'clear_dummy_records':
+            cleanup_stats = execute_stress_cleanup()
+            messages.success(
+                request,
+                f"Benchmark data wiped cleanly! Removed {cleanup_stats['students']:,} dummy students, "
+                f"{cleanup_stats['admissions']:,} admissions, and {cleanup_stats['payments']:,} receipts. Real records untouched."
+            )
+            return redirect('developer_portal')
+
     # Gather data for Developer Portal
     license_status = get_license_status()
     all_users = User.objects.all().order_by('role', 'username')
@@ -436,6 +692,9 @@ def developer_portal_view(request):
         'expenses_count': Expense.objects.count(),
         'courses_count': Course.objects.count(),
         'branches_count': Branch.objects.count(),
+        # Benchmark temporary counts
+        'dummy_students_count': Student.objects.filter(student_code__startswith='STRESS-').count(),
+        'dummy_payments_count': Payment.objects.filter(receipt_number__startswith='STRESS-').count(),
     }
 
     context = {

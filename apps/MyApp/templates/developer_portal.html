@@ -212,6 +212,144 @@
     </div>
   </div>
 
+  <!-- =================================================================== -->
+  <!-- TEMPORARY BENCHMARK & STRESS-TEST GENERATOR (SAFE TO REMOVE)        -->
+  <!-- This entire card and its script can be deleted when testing is done. -->
+  <!-- =================================================================== -->
+  <div class="p-6 rounded-xl border border-amber-500/30 bg-card text-card-foreground shadow-2xs space-y-5">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-bold text-foreground">Software Capability &amp; Stress Testing Suite</h2>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+              TEMPORARY BENCHMARK TOOL
+            </span>
+          </div>
+          <p class="text-[11px] text-muted-foreground">
+            Instantly create high volumes of dummy students &amp; payment receipts to stress-test system throughput, search speed, and pagination.
+          </p>
+        </div>
+      </div>
+
+      <!-- Current Dummy Data Status Badge -->
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-muted/50 border">
+          <i data-lucide="database" class="w-3.5 h-3.5 text-muted-foreground"></i>
+          <span>Dummy Records:</span>
+          <strong class="font-mono text-amber-600">{{ stats.dummy_students_count|default:0 }}</strong>
+          <span class="text-muted-foreground text-[10px]">Students</span>
+          <span>|</span>
+          <strong class="font-mono text-emerald-600">{{ stats.dummy_payments_count|default:0 }}</strong>
+          <span class="text-muted-foreground text-[10px]">Receipts</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Generator Form -->
+    <form id="stress-generate-form" method="POST" action="{% url 'developer_portal' %}" class="space-y-4 pt-1" onsubmit="return handleStressGenerateSubmit(event)">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="generate_dummy_records">
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Target Entity Scope Selector -->
+        <div class="lg:col-span-5 p-3.5 rounded-lg border bg-muted/20 space-y-2">
+          <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+            <span>Generation Scope</span>
+            <span class="text-[10px] text-muted-foreground">What to create</span>
+          </label>
+          <select
+            name="mode"
+            id="stress-mode-select"
+            class="w-full h-9 text-xs rounded-md border border-input bg-background px-2.5 font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="both" selected>Students + Fee Plans + Payments (Full Ecosystem)</option>
+            <option value="students">Students &amp; Admissions Only</option>
+            <option value="payments">Payment Receipts Only (Linked to Students)</option>
+          </select>
+          <p class="text-[10px] text-muted-foreground leading-relaxed">
+            All generated records are prefixed with <code class="font-mono bg-muted px-1 py-0.5 rounded text-[10px]">STRESS-</code> to ensure real data is untouched.
+          </p>
+        </div>
+
+        <!-- Quantity Input & Presets -->
+        <div class="lg:col-span-7 p-3.5 rounded-lg border bg-muted/20 space-y-2.5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold text-foreground">Record Count</label>
+              <span class="text-[10px] font-mono text-muted-foreground">Quick Presets:</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                type="number"
+                name="count"
+                id="stress-count-input"
+                min="1"
+                max="150000"
+                value="1000"
+                required
+                class="w-36 h-8 text-xs rounded-md border border-input bg-background px-2.5 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span class="text-xs text-muted-foreground">records</span>
+            </div>
+          </div>
+
+          <!-- Quick Preset Pills -->
+          <div class="flex flex-wrap items-center gap-1.5 pt-1">
+            <button type="button" onclick="setStressCount(500)" class="px-2 py-0.5 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer">+500</button>
+            <button type="button" onclick="setStressCount(1000)" class="px-2 py-0.5 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer">+1,000</button>
+            <button type="button" onclick="setStressCount(5000)" class="px-2 py-0.5 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer">+5,000</button>
+            <button type="button" onclick="setStressCount(10000)" class="px-2 py-0.5 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer">+10,000</button>
+            <button type="button" onclick="setStressCount(25000)" class="px-2 py-0.5 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer">+25,000</button>
+            <button type="button" onclick="setStressCount(50000)" class="px-2 py-0.5 text-[10px] font-bold rounded border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer">+50,000</button>
+            <button type="button" onclick="setStressCount(100000)" class="px-2 py-0.5 text-[10px] font-bold rounded border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20 transition-colors cursor-pointer">⚡ 1 Lakh (100k)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t">
+        <div class="text-[11px] text-muted-foreground flex items-center gap-1.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
+          <span>Bulk generation operates at ~2,000 records/sec via optimized database bulk pipelines.</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Clear Dummy Data Button -->
+          <button
+            type="button"
+            onclick="confirmClearStressData()"
+            class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-rose-200 text-rose-700 bg-rose-50/50 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400 transition-colors cursor-pointer"
+            {% if not stats.dummy_students_count and not stats.dummy_payments_count %}disabled title="No dummy records currently exist"{% endif %}
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600 dark:text-rose-400"></i>
+            <span>Clear Dummy Records</span>
+          </button>
+
+          <!-- Generate Button -->
+          <button
+            type="submit"
+            id="stress-generate-btn"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+            <span id="stress-generate-btn-text">Generate Dummy Records</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Hidden Form for Clear Action -->
+  <form id="stress-clear-form" method="POST" action="{% url 'developer_portal' %}" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="clear_dummy_records">
+  </form>
+  <!-- ================= END TEMPORARY BENCHMARK SUITE ================= -->
+
   <!-- SECTION 3: System Health & Database Diagnostics -->
   <div class="p-6 rounded-xl border bg-card text-card-foreground shadow-2xs space-y-4">
     <div class="flex items-center gap-2.5">
@@ -305,5 +443,44 @@
     document.getElementById('reset-user-display').textContent = '@' + username;
     openModal('reset-password-modal');
   }
+
+  // ===================================================================
+  // TEMPORARY BENCHMARK & STRESS-TEST SCRIPTS (SAFE TO REMOVE)
+  // ===================================================================
+  function setStressCount(num) {
+    const input = document.getElementById('stress-count-input');
+    if (input) {
+      input.value = num;
+      input.focus();
+    }
+  }
+
+  function handleStressGenerateSubmit(event) {
+    const input = document.getElementById('stress-count-input');
+    const val = parseInt(input.value, 10);
+    if (!val || val < 1) {
+      alert('Please enter a valid count of records (at least 1).');
+      event.preventDefault();
+      return false;
+    }
+    const btn = document.getElementById('stress-generate-btn');
+    const btnText = document.getElementById('stress-generate-btn-text');
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add('opacity-75', 'cursor-not-allowed');
+      if (btnText) {
+        btnText.textContent = `Generating ${val.toLocaleString()} records, please wait...`;
+      }
+    }
+    return true;
+  }
+
+  function confirmClearStressData() {
+    const msg = "Are you sure you want to permanently clear all dummy benchmark records (STRESS-SC-* students and STRESS-REC-* receipts)?\n\nReal student and payment records will NOT be touched.";
+    if (confirm(msg)) {
+      document.getElementById('stress-clear-form').submit();
+    }
+  }
+  // ================= END TEMPORARY BENCHMARK SCRIPTS =================
 </script>
 {% endblock %}

@@ -360,3 +360,32 @@ tar -czf /home/sutawane/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz /home/sutawa
 - [x] WhatsApp Gateway bridge active on `localhost:3000`.
 - [x] 1 Lakh records stress tested with sub-second response times.
 - [x] Web access functional at `http://173.249.33.152:8080/`.
+
+---
+
+## 13. Software Capability & Stress Testing Suite (Temporary)
+
+A high-performance benchmark suite has been integrated directly into the **Developer Portal** (`/developer-portal/`) to allow on-demand generation and testing of large datasets (e.g. 500 up to 100,000+ records) and assessing database indexing, search speed, and pagination responsiveness.
+
+### How to Use:
+1. Log in to the application as a **DEVELOPER** (`/login/` -> OTP -> Developer Dashboard).
+2. Navigate to **Developer Portal** (`/developer-portal/`).
+3. Under **Software Capability & Stress Testing Suite**:
+   - **Generation Scope**: Select *Students + Fee Plans + Payments (Full Ecosystem)*, *Students Only*, or *Payments Only*.
+   - **Record Count**: Type any number or click quick preset buttons (`+500`, `+1,000`, `+5,000`, `+10,000`, `+25,000`, `+50,000`, `⚡ 1 Lakh`).
+   - Click **Generate Dummy Records**. Records are created in bulk at ~2,000 records/sec.
+   - When finished testing, click **Clear Dummy Records** to permanently wipe all test data.
+
+### Data Isolation & Safety:
+- **Identifier Prefix**: All dummy students use `student_code="STRESS-SC-..."` and `roll_number="STR-..."`.
+- **Payment Prefix**: All dummy receipts use `receipt_number="STRESS-REC-..."`.
+- Real production records are completely isolated; cleanup commands filter strictly on these prefixes and never touch real students or receipts.
+
+### Clean Removal Instructions (When Testing is Finished):
+When software capability benchmarking is complete and you wish to remove this tool completely:
+1. In `Django/apps/MyApp/views.py`:
+   - Delete the block between `# === TEMPORARY BENCHMARK & STRESS-TEST GENERATOR ===` and `# === END TEMPORARY BENCHMARK ===` (lines ~360-590).
+   - In `developer_portal_view`, remove the two action handlers (`action == 'generate_dummy_records'` and `action == 'clear_dummy_records'`), and remove `dummy_students_count` and `dummy_payments_count` from `stats`.
+2. In `Django/apps/MyApp/templates/developer_portal.html`:
+   - Delete the HTML card between `<!-- === TEMPORARY BENCHMARK & STRESS-TEST GENERATOR === -->` and `<!-- === END TEMPORARY BENCHMARK SUITE === -->`.
+   - Delete the temporary JavaScript functions at the bottom of the script block.
