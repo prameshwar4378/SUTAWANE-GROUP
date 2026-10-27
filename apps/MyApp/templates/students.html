@@ -256,6 +256,8 @@
               <option value="25" {% if filters.page_size == 25 or not filters.page_size %}selected{% endif %}>25 per page</option>
               <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
               <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100 per page</option>
+              <option value="250" {% if filters.page_size == 250 %}selected{% endif %}>250 per page</option>
+              <option value="500" {% if filters.page_size == 500 %}selected{% endif %}>500 per page</option>
             </select>
           </div>
 
@@ -536,12 +538,44 @@
       </div>
 
       <!-- Table Footer with Pagination Controls -->
-      <div class="p-3 bg-muted/20 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div>
-          Showing <strong class="text-foreground">{{ page_obj|length }}</strong> of <strong class="text-foreground">{{ total_count }}</strong> matching students
+      <div class="p-3.5 bg-muted/20 border-t border-border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div class="flex items-center gap-1.5 text-xs">
+          <span>Showing</span>
+          <strong class="text-foreground font-semibold">
+            {% if total_count == 0 %}0{% else %}{{ page_obj.start_index }}–{{ page_obj.end_index }}{% endif %}
+          </strong>
+          <span>of</span>
+          <strong class="text-foreground font-semibold">{{ total_count }}</strong>
+          <span>students</span>
+          {% if page_obj.paginator.num_pages > 1 %}
+          <span class="text-muted-foreground/60">•</span>
+          <span class="text-muted-foreground">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+          {% endif %}
         </div>
 
-        <div class="flex items-center gap-2">
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="flex flex-wrap items-center gap-1.5">
+          <!-- First Page (<<) -->
+          {% if page_obj.number > 1 %}
+            <a
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1"
+              hx-target="#studentsContentArea"
+              hx-select="#studentsContentArea"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+              title="First Page"
+            >
+              <i data-lucide="chevrons-left" class="w-3.5 h-3.5"></i>
+            </a>
+          {% else %}
+            <span class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-input opacity-40 cursor-not-allowed">
+              <i data-lucide="chevrons-left" class="w-3.5 h-3.5"></i>
+            </span>
+          {% endif %}
+
+          <!-- Previous Page (<) -->
           {% if page_obj.has_previous %}
             <a
               href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
@@ -550,22 +584,45 @@
               hx-select="#studentsContentArea"
               hx-swap="outerHTML"
               hx-push-url="true"
-              class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
+              class="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+              title="Previous Page"
             >
               <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-              <span>Previous</span>
+              <span class="hidden sm:inline">Prev</span>
             </a>
           {% else %}
-            <span class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border opacity-50 cursor-not-allowed">
+            <span class="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-input opacity-40 cursor-not-allowed">
               <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-              <span>Previous</span>
+              <span class="hidden sm:inline">Prev</span>
             </span>
           {% endif %}
 
-          <span class="text-xs font-medium px-2">
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages|default:1 }}
-          </span>
+          <!-- Numeric Page Pills (Elided) -->
+          <div class="hidden sm:flex items-center gap-1">
+            {% for p in elided_page_range %}
+              {% if p == '…' or p == elided_ellipsis %}
+                <span class="px-1.5 text-muted-foreground select-none">…</span>
+              {% elif p == page_obj.number %}
+                <span class="inline-flex items-center justify-center h-8 min-w-8 px-2 text-xs font-bold rounded-md bg-primary text-primary-foreground shadow-2xs">
+                  {{ p }}
+                </span>
+              {% else %}
+                <a
+                  href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ p }}"
+                  hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ p }}"
+                  hx-target="#studentsContentArea"
+                  hx-select="#studentsContentArea"
+                  hx-swap="outerHTML"
+                  hx-push-url="true"
+                  class="inline-flex items-center justify-center h-8 min-w-8 px-2 text-xs font-medium rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+                >
+                  {{ p }}
+                </a>
+              {% endif %}
+            {% endfor %}
+          </div>
 
+          <!-- Next Page (>) -->
           {% if page_obj.has_next %}
             <a
               href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
@@ -574,18 +631,63 @@
               hx-select="#studentsContentArea"
               hx-swap="outerHTML"
               hx-push-url="true"
-              class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
+              class="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+              title="Next Page"
             >
-              <span>Next</span>
+              <span class="hidden sm:inline">Next</span>
               <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
             </a>
           {% else %}
-            <span class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border opacity-50 cursor-not-allowed">
-              <span>Next</span>
+            <span class="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-input opacity-40 cursor-not-allowed">
+              <span class="hidden sm:inline">Next</span>
               <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
             </span>
           {% endif %}
+
+          <!-- Last Page (>>) -->
+          {% if page_obj.number < page_obj.paginator.num_pages %}
+            <a
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
+              hx-target="#studentsContentArea"
+              hx-select="#studentsContentArea"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+              title="Last Page ({{ page_obj.paginator.num_pages }})"
+            >
+              <i data-lucide="chevrons-right" class="w-3.5 h-3.5"></i>
+            </a>
+          {% else %}
+            <span class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-input opacity-40 cursor-not-allowed">
+              <i data-lucide="chevrons-right" class="w-3.5 h-3.5"></i>
+            </span>
+          {% endif %}
+
+          <!-- Jump To Page Input -->
+          <div class="flex items-center gap-1 pl-1 ml-1 border-l border-border">
+            <span class="text-[11px] text-muted-foreground whitespace-nowrap hidden lg:inline">Go to:</span>
+            <input
+              type="number"
+              min="1"
+              max="{{ page_obj.paginator.num_pages }}"
+              value="{{ page_obj.number }}"
+              id="paginationJumpInput"
+              class="h-8 w-14 text-center text-xs font-mono rounded-md border border-input bg-background px-1 focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+              onkeydown="if(event.key==='Enter'){jumpToPage(this.value);}"
+              title="Type page number and press Enter"
+            />
+            <button
+              type="button"
+              onclick="jumpToPage(document.getElementById('paginationJumpInput').value)"
+              class="h-8 px-2 text-xs font-medium rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+              title="Go to page"
+            >
+              Go
+            </button>
+          </div>
         </div>
+        {% endif %}
       </div>
     </div>
 
@@ -1285,23 +1387,27 @@
 
   // --- Table Page Size Controller ---
   function updatePageSize(size) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page_size', size);
+    url.searchParams.set('page', '1');
     const hiddenInput = document.getElementById('hiddenFilterPageSize');
     if (hiddenInput) {
       hiddenInput.value = size;
     }
-    const form = document.getElementById('studentsFilterForm');
-    if (form) {
-      if (window.htmx) {
-        htmx.trigger(form, 'submit');
-      } else {
-        form.submit();
-      }
-    } else {
-      const url = new URL(window.location.href);
-      url.searchParams.set('page_size', size);
-      url.searchParams.set('page', '1');
-      window.location.href = url.toString();
+    window.location.href = url.toString();
+  }
+
+  // --- Jump to Page Controller ---
+  function jumpToPage(pageNum) {
+    const p = parseInt(pageNum, 10);
+    const maxPages = parseInt("{{ page_obj.paginator.num_pages|default:1 }}", 10);
+    if (!p || p < 1 || p > maxPages) {
+      alert('Please enter a valid page number between 1 and ' + maxPages);
+      return;
     }
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', p);
+    window.location.href = url.toString();
   }
 
   function initRowClick() {
@@ -1343,6 +1449,9 @@
   document.body.addEventListener('htmx:afterSwap', function() {
     applyColumnVisibility();
     initRowClick();
+    if (window.lucide) {
+      lucide.createIcons();
+    }
   });
 
   document.addEventListener('keydown', function(e) {

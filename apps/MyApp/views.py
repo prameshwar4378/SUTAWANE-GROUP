@@ -1511,7 +1511,7 @@ def students_list_view(request):
 
     try:
         page_size = int(request.GET.get('page_size', 25))
-        if page_size not in (10, 25, 50, 100):
+        if page_size not in (10, 25, 50, 100, 250, 500):
             page_size = 25
     except (TypeError, ValueError):
         page_size = 25
@@ -1719,11 +1719,18 @@ def students_list_view(request):
     target_branch = active_branch or branches.first()
     suggested_roll = generate_next_roll_number(target_branch, active_session)
 
+    try:
+        elided_page_range = list(paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1))
+    except Exception:
+        elided_page_range = list(paginator.page_range)
+
     context = {
         'students_data': page_obj,
         'page_obj': page_obj,
         'total_count': total_count,
         'paginator': paginator,
+        'elided_page_range': elided_page_range,
+        'elided_ellipsis': paginator.ELLIPSIS,
         'metrics': {
             'total_count': total_count,
             'active_count': active_count,
