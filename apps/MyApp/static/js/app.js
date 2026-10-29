@@ -497,3 +497,217 @@ window.printDocument = function (mode) {
     window.print();
   }
 };
+
+// ===================================================================
+// Universal Single-Click Button Loading & Submission Protection Engine
+// ===================================================================
+(function () {
+  'use strict';
+
+  // Spinner SVG matching font size and text color
+  function createSpinnerSvg() {
+    return (
+      '<svg class="btn-loading-spinner animate-spin w-4 h-4 shrink-0 inline-block mr-1.5" ' +
+      'xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="vertical-align:-0.15em;">' +
+      '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+      '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>' +
+      '</svg>'
+    );
+  }
+
+  // Derive intelligent loading label from button text
+  function deriveLoadingLabel(rawText) {
+    if (!rawText) return 'Processing...';
+    const text = rawText.trim().toLowerCase();
+
+    if (text.includes('filter')) return 'Filtering...';
+    if (text.includes('collect') || text.includes('record payment')) return 'Recording Payment...';
+    if (text.includes('payment') || text.includes('pay')) return 'Processing Payment...';
+    if (text.includes('save') || text.includes('saved')) return 'Saving...';
+    if (text.includes('create') || text.includes('add')) return 'Creating...';
+    if (text.includes('update') || text.includes('edit')) return 'Updating...';
+    if (text.includes('delete') || text.includes('remove') || text.includes('void')) return 'Deleting...';
+    if (text.includes('export') || text.includes('download')) return 'Exporting...';
+    if (text.includes('generate')) return 'Generating...';
+    if (text.includes('verify') || text.includes('otp')) return 'Verifying...';
+    if (text.includes('sign in') || text.includes('login')) return 'Signing In...';
+    if (text.includes('promote')) return 'Promoting...';
+    if (text.includes('backup') || text.includes('restore')) return 'Processing Backup...';
+    if (text.includes('search')) return 'Searching...';
+    if (text.includes('apply')) return 'Applying...';
+    if (text.includes('send') || text.includes('notify')) return 'Sending...';
+    if (text.includes('reset')) return 'Resetting...';
+    if (text.includes('submit')) return 'Submitting...';
+
+    return 'Processing...';
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Track the most recently clicked submit button
+  let lastClickedSubmitBtn = null;
+  document.addEventListener('mousedown', function (e) {
+    const btn = e.target.closest('button, input[type="submit"]');
+    if (btn && (btn.type === 'submit' || btn.classList.contains('btn-submit') || btn.hasAttribute('data-single-click'))) {
+      lastClickedSubmitBtn = btn;
+    }
+  }, true);
+
+  // Lock button and transition to animated spinner state
+  function lockButton(btn, customText) {
+    if (!btn || btn.classList.contains('btn-loading') || btn.dataset.originalHtml) {
+      return false;
+    }
+
+    // Capture button width before modifying DOM to prevent layout shift
+    const currentWidth = btn.offsetWidth;
+    if (currentWidth > 0) {
+      btn.style.minWidth = currentWidth + 'px';
+    }
+
+    // Preserve original state for clean restoration
+    btn.dataset.originalHtml = btn.innerHTML;
+    btn.dataset.originalDisabled = btn.disabled ? 'true' : 'false';
+
+    const loadingText = customText || btn.getAttribute('data-loading-text') || deriveLoadingLabel(btn.textContent);
+
+    btn.innerHTML = createSpinnerSvg() + '<span>' + escapeHtml(loadingText) + '</span>';
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+
+    return true;
+  }
+
+  // Restore button back to initial state
+  function restoreButton(btn) {
+    if (!btn || !btn.dataset.originalHtml) return;
+
+    btn.innerHTML = btn.dataset.originalHtml;
+    btn.disabled = btn.dataset.originalDisabled === 'true';
+    btn.classList.remove('btn-loading');
+    btn.removeAttribute('aria-busy');
+    btn.style.minWidth = '';
+    delete btn.dataset.originalHtml;
+    delete btn.dataset.originalDisabled;
+
+    if (window.renderIcons) {
+      window.renderIcons();
+    }
+  }
+
+  function resetAllLoadingButtons() {
+    document.querySelectorAll('.btn-loading').forEach(restoreButton);
+    document.querySelectorAll('.__dynamic_submit_action__').forEach(function (el) {
+      el.remove();
+    });
+  }
+
+  // Handle Form Submissions (Both standard full-page POSTs and HTMX)
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form || form.hasAttribute('data-no-loading') || form.classList.contains('no-loading')) {
+      return;
+    }
+
+    // Verify HTML5 validation status - do NOT lock if browser validation blocks submission
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+      return;
+    }
+
+    // Identify the submit button that triggered this submission
+    let submitBtn = e.submitter;
+    if (!submitBtn || submitBtn.tagName !== 'BUTTON') {
+      submitBtn = lastClickedSubmitBtn && form.contains(lastClickedSubmitBtn)
+        ? lastClickedSubmitBtn
+        : form.querySelector('button[type="submit"]:not([disabled]), input[type="submit"]:not([disabled])');
+    }
+
+    if (!submitBtn) return;
+
+    // Preserve button name and value so Django request.POST gets the action parameter (e.g. name="action" value="create")
+    if (submitBtn.name && !form.querySelector('input[type="hidden"][name="' + CSS.escape(submitBtn.name) + '"]')) {
+      const hiddenInput = document.createElement('input');
+      hiddenInput.type = 'hidden';
+      hiddenInput.name = submitBtn.name;
+      hiddenInput.value = submitBtn.value || '';
+      hiddenInput.className = '__dynamic_submit_action__';
+      form.appendChild(hiddenInput);
+    }
+
+    // Lock the button immediately with animated loading spinner
+    lockButton(submitBtn);
+
+    // If form is non-HTMX, safety timer resets button in case submission was cancelled or downloaded as file
+    const isHtmx = form.hasAttribute('hx-get') || form.hasAttribute('hx-post') || form.hasAttribute('hx-put') || form.hasAttribute('hx-patch');
+    if (!isHtmx) {
+      const isExport = (form.action && form.action.includes('export')) || (submitBtn.value && submitBtn.value.includes('export')) || submitBtn.textContent.toLowerCase().includes('export');
+      if (isExport) {
+        setTimeout(function () {
+          restoreButton(submitBtn);
+        }, 4000);
+      }
+    }
+  }, true);
+
+  // Handle Standalone Click Action Buttons (e.g. data-single-click or .btn-single-click)
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('button[data-single-click], .btn-single-click, button[type="button"][data-loading-text]');
+    if (!btn || btn.disabled || btn.classList.contains('btn-loading')) return;
+
+    if (!btn.hasAttribute('hx-get') && !btn.hasAttribute('hx-post')) {
+      lockButton(btn);
+    }
+  }, true);
+
+  // HTMX Integration Hooks
+  document.addEventListener('htmx:beforeRequest', function (e) {
+    const elt = e.detail && e.detail.elt;
+    if (elt) {
+      if (elt.tagName === 'BUTTON') {
+        lockButton(elt);
+      } else if (elt.tagName === 'FORM') {
+        const btn = elt.querySelector('button[type="submit"]:not([disabled])');
+        if (btn) lockButton(btn);
+      }
+    }
+  });
+
+  document.addEventListener('htmx:afterRequest', function (e) {
+    const elt = e.detail && e.detail.elt;
+    if (elt) {
+      if (elt.tagName === 'BUTTON') {
+        restoreButton(elt);
+      } else if (elt.tagName === 'FORM') {
+        elt.querySelectorAll('.btn-loading').forEach(restoreButton);
+      }
+    }
+    resetAllLoadingButtons();
+  });
+
+  document.addEventListener('htmx:responseError', resetAllLoadingButtons);
+  document.addEventListener('htmx:sendError', resetAllLoadingButtons);
+  document.addEventListener('htmx:afterSwap', function () {
+    resetAllLoadingButtons();
+  });
+
+  // Restore when navigating back through Back/Forward cache (BFCache)
+  window.addEventListener('pageshow', function () {
+    resetAllLoadingButtons();
+  });
+
+  // Expose Global API on window
+  window.ButtonLoadingEngine = {
+    lock: lockButton,
+    restore: restoreButton,
+    resetAll: resetAllLoadingButtons,
+  };
+})();

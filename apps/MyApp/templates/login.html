@@ -15,6 +15,31 @@
   <!-- Modern Light Portal Stylesheet with Cache Busting -->
   <link rel="stylesheet" href="{% static 'css/modern_portal.css' %}?v=2.2">
   <script src="{% static 'js/lucide.min.js' %}"></script>
+  <script src="{% static 'js/app.js' %}?v=1.6" defer></script>
+  <style>
+    .btn-loading {
+      position: relative !important;
+      pointer-events: none !important;
+      cursor: not-allowed !important;
+      opacity: 0.82 !important;
+      transition: all 0.15s ease-in-out !important;
+    }
+    .btn-loading-spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 9999px;
+      animation: btnSpin 0.65s linear infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    @keyframes btnSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body class="modern-auth-screen">
   

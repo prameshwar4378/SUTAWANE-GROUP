@@ -194,6 +194,30 @@
     /* Slate Utility Fallbacks */
     .bg-slate-100 { background-color: #f1f5f9 !important; }
     .hover\:bg-slate-100:hover { background-color: #f1f5f9 !important; }
+
+    /* Global Single-Click Button Loading Engine Styles */
+    .btn-loading {
+      position: relative !important;
+      pointer-events: none !important;
+      cursor: not-allowed !important;
+      opacity: 0.82 !important;
+      transition: all 0.15s ease-in-out !important;
+    }
+    .btn-loading-spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 9999px;
+      animation: btnSpin 0.65s linear infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    @keyframes btnSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   </style>
 
   <!-- Lucide Icons, HTMX & App Script -->
@@ -201,7 +225,7 @@
   <script src="{% static 'js/htmx.min.js' %}"></script>
   <script src="{% static 'js/chart.umd.min.js' %}"></script>
   <script src="{% static 'js/searchable-select.js' %}?v=1.0" defer></script>
-  <script src="{% static 'js/app.js' %}?v=1.5" defer></script>
+  <script src="{% static 'js/app.js' %}?v=1.6" defer></script>
   
   {% block extra_head %}{% endblock %}
 </head>
