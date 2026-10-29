@@ -194,6 +194,10 @@ STATICFILES_DIRS = []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
+# High-Performance Static Asset Caching (1-Year Immutable Browser Cache)
+WHITENOISE_MAX_AGE = int(os.getenv('WHITENOISE_MAX_AGE', 31536000))
+WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 

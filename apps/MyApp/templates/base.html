@@ -7,24 +7,29 @@
   <title>{% block title %}{{ institute_name|default:"Sutawane Classes" }} Management Software{% endblock %}</title>
   <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
   
-  <!-- Plus Jakarta Sans & Inter Typography -->
+  <!-- Typography: Plus Jakarta Sans & Inter (Non-blocking with font-display: swap) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" media="print" onload="this.media='all'">
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap">
+  </noscript>
 
   <!-- Compiled Tailwind CSS & Design Tokens -->
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1.3">
-  <link rel="stylesheet" href="{% static 'css/print.css' %}?v=1.3">
-  <link rel="stylesheet" href="{% static 'css/searchable-select.css' %}?v=1.1">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1.4">
+  <link rel="stylesheet" href="{% static 'css/print.css' %}?v=1.4">
+  <link rel="stylesheet" href="{% static 'css/searchable-select.css' %}?v=1.2">
 
   <style>
-    /* Explicitly map Indian Rupee symbol U+20B9 across the entire application to Inter */
+    /* Explicitly map Indian Rupee symbol U+20B9 across the entire application to Inter with font-display: swap */
     @font-face {
       font-family: 'IndianRupeeFix';
-      src: local('Inter SemiBold'), local('Inter-SemiBold'), local('Inter'),
+      src: local('Inter SemiBold'), local('Inter-SemiBold'), local('Inter'), local('Segoe UI'),
            url('https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf') format('truetype');
       unicode-range: U+20B9;
       font-weight: 100 900;
+      font-display: swap;
     }
 
     body, html, input, button, select, textarea {
@@ -329,12 +334,11 @@
     }
   </style>
 
-  <!-- Lucide Icons, HTMX & App Script -->
-  <script src="{% static 'js/lucide.min.js' %}"></script>
-  <script src="{% static 'js/htmx.min.js' %}"></script>
-  <script src="{% static 'js/chart.umd.min.js' %}"></script>
-  <script src="{% static 'js/searchable-select.js' %}?v=1.0" defer></script>
-  <script src="{% static 'js/app.js' %}?v=1.7" defer></script>
+  <!-- Core Framework Scripts (Deferred for non-blocking instant page paint) -->
+  <script src="{% static 'js/lucide.min.js' %}" defer></script>
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/searchable-select.js' %}?v=1.1" defer></script>
+  <script src="{% static 'js/app.js' %}?v=1.8" defer></script>
   
   {% block extra_head %}{% endblock %}
 </head>

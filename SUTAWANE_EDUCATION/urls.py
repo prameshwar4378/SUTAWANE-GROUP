@@ -5,8 +5,11 @@ Production-ready routing with fail-safe media serving.
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
-from django.conf.urls.static import static
 from django.views.static import serve
+from django.views.decorators.cache import cache_control
+
+# Wrap media serving with 24-hour browser caching for student photos and logos
+cached_media_serve = cache_control(public=True, max_age=86400)(serve)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -14,9 +17,9 @@ urlpatterns = [
 ]
 
 # Ensure media files (student photos, institutional logos, bill attachments)
-# remain accessible in both development and standalone/containerized production servers.
+# are served with browser caching to eliminate repetitive disk and socket reads.
 urlpatterns += [
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    re_path(r'^media/(?P<path>.*)$', cached_media_serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 
 if settings.DEBUG:

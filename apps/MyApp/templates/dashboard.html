@@ -462,3 +462,7 @@
 </div>
 {{ monthly_trend|json_script:"dashboard-trend-data" }}
 {% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/chart.umd.min.js' %}" defer></script>
+{% endblock %}
