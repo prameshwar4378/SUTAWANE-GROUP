@@ -32,6 +32,355 @@
       opacity: 0;
       transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease-in-out;
     }
+
+    /* =====================================================================
+       FULL-WIDTH EDGE-TO-EDGE CREATIVE PROFESSIONAL NAVIGATION SYSTEM
+       ===================================================================== */
+    .top-announcement-bar {
+      background: #FFFFFF !important;
+      border-bottom: 1px solid #E2E8F0 !important;
+      font-size: 0.8125rem !important;
+      padding: 0.5rem 0 !important;
+      position: relative !important;
+      z-index: 101 !important;
+      width: 100% !important;
+    }
+
+    .header-full-container {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding-left: clamp(1.25rem, 4vw, 4rem) !important;
+      padding-right: clamp(1.25rem, 4vw, 4rem) !important;
+      box-sizing: border-box !important;
+    }
+
+    .top-announcement-inner {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      flex-wrap: wrap !important;
+      gap: 0.75rem !important;
+    }
+
+    .top-announcement-left {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.6rem !important;
+      font-weight: 600 !important;
+      color: #334155 !important;
+      font-size: 0.8125rem !important;
+    }
+
+    .top-announcement-left .live-dot-pulse {
+      width: 8px !important;
+      height: 8px !important;
+      border-radius: 50% !important;
+      background: #2563EB !important;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
+      display: inline-block !important;
+      animation: pulseDot 2s infinite !important;
+    }
+
+    @keyframes pulseDot {
+      0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+      70% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+
+    .top-announcement-right {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 1.25rem !important;
+      color: #64748B !important;
+      font-weight: 500 !important;
+      font-size: 0.8125rem !important;
+    }
+
+    .top-contact-link {
+      color: inherit !important;
+      text-decoration: none !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.4rem !important;
+      transition: color 0.15s ease !important;
+    }
+    .top-contact-link:hover {
+      color: #2563EB !important;
+    }
+
+    .top-location {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.35rem !important;
+    }
+
+    .top-divider {
+      display: inline-block !important;
+      width: 4px !important;
+      height: 4px !important;
+      border-radius: 50% !important;
+      background: #CBD5E1 !important;
+    }
+
+    /* Sticky Navigation Header */
+    .modern-header {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 100 !important;
+      background: rgba(255, 255, 255, 0.94) !important;
+      backdrop-filter: blur(20px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.85) !important;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04) !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      transition: all 0.2s ease !important;
+    }
+
+    .modern-header-inner {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 0.85rem 0 !important;
+      gap: 1.5rem !important;
+      width: 100% !important;
+    }
+
+    /* Brand Logo & Typography */
+    .modern-brand {
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.85rem !important;
+      text-decoration: none !important;
+      color: #0F172A !important;
+      flex-shrink: 0 !important;
+    }
+
+    .modern-logo-box {
+      width: 46px !important;
+      height: 46px !important;
+      border-radius: 12px !important;
+      background: #FFFFFF !important;
+      border: 1.5px solid #E2E8F0 !important;
+      box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.08) !important;
+      padding: 2px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+      flex-shrink: 0 !important;
+      transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    .modern-brand:hover .modern-logo-box {
+      transform: scale(1.04) !important;
+      box-shadow: 0 6px 18px -2px rgba(79, 70, 229, 0.16) !important;
+      border-color: #C7D2FE !important;
+    }
+
+    .modern-logo-box img {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain !important;
+      border-radius: 9px !important;
+    }
+
+    .modern-brand-text {
+      display: flex !important;
+      flex-direction: column !important;
+      text-align: left !important;
+    }
+
+    .modern-brand-name {
+      font-size: 1.18rem !important;
+      font-weight: 800 !important;
+      letter-spacing: -0.03em !important;
+      color: #0F172A !important;
+      line-height: 1.2 !important;
+    }
+
+    .modern-brand-tag {
+      font-size: 0.7rem !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      color: #64748B !important;
+      margin-top: 0.15rem !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.4rem !important;
+    }
+
+    .brand-tag-dot {
+      width: 5px !important;
+      height: 5px !important;
+      border-radius: 50% !important;
+      background: #6366F1 !important;
+      display: inline-block !important;
+    }
+
+    /* Desktop Navigation Links */
+    .modern-nav-links {
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.35rem !important;
+    }
+
+    .modern-nav-link {
+      color: #475569 !important;
+      text-decoration: none !important;
+      font-size: 0.9rem !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.01em !important;
+      padding: 0.5rem 0.95rem !important;
+      border-radius: 9999px !important;
+      transition: all 0.18s ease !important;
+    }
+
+    .modern-nav-link:hover {
+      color: #0F172A !important;
+      background: rgba(15, 23, 42, 0.05) !important;
+    }
+
+    .modern-nav-link.active {
+      color: #4338CA !important;
+      font-weight: 700 !important;
+      background: rgba(99, 102, 241, 0.09) !important;
+      box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.18) !important;
+    }
+
+    /* Dropdown Navigation */
+    .modern-nav-dropdown-btn {
+      color: #475569 !important;
+      font-size: 0.9rem !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.01em !important;
+      padding: 0.5rem 0.95rem !important;
+      border-radius: 9999px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.35rem !important;
+      background: none !important;
+      border: none !important;
+      cursor: pointer !important;
+      transition: all 0.18s ease !important;
+    }
+
+    .modern-nav-dropdown-btn:hover,
+    .modern-nav-dropdown-btn.active,
+    .modern-nav-dropdown.open .modern-nav-dropdown-btn {
+      color: #0F172A !important;
+      background: rgba(15, 23, 42, 0.05) !important;
+    }
+
+    /* Action Buttons */
+    .modern-header-actions {
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.85rem !important;
+      flex-shrink: 0 !important;
+    }
+
+    .btn-nav-login {
+      color: #334155 !important;
+      text-decoration: none !important;
+      font-size: 0.875rem !important;
+      font-weight: 600 !important;
+      padding: 0.5rem 1.15rem !important;
+      border-radius: 9999px !important;
+      border: 1.5px solid #E2E8F0 !important;
+      background: #FFFFFF !important;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    .btn-nav-login:hover {
+      color: #0F172A !important;
+      background: #F8FAFC !important;
+      border-color: #CBD5E1 !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    /* Creative Professional Primary CTA Pill */
+    .btn-header-demo {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.5rem !important;
+      padding: 0.55rem 1.35rem !important;
+      border-radius: 9999px !important;
+      background: linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #7C3AED 100%) !important;
+      color: #FFFFFF !important;
+      font-weight: 700 !important;
+      font-size: 0.875rem !important;
+      letter-spacing: -0.01em !important;
+      border: none !important;
+      cursor: pointer !important;
+      text-decoration: none !important;
+      box-shadow: 0 4px 14px -1px rgba(79, 70, 229, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset !important;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    .btn-header-demo:hover {
+      transform: translateY(-1.5px) scale(1.02) !important;
+      box-shadow: 0 8px 22px -2px rgba(79, 70, 229, 0.52), 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important;
+      filter: brightness(1.06) !important;
+    }
+
+    .btn-header-demo .demo-arrow {
+      font-weight: 800 !important;
+      font-size: 1.05rem !important;
+      line-height: 1 !important;
+      transition: transform 0.2s ease !important;
+    }
+
+    .btn-header-demo:hover .demo-arrow {
+      transform: translateX(3px) !important;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 1024px) {
+      .modern-nav-links {
+        display: none !important;
+      }
+      .modern-menu-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0.45rem !important;
+        border-radius: 10px !important;
+        background: #F1F5F9 !important;
+        border: 1px solid #E2E8F0 !important;
+        color: #0F172A !important;
+        cursor: pointer !important;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header-full-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+      }
+      .top-announcement-right {
+        display: none !important;
+      }
+      .top-announcement-inner {
+        justify-content: center !important;
+      }
+      .modern-brand-name {
+        font-size: 1.05rem !important;
+      }
+      .modern-brand-tag {
+        font-size: 0.65rem !important;
+      }
+      .btn-nav-login {
+        display: none !important;
+      }
+      .btn-header-demo {
+        padding: 0.45rem 1rem !important;
+        font-size: 0.8125rem !important;
+      }
+    }
   </style>
   
   {% block extra_css %}{% endblock %}
@@ -47,27 +396,30 @@
     <div class="ambient-glow-right"></div>
   </div>
 
-  <!-- 1. Top Announcement Bar -->
-  <div style="background:#F8FAFC;border-bottom:1px solid #E2E8F0;font-size:0.8125rem;padding:0.45rem 1rem;position:relative;z-index:101;">
-    <div class="modern-container" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
-      <div style="display:inline-flex;align-items:center;gap:0.5rem;font-weight:600;color:#334155;">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563EB;box-shadow:0 0 8px rgba(37,99,235,0.6);"></span>
+  <!-- 1. Top Announcement Bar (Full Width Screen-Edge) -->
+  <div class="top-announcement-bar">
+    <div class="header-full-container top-announcement-inner">
+      <div class="top-announcement-left">
+        <span class="live-dot-pulse"></span>
         <span>Admissions Open 2026–2027 · Limited Seats Per Batch</span>
       </div>
-      <div style="display:inline-flex;align-items:center;gap:1.5rem;color:#64748B;font-weight:500;">
-        <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:0.35rem;">
+      <div class="top-announcement-right">
+        <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="top-contact-link">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           <span>{{ institute_settings.phone|default:'+91 98765 43210' }}</span>
         </a>
-        <span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:#CBD5E1;"></span>
-        <span>Station Road, Vaijapur</span>
+        <span class="top-divider"></span>
+        <span class="top-location">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          Station Road, Vaijapur
+        </span>
       </div>
     </div>
   </div>
 
-  <!-- 2. Modern Sticky Navigation Bar -->
+  <!-- 2. Modern Sticky Navigation Bar (Full Width Screen-Edge) -->
   <header class="modern-header" id="modernHeader">
-    <div class="modern-container">
+    <div class="header-full-container">
       <div class="modern-header-inner">
         <!-- Brand Logo / Identity -->
         <a href="{% url 'landing' %}" class="modern-brand" aria-label="Sutawane Classes Home">
@@ -78,9 +430,12 @@
               <span>SC</span>
             {% endif %}
           </div>
-          <div>
-            <div class="modern-brand-name">{{ institute_name|default:'Sutawane Classes' }}</div>
-            <div class="modern-brand-tag">Academy of Excellence · Vaijapur</div>
+          <div class="modern-brand-text">
+            <div class="modern-brand-name">{{ institute_name|default:'Sutawane Classes Vaijapur' }}</div>
+            <div class="modern-brand-tag">
+              <span class="brand-tag-dot"></span>
+              <span>Academy of Excellence · Vaijapur</span>
+            </div>
           </div>
         </a>
 
@@ -117,7 +472,7 @@
           <a href="{% url 'public_contact_us' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_contact_us' %}active{% endif %}">Contact Us</a>
         </nav>
 
-        <!-- Header Actions: Login + Amber CTA Pill -->
+        <!-- Header Actions: Login + Creative Primary CTA -->
         <div class="modern-header-actions">
           {% if request.session.user_id %}
             <a href="{% url 'dashboard' %}" class="btn-nav-login" title="Open ERP Workspace">Open ERP ↗</a>
@@ -125,14 +480,14 @@
             <a href="{% url 'login' %}" class="btn-nav-login" title="Staff / Student Login">Login</a>
           {% endif %}
 
-          <button type="button" class="btn-header-trial" onclick="openInquiryModal()">
+          <button type="button" class="btn-header-demo" onclick="openInquiryModal()">
             <span>Book Free Demo</span>
-            <span style="font-weight:800;font-size:1.1rem;line-height:1;">→</span>
+            <span class="demo-arrow">→</span>
           </button>
 
           <!-- Mobile Hamburger Toggle -->
           <button class="modern-menu-btn" id="mobileMenuBtn" aria-label="Open mobile menu">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
           </button>
         </div>
       </div>
