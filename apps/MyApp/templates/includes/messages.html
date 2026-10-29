@@ -1,73 +1,230 @@
 {% load static %}
 <!-- Top-Right Floating Toast Notification Stack -->
+<style>
+  /* Toast Notification Component - Solid Dark High-Contrast Theme */
+  #toast-container {
+    position: fixed !important;
+    top: 5.25rem !important;
+    right: 1.25rem !important;
+    z-index: 99999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    width: 24rem !important;
+    max-width: calc(100vw - 2.5rem) !important;
+    pointer-events: none !important;
+  }
+  @media (max-width: 640px) {
+    #toast-container {
+      top: 4.75rem !important;
+      right: 1rem !important;
+      left: 1rem !important;
+      width: calc(100% - 2rem) !important;
+    }
+  }
+
+  .toast-card {
+    pointer-events: auto !important;
+    background-color: #0b1329 !important; /* Solid dark obsidian / slate */
+    background: linear-gradient(145deg, #0f172a 0%, #090e1a 100%) !important;
+    color: #ffffff !important;
+    border-radius: 0.75rem !important;
+    padding: 0.875rem 1rem !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out !important;
+    transform: translateX(0);
+    opacity: 1;
+    user-select: none;
+  }
+
+  /* Success Theme */
+  .toast-card.toast-success {
+    border: 1.5px solid #10b981 !important;
+    box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.85), 0 0 18px rgba(16, 185, 129, 0.3) !important;
+  }
+  .toast-card.toast-success .toast-icon-box {
+    background-color: rgba(16, 185, 129, 0.18) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.5) !important;
+  }
+  .toast-card.toast-success .toast-title {
+    color: #34d399 !important;
+  }
+  .toast-card.toast-success .toast-progress {
+    background-color: #10b981 !important;
+  }
+
+  /* Error Theme */
+  .toast-card.toast-error {
+    border: 1.5px solid #f43f5e !important;
+    box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.85), 0 0 18px rgba(244, 63, 94, 0.3) !important;
+  }
+  .toast-card.toast-error .toast-icon-box {
+    background-color: rgba(244, 63, 94, 0.18) !important;
+    color: #fb7185 !important;
+    border: 1px solid rgba(244, 63, 94, 0.5) !important;
+  }
+  .toast-card.toast-error .toast-title {
+    color: #fb7185 !important;
+  }
+  .toast-card.toast-error .toast-progress {
+    background-color: #f43f5e !important;
+  }
+
+  /* Warning Theme */
+  .toast-card.toast-warning {
+    border: 1.5px solid #f59e0b !important;
+    box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.85), 0 0 18px rgba(245, 158, 11, 0.3) !important;
+  }
+  .toast-card.toast-warning .toast-icon-box {
+    background-color: rgba(245, 158, 11, 0.18) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.5) !important;
+  }
+  .toast-card.toast-warning .toast-title {
+    color: #fbbf24 !important;
+  }
+  .toast-card.toast-warning .toast-progress {
+    background-color: #f59e0b !important;
+  }
+
+  /* Info Theme */
+  .toast-card.toast-info {
+    border: 1.5px solid #0ea5e9 !important;
+    box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.85), 0 0 18px rgba(14, 165, 233, 0.3) !important;
+  }
+  .toast-card.toast-info .toast-icon-box {
+    background-color: rgba(14, 165, 233, 0.18) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(14, 165, 233, 0.5) !important;
+  }
+  .toast-card.toast-info .toast-title {
+    color: #38bdf8 !important;
+  }
+  .toast-card.toast-info .toast-progress {
+    background-color: #0ea5e9 !important;
+  }
+
+  /* Internal Elements */
+  .toast-icon-box {
+    width: 2rem !important;
+    height: 2rem !important;
+    border-radius: 9999px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    margin-top: 0.125rem !important;
+  }
+  .toast-icon-box svg {
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+    display: block !important;
+  }
+
+  .toast-body {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    padding-right: 0.25rem !important;
+  }
+
+  .toast-title {
+    font-size: 0.75rem !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    margin: 0 0 0.25rem 0 !important;
+  }
+
+  .toast-message {
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    line-height: 1.45 !important;
+    color: #ffffff !important; /* Pure crisp white for total readability */
+    word-break: break-word !important;
+    margin: 0 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .toast-close-btn {
+    background: transparent !important;
+    border: none !important;
+    padding: 0.25rem !important;
+    color: #94a3b8 !important;
+    border-radius: 0.375rem !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: color 0.15s, background-color 0.15s !important;
+  }
+  .toast-close-btn:hover {
+    color: #ffffff !important;
+    background-color: rgba(255, 255, 255, 0.12) !important;
+  }
+  .toast-close-btn svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+    display: block !important;
+  }
+
+  .toast-progress {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    height: 3px !important;
+    width: 100%;
+    transition: width 0.05s linear !important;
+  }
+</style>
+
 <div
   id="toast-container"
-  class="fixed flex flex-col gap-2.5 max-w-sm w-[calc(100%-2rem)] sm:w-96 pointer-events-none select-none no-print"
-  style="position: fixed !important; top: 5.25rem !important; right: 1.25rem !important; z-index: 99999 !important;"
+  class="fixed flex flex-col no-print"
   aria-live="polite"
 >
   {% if messages %}
     {% for message in messages %}
+      {% with tag=message.tags|default:'info' %}
       <div
-        class="toast-item pointer-events-auto bg-slate-900/98 backdrop-blur-md border rounded-xl shadow-2xl p-4 flex items-start gap-3 transition-all duration-300 ease-out transform translate-x-0 opacity-100 relative overflow-hidden group
-          {% if message.tags == 'success' %}
-            border-emerald-500/80 ring-1 ring-emerald-500/30 text-white
-          {% elif message.tags == 'error' %}
-            border-rose-500/80 ring-1 ring-rose-500/30 text-white
-          {% elif message.tags == 'warning' %}
-            border-amber-500/80 ring-1 ring-amber-500/30 text-white
-          {% else %}
-            border-sky-500/80 ring-1 ring-sky-500/30 text-white
-          {% endif %}"
-        data-toast-type="{{ message.tags|default:'info' }}"
+        class="toast-card toast-item {% if 'error' in tag or 'danger' in tag %}toast-error{% elif 'warning' in tag %}toast-warning{% elif 'info' in tag %}toast-info{% else %}toast-success{% endif %}"
+        data-toast-type="{% if 'error' in tag or 'danger' in tag %}error{% elif 'warning' in tag %}warning{% elif 'info' in tag %}info{% else %}success{% endif %}"
+        role="alert"
       >
         <!-- Icon Badge -->
-        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5
-          {% if message.tags == 'success' %}
-            bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40
-          {% elif message.tags == 'error' %}
-            bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/40
-          {% elif message.tags == 'warning' %}
-            bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40
+        <div class="toast-icon-box">
+          {% if 'error' in tag or 'danger' in tag %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          {% elif 'warning' in tag %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          {% elif 'info' in tag %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           {% else %}
-            bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40
-          {% endif %}"
-        >
-          {% if message.tags == 'success' %}
-            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-          {% elif message.tags == 'error' %}
-            <i data-lucide="alert-circle" class="w-4 h-4"></i>
-          {% elif message.tags == 'warning' %}
-            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-          {% else %}
-            <i data-lucide="info" class="w-4 h-4"></i>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
           {% endif %}
         </div>
 
         <!-- Content -->
-        <div class="flex-1 min-w-0 pr-2">
-          <p class="text-xs font-bold leading-tight uppercase tracking-wider
-            {% if message.tags == 'success' %}
-              text-emerald-400
-            {% elif message.tags == 'error' %}
-              text-rose-400
-            {% elif message.tags == 'warning' %}
-              text-amber-400
-            {% else %}
-              text-sky-400
-            {% endif %}"
-          >
-            {% if message.tags == 'success' %}
-              Success
-            {% elif message.tags == 'error' %}
+        <div class="toast-body">
+          <p class="toast-title">
+            {% if 'error' in tag or 'danger' in tag %}
               Error
-            {% elif message.tags == 'warning' %}
+            {% elif 'warning' in tag %}
               Notice
+            {% elif 'info' in tag %}
+              Information
             {% else %}
-              Notification
+              Success
             {% endif %}
           </p>
-          <p class="text-xs text-slate-100 mt-1 leading-relaxed break-words font-semibold">
+          <p class="toast-message">
             {{ message }}
           </p>
         </div>
@@ -75,28 +232,18 @@
         <!-- Close Button -->
         <button
           type="button"
-          onclick="dismissToast(this.closest('.toast-item'))"
-          class="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800 transition-colors cursor-pointer flex-shrink-0"
+          onclick="dismissToast(this.closest('.toast-card'))"
+          class="toast-close-btn"
+          aria-label="Dismiss notification"
           title="Dismiss notification"
         >
-          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
 
         <!-- Progress Bar Indicator -->
-        <div
-          class="toast-progress absolute bottom-0 left-0 h-1 transition-all
-            {% if message.tags == 'success' %}
-              bg-emerald-400
-            {% elif message.tags == 'error' %}
-              bg-rose-400
-            {% elif message.tags == 'warning' %}
-              bg-amber-400
-            {% else %}
-              bg-sky-400
-            {% endif %}"
-          style="width: 100%;"
-        ></div>
+        <div class="toast-progress" style="width: 100%;"></div>
       </div>
+      {% endwith %}
     {% endfor %}
   {% endif %}
 </div>
@@ -106,8 +253,8 @@
   function dismissToast(toastEl) {
     if (!toastEl || toastEl.dataset.dismissing === 'true') return;
     toastEl.dataset.dismissing = 'true';
-    toastEl.classList.remove('translate-x-0', 'opacity-100');
-    toastEl.classList.add('translate-x-full', 'opacity-0', 'scale-95');
+    toastEl.style.transform = 'translateX(110%)';
+    toastEl.style.opacity = '0';
     setTimeout(() => {
       toastEl.remove();
     }, 320);
@@ -164,76 +311,56 @@
     if (!container) {
       container = document.createElement('div');
       container.id = 'toast-container';
-      container.className = 'fixed flex flex-col gap-2.5 max-w-sm w-[calc(100%-2rem)] sm:w-96 pointer-events-none select-none no-print';
-      container.style.cssText = 'position: fixed !important; top: 5.25rem !important; right: 1.25rem !important; z-index: 99999 !important;';
+      container.className = 'fixed flex flex-col no-print';
+      container.setAttribute('aria-live', 'polite');
       document.body.appendChild(container);
     }
 
-    const typeConfig = {
-      success: {
-        border: 'border-emerald-500/80 ring-1 ring-emerald-500/30',
-        badge: 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40',
-        titleColor: 'text-emerald-400',
-        icon: 'check-circle-2',
-        bar: 'bg-emerald-400',
-        defaultTitle: 'Success',
-      },
-      error: {
-        border: 'border-rose-500/80 ring-1 ring-rose-500/30',
-        badge: 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/40',
-        titleColor: 'text-rose-400',
-        icon: 'alert-circle',
-        bar: 'bg-rose-400',
-        defaultTitle: 'Error',
-      },
-      warning: {
-        border: 'border-amber-500/80 ring-1 ring-amber-500/30',
-        badge: 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40',
-        titleColor: 'text-amber-400',
-        icon: 'alert-triangle',
-        bar: 'bg-amber-400',
-        defaultTitle: 'Notice',
-      },
-      info: {
-        border: 'border-sky-500/80 ring-1 ring-sky-500/30',
-        badge: 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40',
-        titleColor: 'text-sky-400',
-        icon: 'info',
-        bar: 'bg-sky-400',
-        defaultTitle: 'Notification',
-      },
+    const iconSvgs = {
+      success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+      error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+      warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+      info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
     };
 
-    const cfg = typeConfig[type] || typeConfig.info;
-    const headerTitle = title || cfg.defaultTitle;
+    const defaultTitles = {
+      success: 'Success',
+      error: 'Error',
+      warning: 'Notice',
+      info: 'Information'
+    };
+
+    const validTypes = ['success', 'error', 'warning', 'info'];
+    const safeType = validTypes.includes(type) ? type : 'info';
+    const headerTitle = title || defaultTitles[safeType];
 
     const toast = document.createElement('div');
-    toast.className = `toast-item pointer-events-auto bg-slate-900/98 backdrop-blur-md border rounded-xl shadow-2xl p-4 flex items-start gap-3 transition-all duration-300 ease-out transform translate-x-full opacity-0 relative overflow-hidden group ${cfg.border} text-white`;
-    toast.dataset.toastType = type;
+    toast.className = `toast-card toast-item toast-${safeType}`;
+    toast.dataset.toastType = safeType;
+    toast.setAttribute('role', 'alert');
+    toast.style.transform = 'translateX(110%)';
+    toast.style.opacity = '0';
 
     toast.innerHTML = `
-      <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.badge}">
-        <i data-lucide="${cfg.icon}" class="w-4 h-4"></i>
+      <div class="toast-icon-box">
+        ${iconSvgs[safeType]}
       </div>
-      <div class="flex-1 min-w-0 pr-2">
-        <p class="text-xs font-bold leading-tight uppercase tracking-wider ${cfg.titleColor}">${headerTitle}</p>
-        <p class="text-xs text-slate-100 mt-1 leading-relaxed break-words font-semibold">${message}</p>
+      <div class="toast-body">
+        <p class="toast-title">${headerTitle}</p>
+        <p class="toast-message">${message}</p>
       </div>
-      <button type="button" onclick="dismissToast(this.closest('.toast-item'))" class="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800 transition-colors cursor-pointer flex-shrink-0" title="Dismiss notification">
-        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      <button type="button" onclick="dismissToast(this.closest('.toast-card'))" class="toast-close-btn" aria-label="Dismiss notification" title="Dismiss notification">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
-      <div class="toast-progress absolute bottom-0 left-0 h-1 transition-all ${cfg.bar}" style="width: 100%;"></div>
+      <div class="toast-progress" style="width: 100%;"></div>
     `;
 
     container.appendChild(toast);
-    if (window.lucide) {
-      lucide.createIcons({ root: toast });
-    }
 
-    // Trigger slide-in transition
+    // Trigger smooth slide-in transition
     requestAnimationFrame(() => {
-      toast.classList.remove('translate-x-full', 'opacity-0');
-      toast.classList.add('translate-x-0', 'opacity-100');
+      toast.style.transform = 'translateX(0)';
+      toast.style.opacity = '1';
     });
 
     initToast(toast, duration);
@@ -241,7 +368,7 @@
 
   // Initialize server-rendered Django toasts on page load
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.toast-item').forEach((t) => {
+    document.querySelectorAll('.toast-card, .toast-item').forEach((t) => {
       initToast(t, 4500);
     });
   });
