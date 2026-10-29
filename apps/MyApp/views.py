@@ -1840,19 +1840,25 @@ def student_detail_view(request, student_id):
             messages.success(request, f"Profile for '{student.full_name}' updated successfully.")
             return redirect('student_detail', student_id=student.id)
 
-        # 2. Upload Student Photograph
+        # 2. Upload / Update Student Photograph
         elif action == 'upload_photo':
             if request.FILES.get('photo'):
                 photo_file = request.FILES['photo']
-                ext = os.path.splitext(photo_file.name)[1] or '.jpg'
+                raw_ext = os.path.splitext(photo_file.name)[1].lower()
+                ext = raw_ext if raw_ext in ('.jpg', '.jpeg', '.png', '.webp') else '.jpg'
                 filename = f"photo-{student.id}-{int(datetime.now().timestamp())}{ext}"
                 photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
                 os.makedirs(photos_dir, exist_ok=True)
 
+                had_photo = bool(student.photo_url)
+
                 # Remove previous photo if exists
-                if student.photo_url and student.photo_url.startswith('/media/'):
-                    old_path = os.path.join(settings.MEDIA_ROOT, student.photo_url.replace('/media/', '', 1))
-                    if os.path.exists(old_path):
+                if student.photo_url:
+                    clean_rel = student.photo_url.lstrip('/')
+                    if clean_rel.startswith('media/'):
+                        clean_rel = clean_rel[6:]
+                    old_path = os.path.join(settings.MEDIA_ROOT, clean_rel)
+                    if os.path.exists(old_path) and os.path.isfile(old_path):
                         try:
                             os.remove(old_path)
                         except Exception:
@@ -1864,30 +1870,43 @@ def student_detail_view(request, student_id):
                     img = Image.open(photo_file)
                     img = ImageOps.exif_transpose(img)
                     img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-                    if img.mode in ('RGBA', 'P'):
-                        img = img.convert('RGB')
-                    img.save(filepath, 'JPEG', quality=88, optimize=True)
+                    if ext in ('.jpg', '.jpeg'):
+                        if img.mode in ('RGBA', 'P', 'LA'):
+                            img = img.convert('RGB')
+                        img.save(filepath, 'JPEG', quality=90, optimize=True)
+                    elif ext == '.png':
+                        img.save(filepath, 'PNG', optimize=True)
+                    elif ext == '.webp':
+                        img.save(filepath, 'WEBP', quality=90)
+                    else:
+                        if img.mode in ('RGBA', 'P', 'LA'):
+                            img = img.convert('RGB')
+                        img.save(filepath, 'JPEG', quality=90, optimize=True)
                 except Exception:
                     with open(filepath, 'wb+') as dest:
                         for chunk in photo_file.chunks():
                             dest.write(chunk)
                 student.photo_url = f"/media/photos/{filename}"
                 student.save()
-                messages.success(request, "Student photograph uploaded successfully!")
+                msg = f"Profile photograph for '{student.full_name}' updated successfully." if had_photo else f"Profile photograph for '{student.full_name}' uploaded successfully."
+                messages.success(request, msg)
             return redirect('student_detail', student_id=student.id)
 
         # 3. Delete Photo
         elif action == 'delete_photo':
-            if student.photo_url and student.photo_url.startswith('/media/'):
-                old_path = os.path.join(settings.MEDIA_ROOT, student.photo_url.replace('/media/', '', 1))
-                if os.path.exists(old_path):
+            if student.photo_url:
+                clean_rel = student.photo_url.lstrip('/')
+                if clean_rel.startswith('media/'):
+                    clean_rel = clean_rel[6:]
+                old_path = os.path.join(settings.MEDIA_ROOT, clean_rel)
+                if os.path.exists(old_path) and os.path.isfile(old_path):
                     try:
                         os.remove(old_path)
                     except Exception:
                         pass
             student.photo_url = None
             student.save()
-            messages.success(request, "Student photograph removed.")
+            messages.success(request, f"Photograph for '{student.full_name}' has been deleted.")
             return redirect('student_detail', student_id=student.id)
 
         # 4. Update Fee Due Date
