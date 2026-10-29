@@ -30,8 +30,9 @@ MANIFEST
 .env
 local_settings.py
 
-# Generated staticfiles (generated via collectstatic)
+# Generated staticfiles (generated via collectstatic) & User uploads
 staticfiles/
+media/
 
 # Logs & Diagnostics
 *.log
