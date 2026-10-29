@@ -125,7 +125,7 @@
       </div>
 
       <div class="pt-6">
-        <form method="POST" action="{% url 'backup_manage' %}" id="createBackupForm">
+        <form method="POST" action="{% url 'backup_manage' %}" id="createBackupForm" data-screen-loader="true" data-loading-message="Creating Full System Backup Archive (.zip)...">
           {% csrf_token %}
           <input type="hidden" name="action" value="create">
           <button
@@ -589,6 +589,9 @@
     const txt = document.getElementById('restoreSubmitBtnText');
     btn.disabled = true;
     txt.textContent = 'Restoring System...';
+    if (window.PageLoader) {
+      window.PageLoader.showOverlay('Restoring System Snapshot...');
+    }
   });
 
   // --- Upload & Restore Functions ---
@@ -629,6 +632,9 @@
     const txt = document.getElementById('uploadRestoreSubmitBtnText');
     btn.disabled = true;
     txt.textContent = 'Uploading & Restoring...';
+    if (window.PageLoader) {
+      window.PageLoader.showOverlay('Uploading & Restoring System Backup...');
+    }
   });
 
   // --- Delete Modal Functions ---

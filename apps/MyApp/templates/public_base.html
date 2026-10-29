@@ -17,10 +17,28 @@
 
   <!-- Modern Light SaaS & Education Stylesheet -->
   <link rel="stylesheet" href="{% static 'css/modern_portal.css' %}">
+  <script src="{% static 'js/app.js' %}?v=1.7" defer></script>
+  <style>
+    .page-progress-bar {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 0%;
+      height: 3px !important;
+      background: linear-gradient(90deg, #10b981 0%, #0284c7 50%, #3b82f6 100%) !important;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.7), 0 0 5px rgba(2, 132, 199, 0.5) !important;
+      z-index: 999999 !important;
+      pointer-events: none !important;
+      opacity: 0;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease-in-out;
+    }
+  </style>
   
   {% block extra_css %}{% endblock %}
 </head>
 <body class="modern-body">
+  <!-- Global Top Page Progress Bar (YouTube/GitHub-Style Non-Irritating Loader) -->
+  <div id="app-page-progress-bar" class="page-progress-bar" role="progressbar" aria-hidden="true"></div>
 
   <!-- Ambient Light Background with Grid & Pastel Glow Orbs -->
   <div class="modern-ambient-bg" aria-hidden="true">

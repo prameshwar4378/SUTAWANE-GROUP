@@ -218,6 +218,115 @@
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    /* Smart Non-Irritating Page Loader & Progress Bar */
+    .page-progress-bar {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 0%;
+      height: 3px !important;
+      background: linear-gradient(90deg, #10b981 0%, #0284c7 50%, #3b82f6 100%) !important;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.7), 0 0 5px rgba(2, 132, 199, 0.5) !important;
+      z-index: 999999 !important;
+      pointer-events: none !important;
+      opacity: 0;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease-in-out;
+    }
+    .page-progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 100%;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.8) 100%);
+      box-shadow: 0 0 12px #10b981, 0 0 6px #0284c7;
+      transform: rotate(2deg) translateY(-1px);
+      opacity: 0.9;
+    }
+    .screen-loader-overlay {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 999998 !important;
+      background: rgba(15, 23, 42, 0.42) !important;
+      backdrop-filter: blur(4px) !important;
+      -webkit-backdrop-filter: blur(4px) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 0.25s ease, visibility 0.25s ease !important;
+    }
+    .screen-loader-overlay.active {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      visibility: visible !important;
+    }
+    .screen-loader-card {
+      background: #ffffff !important;
+      border-radius: 1.25rem !important;
+      padding: 1.75rem 2.25rem !important;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.9) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      text-align: center !important;
+      max-width: 340px !important;
+      width: 90% !important;
+      transform: scale(0.96);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .screen-loader-overlay.active .screen-loader-card {
+      transform: scale(1);
+    }
+    .screen-loader-spinner-wrap {
+      position: relative !important;
+      width: 58px !important;
+      height: 58px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .screen-loader-spinner-ring {
+      position: absolute !important;
+      inset: 0 !important;
+      border: 3.5px solid #e2e8f0 !important;
+      border-top-color: #059669 !important;
+      border-right-color: #0284c7 !important;
+      border-radius: 50% !important;
+      animation: screenLoaderSpin 0.75s linear infinite !important;
+    }
+    .screen-loader-brand-icon {
+      width: 28px !important;
+      height: 28px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      animation: screenLoaderPulse 1.8s ease-in-out infinite !important;
+    }
+    .screen-loader-text {
+      font-size: 0.975rem !important;
+      font-weight: 700 !important;
+      color: #0f172a !important;
+      margin-top: 1rem !important;
+      line-height: 1.35 !important;
+    }
+    .screen-loader-subtext {
+      font-size: 0.8rem !important;
+      color: #64748b !important;
+      margin-top: 0.25rem !important;
+    }
+    @keyframes screenLoaderSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes screenLoaderPulse {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
   </style>
 
   <!-- Lucide Icons, HTMX & App Script -->
@@ -225,11 +334,31 @@
   <script src="{% static 'js/htmx.min.js' %}"></script>
   <script src="{% static 'js/chart.umd.min.js' %}"></script>
   <script src="{% static 'js/searchable-select.js' %}?v=1.0" defer></script>
-  <script src="{% static 'js/app.js' %}?v=1.6" defer></script>
+  <script src="{% static 'js/app.js' %}?v=1.7" defer></script>
   
   {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full bg-background text-foreground antialiased selection:bg-primary/20" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <!-- Global Top Page Progress Bar (YouTube/GitHub-Style Non-Irritating Loader) -->
+  <div id="app-page-progress-bar" class="page-progress-bar" role="progressbar" aria-hidden="true"></div>
+
+  <!-- Smart Delayed Screen Loader Overlay (Fades in ONLY for long requests > 750ms or explicit bulk jobs) -->
+  <div id="app-screen-loader" class="screen-loader-overlay" aria-hidden="true" role="status">
+    <div class="screen-loader-card">
+      <div class="screen-loader-spinner-wrap">
+        <div class="screen-loader-spinner-ring"></div>
+        <div class="screen-loader-brand-icon">
+          <svg style="width:26px;height:26px;color:#059669;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+          </svg>
+        </div>
+      </div>
+      <div class="screen-loader-text" id="app-screen-loader-text">Loading Sutawane Classes...</div>
+      <div class="screen-loader-subtext">Please wait a moment</div>
+    </div>
+  </div>
+
   <!-- Global Top-Right Toast Notification System -->
   {% include 'includes/messages.html' %}
 

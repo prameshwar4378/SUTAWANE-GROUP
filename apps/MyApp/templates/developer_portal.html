@@ -472,12 +472,18 @@
         btnText.textContent = `Generating ${val.toLocaleString()} records, please wait...`;
       }
     }
+    if (window.PageLoader) {
+      window.PageLoader.showOverlay(`Generating ${val.toLocaleString()} Dummy Records...`);
+    }
     return true;
   }
 
   function confirmClearStressData() {
     const msg = "Are you sure you want to permanently clear all dummy benchmark records (STRESS-SC-* students and STRESS-REC-* receipts)?\n\nReal student and payment records will NOT be touched.";
     if (confirm(msg)) {
+      if (window.PageLoader) {
+        window.PageLoader.showOverlay('Clearing Dummy Benchmark Records...');
+      }
       document.getElementById('stress-clear-form').submit();
     }
   }

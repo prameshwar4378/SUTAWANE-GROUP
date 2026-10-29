@@ -711,3 +711,262 @@ window.printDocument = function (mode) {
     resetAll: resetAllLoadingButtons,
   };
 })();
+
+/* ==========================================================================
+   SMART, NON-IRRITATING PAGE LOADER ENGINE
+   - Top-edge progress bar (YouTube/GitHub style): runs smoothly on navigation,
+     form submits, and HTMX requests. Completely non-intrusive.
+   - Smart Delayed Screen Overlay: Appears ONLY when an operation takes longer
+     than 750ms (or when explicitly requested for bulk/stress jobs).
+     Prevents irritating flickering on fast operations.
+   ========================================================================== */
+(function () {
+  let progressBar = null;
+  let screenOverlay = null;
+  let screenOverlayText = null;
+  let progress = 0;
+  let trickleTimer = null;
+  let overlayDelayTimer = null;
+  let safetyTimeout = null;
+  let isRunning = false;
+
+  function ensureElements() {
+    if (!progressBar) {
+      progressBar = document.getElementById('app-page-progress-bar');
+      if (!progressBar) {
+        progressBar = document.createElement('div');
+        progressBar.id = 'app-page-progress-bar';
+        progressBar.className = 'page-progress-bar';
+        progressBar.setAttribute('role', 'progressbar');
+        progressBar.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(progressBar);
+      }
+    }
+    if (!screenOverlay) {
+      screenOverlay = document.getElementById('app-screen-loader');
+      if (!screenOverlay) {
+        screenOverlay = document.createElement('div');
+        screenOverlay.id = 'app-screen-loader';
+        screenOverlay.className = 'screen-loader-overlay';
+        screenOverlay.setAttribute('aria-hidden', 'true');
+        screenOverlay.setAttribute('role', 'status');
+        screenOverlay.innerHTML = (
+          '<div class="screen-loader-card">' +
+            '<div class="screen-loader-spinner-wrap">' +
+              '<div class="screen-loader-spinner-ring"></div>' +
+              '<div class="screen-loader-brand-icon">' +
+                '<svg style="width:26px;height:26px;color:#059669;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>' +
+                  '<path d="M6 12v5c3 3 9 3 12 0v-5"></path>' +
+                '</svg>' +
+              '</div>' +
+            '</div>' +
+            '<div class="screen-loader-text" id="app-screen-loader-text">Loading Sutawane Classes...</div>' +
+            '<div class="screen-loader-subtext">Please wait a moment</div>' +
+          '</div>'
+        );
+        document.body.appendChild(screenOverlay);
+      }
+      screenOverlayText = document.getElementById('app-screen-loader-text');
+    }
+  }
+
+  function setProgress(n) {
+    ensureElements();
+    progress = Math.max(0, Math.min(100, n));
+    if (!progressBar) return;
+    progressBar.style.opacity = '1';
+    progressBar.style.width = progress + '%';
+  }
+
+  function trickle() {
+    if (progress < 25) {
+      setProgress(progress + Math.random() * 15 + 10);
+    } else if (progress < 60) {
+      setProgress(progress + Math.random() * 8 + 3);
+    } else if (progress < 85) {
+      setProgress(progress + Math.random() * 3 + 1);
+    } else if (progress < 96) {
+      setProgress(progress + 0.5);
+    }
+  }
+
+  function start(options) {
+    ensureElements();
+    if (isRunning) return;
+    isRunning = true;
+
+    if (progressBar) {
+      progressBar.style.transition = 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease';
+      progressBar.style.opacity = '1';
+    }
+    setProgress(12);
+
+    clearInterval(trickleTimer);
+    trickleTimer = setInterval(trickle, 200);
+
+    clearTimeout(overlayDelayTimer);
+    clearTimeout(safetyTimeout);
+
+    const message = (options && options.message) || 'Loading Sutawane Classes...';
+    const immediateOverlay = options && options.immediateOverlay;
+
+    if (immediateOverlay) {
+      showOverlay(message);
+    } else {
+      // 750ms threshold: Fast operations finish with NO screen overlay at all!
+      overlayDelayTimer = setTimeout(function () {
+        if (isRunning) {
+          showOverlay(message);
+        }
+      }, 750);
+    }
+
+    // Safety timeout: Never stay stuck for more than 12s
+    safetyTimeout = setTimeout(function () {
+      done();
+    }, 12000);
+  }
+
+  function done() {
+    clearInterval(trickleTimer);
+    clearTimeout(overlayDelayTimer);
+    clearTimeout(safetyTimeout);
+
+    if (progressBar) {
+      setProgress(100);
+      setTimeout(function () {
+        if (progressBar) {
+          progressBar.style.opacity = '0';
+          setTimeout(function () {
+            if (progressBar && !isRunning) {
+              progressBar.style.width = '0%';
+            }
+          }, 250);
+        }
+      }, 150);
+    }
+
+    hideOverlay();
+    isRunning = false;
+    progress = 0;
+  }
+
+  function showOverlay(customMessage) {
+    ensureElements();
+    if (screenOverlayText && customMessage) {
+      screenOverlayText.textContent = customMessage;
+    }
+    if (screenOverlay) {
+      screenOverlay.classList.add('active');
+      screenOverlay.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function hideOverlay() {
+    if (screenOverlay) {
+      screenOverlay.classList.remove('active');
+      screenOverlay.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  // Intercept Page Navigation Clicks
+  document.addEventListener('click', function (e) {
+    const link = e.target.closest('a[href]');
+    if (!link) return;
+
+    if (
+      e.defaultPrevented ||
+      e.button !== 0 ||
+      e.ctrlKey || e.metaKey || e.shiftKey || e.altKey ||
+      link.hasAttribute('download') ||
+      link.target === '_blank' ||
+      link.hasAttribute('data-no-loader') ||
+      link.classList.contains('no-loader')
+    ) {
+      return;
+    }
+
+    const href = link.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('tel:') || href.startsWith('mailto:')) {
+      return;
+    }
+
+    try {
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return;
+    } catch (err) {
+      return;
+    }
+
+    start();
+  }, true);
+
+  // Form Submission Trigger
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form || form.hasAttribute('data-no-loader') || form.classList.contains('no-loader')) {
+      return;
+    }
+
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+      return;
+    }
+
+    const isExplicitHeavy = form.hasAttribute('data-screen-loader') || form.hasAttribute('data-loading-overlay');
+    const customMsg = form.getAttribute('data-loading-message') || (isExplicitHeavy ? 'Processing request...' : null);
+
+    start({
+      immediateOverlay: isExplicitHeavy,
+      message: customMsg
+    });
+  }, true);
+
+  // HTMX Integration
+  document.addEventListener('htmx:beforeRequest', function (e) {
+    const elt = e.detail && e.detail.elt;
+    if (elt && (elt.tagName === 'INPUT' || elt.hasAttribute('data-no-loader') || elt.closest('#header-search'))) {
+      return;
+    }
+
+    const isExplicitHeavy = elt && (elt.hasAttribute('data-screen-loader') || elt.hasAttribute('data-loading-overlay'));
+    const customMsg = elt && (elt.getAttribute('data-loading-message') || (isExplicitHeavy ? 'Processing...' : null));
+
+    start({
+      immediateOverlay: isExplicitHeavy,
+      message: customMsg
+    });
+  });
+
+  document.addEventListener('htmx:afterRequest', done);
+  document.addEventListener('htmx:afterSwap', done);
+  document.addEventListener('htmx:responseError', done);
+  document.addEventListener('htmx:sendError', done);
+
+  // BFCache / Back-Forward Navigation Safety
+  window.addEventListener('pageshow', done);
+
+  // Escape Key to dismiss hung overlay
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isRunning) {
+      hideOverlay();
+    }
+  });
+
+  // Finish on initial document ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', done);
+  } else {
+    done();
+  }
+
+  // Expose Global API
+  window.PageLoader = {
+    start: start,
+    set: setProgress,
+    done: done,
+    showOverlay: showOverlay,
+    hideOverlay: hideOverlay,
+  };
+})();
