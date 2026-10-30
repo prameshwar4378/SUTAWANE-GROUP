@@ -44,10 +44,10 @@ function getChromiumExecutablePath() {
     }
     if (process.platform === 'linux') {
         const candidatePaths = [
-            '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
             '/usr/bin/google-chrome-stable',
             '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
             '/snap/bin/chromium',
             '/usr/bin/brave-browser'
         ];
@@ -358,26 +358,61 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// 4. Logout / Disconnect Device
-app.post(['/logout', '/unlink'], async (req, res) => {
+// 4. Logout / Disconnect Device & Hard Reset Session
+app.post(['/logout', '/unlink', '/reset'], async (req, res) => {
     try {
-        await client.logout();
-        bridgeState.status = 'DISCONNECTED';
+        console.log('[WhatsApp Bridge] Received unlink/reset command...');
+
+        // 1. Try graceful client logout if possible
+        try {
+            await client.logout();
+        } catch (e) {
+            console.log('[WhatsApp Bridge] Graceful logout bypassed:', e.message);
+        }
+
+        // 2. Destroy running browser instance
+        try {
+            await client.destroy();
+        } catch (e) {
+            console.log('[WhatsApp Bridge] Client destroy warning:', e.message);
+        }
+
+        // 3. Completely delete .wwebjs_auth directory to wipe all previous sessions
+        const sessionPath = path.join(__dirname, '.wwebjs_auth');
+        try {
+            if (fs.existsSync(sessionPath)) {
+                fs.rmSync(sessionPath, { recursive: true, force: true });
+                console.log('[WhatsApp Bridge] Deleted .wwebjs_auth session storage.');
+            }
+        } catch (e) {
+            console.warn('[WhatsApp Bridge] Could not delete .wwebjs_auth:', e.message);
+        }
+
+        // 4. Reset state
+        bridgeState.status = 'INITIALIZING';
         bridgeState.connectedPhone = null;
         bridgeState.connectedName = null;
         bridgeState.qrString = null;
         bridgeState.qrDataUrl = null;
+        bridgeState.error = null;
+
+        // 5. Reinitialize client for a brand-new QR scan
         setTimeout(() => {
-            console.log('[WhatsApp Bridge] Re-initializing client to generate fresh QR code...');
+            console.log('[WhatsApp Bridge] Re-initializing client to generate brand-new QR code...');
             client.initialize().catch(err => {
                 console.error('Failed to reinitialize:', err);
                 bridgeState.status = 'DISCONNECTED';
                 bridgeState.error = err.message || String(err);
             });
-        }, 1500);
-        return res.json({ success: true, message: 'Logged out successfully. Re-initializing for new QR scan...' });
+        }, 1000);
+
+        return res.json({
+            success: true,
+            message: 'WhatsApp session unlinked and wiped. Generating brand-new QR code...'
+        });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        console.error('[WhatsApp Bridge] Unlink error:', err);
+        return res.status(500).json({ success: false, error: err.message || String(err) });
     }
 });
 

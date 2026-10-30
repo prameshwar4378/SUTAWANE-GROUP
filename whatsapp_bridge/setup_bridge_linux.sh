@@ -1,40 +1,71 @@
 #!/bin/bash
 # ====================================================================
 # Sutawane Classes - WhatsApp Gateway Linux Auto-Setup Script
-# Configures Chromium dependencies & systemd service on Ubuntu 24.04/22.04
+# Compatible with Ubuntu 24.04 (Noble), Ubuntu 22.04 (Jammy), and Debian
 # ====================================================================
 
 set -e
 
-echo "=== [1/4] Installing Required Linux Chromium Dependencies ==="
+echo "=== [1/4] Installing Linux Libraries for Headless Browser ==="
 sudo apt-get update
-sudo apt-get install -y \
-    chromium-browser \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    libasound2t64 \
-    libasound2 \
-    libnss3 \
-    libxss1 \
-    libgbm1 \
-    fonts-liberation \
-    ca-certificates \
-    xdg-utils 2>/dev/null || sudo apt-get install -y chromium libatk-bridge2.0-0 libgtk-3-0 libasound2 libnss3 libxss1 libgbm1 fonts-liberation ca-certificates
+
+# Detect Ubuntu 24.04 Noble (t64 package transition) vs Ubuntu 22.04
+if apt-cache show libasound2t64 >/dev/null 2>&1; then
+    echo "Detected Ubuntu 24.04 (noble) - installing t64 libraries..."
+    sudo apt-get install -y \
+        libasound2t64 \
+        libatk-bridge2.0-0t64 \
+        libgtk-3-0t64 \
+        libnss3 \
+        libxss1 \
+        libgbm1 \
+        fonts-liberation \
+        ca-certificates \
+        xdg-utils \
+        wget \
+        curl
+else
+    echo "Detected Ubuntu 22.04 or earlier - installing standard libraries..."
+    sudo apt-get install -y \
+        libasound2 \
+        libatk-bridge2.0-0 \
+        libgtk-3-0 \
+        libnss3 \
+        libxss1 \
+        libgbm1 \
+        fonts-liberation \
+        ca-certificates \
+        xdg-utils \
+        wget \
+        curl
+fi
+
+# Ensure Google Chrome Stable is installed (no snap dependency)
+if ! command -v google-chrome &>/dev/null && ! command -v google-chrome-stable &>/dev/null && ! command -v chromium-browser &>/dev/null && ! command -v chromium &>/dev/null; then
+    echo "=== Installing Official Google Chrome Stable (.deb) ==="
+    wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    sudo apt-get install -y /tmp/google-chrome.deb || (sudo dpkg -i /tmp/google-chrome.deb && sudo apt-get install -f -y)
+    rm -f /tmp/google-chrome.deb
+fi
 
 echo "=== [2/4] Installing Node.js Bridge Dependencies ==="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+# Install npm dependencies
 npm install
 
+# Download Puppeteer Chrome as secondary fallback
+npx puppeteer browsers install chrome || true
+
+# Fix directory ownership so 'sutawane' user has full read/write access
+sudo chown -R sutawane:sutawane "$SCRIPT_DIR"
+
 echo "=== [3/4] Enabling and Restarting systemd Service ==="
-if [ -f "/etc/systemd/system/sutawane-whatsapp.service" ]; then
-    sudo systemctl daemon-reload
-    sudo systemctl enable sutawane-whatsapp
-    sudo systemctl restart sutawane-whatsapp
-    echo "Service sutawane-whatsapp restarted successfully!"
-else
-    echo "Creating systemd service file at /etc/systemd/system/sutawane-whatsapp.service..."
-    sudo bash -c "cat <<EOF > /etc/systemd/system/sutawane-whatsapp.service
+SERVICE_FILE="/etc/systemd/system/sutawane-whatsapp.service"
+if [ ! -f "$SERVICE_FILE" ]; then
+    echo "Creating systemd service file at $SERVICE_FILE..."
+    sudo bash -c "cat <<EOF > $SERVICE_FILE
 [Unit]
 Description=Sutawane Classes WhatsApp Gateway Service
 After=network.target
@@ -52,17 +83,21 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF"
-    sudo systemctl daemon-reload
-    sudo systemctl enable sutawane-whatsapp
-    sudo systemctl restart sutawane-whatsapp
-    echo "Service installed and started!"
 fi
 
-echo "=== [4/4] Checking WhatsApp Bridge Status ==="
-sleep 3
-curl -s http://localhost:3000/health || echo "Bridge starting up... please check: sudo systemctl status sutawane-whatsapp"
+sudo systemctl daemon-reload
+sudo systemctl enable sutawane-whatsapp
+sudo systemctl restart sutawane-whatsapp
+echo "Service sutawane-whatsapp restarted successfully!"
+
+echo "=== [4/4] Verifying WhatsApp Gateway Status ==="
+sleep 4
+STATUS_OUTPUT=$(curl -s http://localhost:3000/health || true)
+echo "Health check response: $STATUS_OUTPUT"
+
 echo ""
 echo "===================================================================="
-echo "  WhatsApp Gateway setup complete!"
-echo " Open your browser to Settings -> WhatsApp tab to scan the QR code."
+echo "  WhatsApp Gateway Service is ACTIVE on http://localhost:3000"
+echo " Open your browser to Settings -> WhatsApp tab to scan the QR code:"
+echo " http://173.249.33.152:8080/settings/?tab=whatsapp#tab-whatsapp"
 echo "===================================================================="

@@ -1058,25 +1058,24 @@
 
                   <!-- Live Status Badge Container -->
                   <div id="bridgeStatusBadge">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
-                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span id="bridgeStatusText">CONNECTED &amp; READY</span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700 shadow-2xs">
+                      <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                      <span id="bridgeStatusText">CHECKING STATUS...</span>
                     </span>
                   </div>
                 </div>
 
-                <!-- 1. Connected Device Sub-Card (Full Width & Responsive Wrapping) -->
-                <div id="bridgeConnectedView" class="pt-4 space-y-3">
+                <!-- 1. Connected Device Sub-Card (Full Width & Responsive Wrapping, hidden until status is confirmed) -->
+                <div id="bridgeConnectedView" class="pt-4 space-y-3 hidden">
                   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs">
                     <div class="space-y-1">
                       <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Linked WhatsApp Device</span>
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-bold text-foreground flex items-center gap-1.5" id="bridgeConnectedName">
                           <i data-lucide="smartphone" class="w-4 h-4 text-emerald-600"></i>
-                          Ram Pawar - Ultoxy Technology
+                          Connected Account
                         </span>
                         <span class="font-mono text-emerald-700 dark:text-emerald-400 text-xs font-bold bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800" id="bridgeConnectedPhone">
-                          (+917776824564)
                         </span>
                       </div>
                       <p class="text-[11px] text-muted-foreground pt-0.5">
@@ -1085,11 +1084,12 @@
                     </div>
                     <button 
                       type="button" 
+                      id="unlinkBridgeBtn"
                       onclick="unlinkBridgeDevice()" 
                       class="px-4 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-center shadow-2xs"
                     >
                       <i data-lucide="unlink" class="w-3.5 h-3.5"></i>
-                      <span>Unlink Device</span>
+                      <span>Unlink &amp; Connect New Device</span>
                     </button>
                   </div>
                 </div>
@@ -2123,6 +2123,11 @@
       if (typeof checkNotifAutoPoll === 'function') {
         checkNotifAutoPoll();
       }
+
+      // Automatically check WhatsApp bridge status when switching to WhatsApp tab
+      if (cleanTabName === 'whatsapp' && typeof checkLocalBridgeStatus === 'function') {
+        checkLocalBridgeStatus(false);
+      }
     }
 
     // Attach click listeners to tabs
@@ -2237,6 +2242,7 @@
       }
 
       if (data && data.status === 'READY') {
+        clearTimeout(bridgePollTimer);
         // Status: CONNECTED & READY
         if (statusBadge) {
           statusBadge.innerHTML = `
@@ -2291,7 +2297,38 @@
         }
         lucide.createIcons();
 
+        // Auto-poll every 4 seconds to detect phone scan automatically
+        clearTimeout(bridgePollTimer);
+        bridgePollTimer = setTimeout(() => checkLocalBridgeStatus(false), 4000);
+
+      } else if (data && (data.status === 'INITIALIZING' || data.status === 'AUTHENTICATING')) {
+        // Status: INITIALIZING / PREPARING QR
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-2xs">
+              <span class="w-2 h-2 rounded-full bg-blue-500 animate-spin"></span> STARTING ENGINE (Preparing QR...)
+            </span>
+          `;
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-blue-50/80 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800/60 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.add('hidden');
+        if (qrView) qrView.classList.remove('hidden');
+        if (offlineView) offlineView.classList.add('hidden');
+        if (qrPlaceholder) {
+          qrPlaceholder.classList.remove('hidden');
+          qrPlaceholder.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Initializing WhatsApp Web engine &amp; generating QR code...';
+          lucide.createIcons();
+        }
+        if (qrImg) qrImg.classList.add('hidden');
+
+        // Auto-poll in 3 seconds to catch the QR code as soon as it renders
+        clearTimeout(bridgePollTimer);
+        bridgePollTimer = setTimeout(() => checkLocalBridgeStatus(false), 3000);
+
       } else {
+        clearTimeout(bridgePollTimer);
         // Status: OFFLINE
         if (statusBadge) {
           statusBadge.innerHTML = `
@@ -2317,26 +2354,60 @@
     }
 
     window.unlinkBridgeDevice = async function() {
-      if (!confirm('Are you sure you want to unlink this WhatsApp device? You will need to scan a new QR code to reconnect.')) {
+      if (!confirm('Are you sure you want to unlink this WhatsApp device and connect a new number?')) {
         return;
       }
+      const unlinkBtn = document.getElementById('unlinkBridgeBtn');
+      if (unlinkBtn) {
+        unlinkBtn.disabled = true;
+        unlinkBtn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Unlinking &amp; Resetting...</span>';
+        lucide.createIcons();
+      }
+
+      const statusBadge = document.getElementById('bridgeStatusBadge');
+      if (statusBadge) {
+        statusBadge.innerHTML = `
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+            <span class="w-2 h-2 rounded-full bg-amber-500 animate-spin"></span> RESETTING SESSION...
+          </span>
+        `;
+      }
+
+      const connectedView = document.getElementById('bridgeConnectedView');
+      const qrView = document.getElementById('bridgeQrView');
+      const qrPlaceholder = document.getElementById('bridgeQrPlaceholder');
+      const qrImg = document.getElementById('bridgeQrImg');
+      if (connectedView) connectedView.classList.add('hidden');
+      if (qrView) qrView.classList.remove('hidden');
+      if (qrPlaceholder) {
+        qrPlaceholder.classList.remove('hidden');
+        qrPlaceholder.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Unlinking session &amp; generating brand-new QR code...';
+        lucide.createIcons();
+      }
+      if (qrImg) qrImg.classList.add('hidden');
+
       try {
         const formData = new FormData();
         formData.append('action', 'unlink');
         const csrfToken = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
-        const proxyRes = await fetch('/api/settings/whatsapp-action/', {
+        await fetch('/api/settings/whatsapp-action/', {
           method: 'POST',
           headers: { 'X-CSRFToken': csrfToken },
           body: formData
         });
-        if (!proxyRes.ok) {
-          await fetch('http://localhost:3000/logout', { method: 'POST' });
-        }
-        checkLocalBridgeStatus(true);
       } catch (err) {
-        alert('Error unlinking device: ' + err.message);
+        console.warn('Unlink request error:', err);
       }
+
+      setTimeout(() => {
+        checkLocalBridgeStatus(false);
+      }, 1500);
     };
+
+    // Auto-check on load if initial tab is whatsapp
+    if (initialTab.includes('whatsapp')) {
+      checkLocalBridgeStatus(false);
+    }
 
     // --- Gateway Provider Switching Logic ---
     window.handleGatewayProviderChange = function(provider) {
