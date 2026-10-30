@@ -5,6 +5,7 @@ the exact institutional snapshot design of Sutawane Classes software.
 """
 
 import io
+import re
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -81,7 +82,7 @@ def export_dues_to_excel(dues_list, meta=None):
         ("Academic Session", 14),
         ("Parent Mobile", 15),
         ("Due Date", 14),
-        ("Session Fee (₹)", 16),
+        ("Installment Due (₹)", 18),
         ("Amount Paid (₹)", 16),
         ("Balance Due (₹)", 18),
         ("Due Status", 14),
@@ -192,8 +193,9 @@ def export_dues_to_excel(dues_list, meta=None):
         for b_name in branches_present:
             branch_records = [d for d in dues_list if d.get('branch_name') == b_name]
             if branch_records:
-                ws_branch = wb.create_sheet(title=b_name[:31])
-                populate_sheet(ws_branch, branch_records, b_name, f"{b_name} • {session_name}")
+                safe_title = re.sub(r'[\\/*?:\[\]]', '_', b_name)[:31]
+                ws_branch = wb.create_sheet(title=safe_title)
+                populate_sheet(ws_branch, branch_records, safe_title, f"{b_name} • {session_name}")
     else:
         # If single branch, create Course-wise Summary Sheet
         ws_courses = wb.create_sheet(title="Course Summary")
@@ -207,8 +209,8 @@ def export_dues_to_excel(dues_list, meta=None):
         for d in dues_list:
             std = d.get('standard') or 'General'
             if std not in std_map:
-                std_map[std] = {'count': 0, 'fee': 0.0, 'paid': 0.0, 'bal': 0.0}
-            std_map[std]['count'] += 1
+                std_map[std] = {'students': set(), 'fee': 0.0, 'paid': 0.0, 'bal': 0.0}
+            std_map[std]['students'].add(d.get('student_id'))
             std_map[std]['fee'] += float(d.get('amount_due', 0.0))
             std_map[std]['paid'] += float(d.get('amount_paid', 0.0))
             std_map[std]['bal'] += float(d.get('balance_remaining', 0.0))
@@ -222,7 +224,7 @@ def export_dues_to_excel(dues_list, meta=None):
             tot_std_paid += s_data['paid']
             tot_std_bal += s_data['bal']
             ws_courses.row_dimensions[c_row].height = 20
-            row_items = [idx, std_name, s_data['count'], s_data['fee'], s_data['paid'], s_data['bal']]
+            row_items = [idx, std_name, len(s_data['students']), s_data['fee'], s_data['paid'], s_data['bal']]
             for col_idx, val in enumerate(row_items, start=1):
                 c = ws_courses.cell(row=c_row, column=col_idx, value=val)
                 c.border = thin_border
@@ -318,13 +320,14 @@ def export_dues_to_pdf(dues_list, meta=None):
         'session_name': session_name,
         'branch_logo': meta.get('branch_logo'),
         'date_str': date_str,
-        'records_count': len(dues_list),
+        'records_count': len({d.get('student_id') for d in dues_list}),
     }
+    unique_students_count = len({d.get('student_id') for d in dues_list})
     story.extend(build_executive_pdf_header(
         "STUDENT FEE DUES & OUTSTANDING BALANCES REPORT",
         meta=meta_dict,
-        report_badge_label="RECORDS:",
-        report_badge_value=f"{len(dues_list)} Students Pending"
+        report_badge_label="PENDING:",
+        report_badge_value=f"{unique_students_count} Students ({len(dues_list)} Installments)"
     ))
 
     # 2. Table Data
@@ -337,7 +340,7 @@ def export_dues_to_pdf(dues_list, meta=None):
             "Branch",
             "Phone",
             "Due Date",
-            "Session Fee (Rs.)",
+            "Installment Due (Rs.)",
             "Amount Paid (Rs.)",
             "Balance Due (Rs.)",
             "Status"

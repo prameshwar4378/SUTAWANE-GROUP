@@ -997,8 +997,8 @@ def export_payment_modes_excel(modes_data, options=None):
         c.border = THIN_BORDER
         c.alignment = Alignment(horizontal="center" if c_idx in [1, 3] else "left", vertical="center")
 
-    digital_modes = sum(m.get('amount', 0.0) for m in modes if m.get('label', '').upper() in ('UPI', 'ONLINE', 'BANK TRANSFER', 'CARD', 'NET BANKING'))
-    cash_mode = sum(m.get('amount', 0.0) for m in modes if m.get('label', '').upper() == 'CASH')
+    digital_modes = float(sum((float(m.get('amount', 0.0)) for m in modes if m.get('label', '').upper() in ('UPI', 'ONLINE', 'BANK TRANSFER', 'CARD', 'NET BANKING')), 0.0))
+    cash_mode = float(sum((float(m.get('amount', 0.0)) for m in modes if m.get('label', '').upper() == 'CASH'), 0.0))
     digital_share = round((digital_modes / tot_amt * 100), 1) if tot_amt > 0 else 0.0
 
     insight_rows = [

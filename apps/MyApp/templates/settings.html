@@ -879,6 +879,69 @@
             <input type="hidden" name="action" value="save_whatsapp">
             <input type="hidden" name="active_tab" value="whatsapp">
 
+            <!-- 0. Prepaid WhatsApp Message Quota & Credits Ribbon -->
+            <div class="rounded-2xl border border-blue-200 dark:border-blue-900/50 bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-blue-50/80 dark:from-blue-950/25 dark:via-slate-900/40 dark:to-blue-950/25 p-5 shadow-2xs space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm shadow-xs flex-shrink-0">
+                    <i data-lucide="coins" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold uppercase tracking-wider text-blue-950 dark:text-blue-200">WhatsApp Message Credits</span>
+                      {% if settings.whatsapp_credits_enforced != 'false' %}
+                        {% if settings.whatsapp_credits_balance|default:0|add:0 > 50 %}
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                            Active &amp; Funded
+                          </span>
+                        {% elif settings.whatsapp_credits_balance|default:0|add:0 > 0 %}
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                            Low Balance
+                          </span>
+                        {% else %}
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                            Credits Exhausted (0)
+                          </span>
+                        {% endif %}
+                      {% else %}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                          Unlimited Mode
+                        </span>
+                      {% endif %}
+                    </div>
+                    <p class="text-[11px] text-muted-foreground mt-0.5">
+                      Standard Rate: <strong class="text-foreground font-semibold">₹{{ settings.whatsapp_rate_per_message|default:"0.40" }} (40 Paise)</strong> per delivered message credit.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-blue-200/80 dark:border-blue-900/50 pt-3 sm:pt-0 sm:pl-4">
+                  <div class="text-right sm:text-left">
+                    <div class="text-[10px] font-semibold text-muted-foreground uppercase">Available Balance</div>
+                    <div class="text-2xl font-black text-blue-900 dark:text-blue-100 tracking-tight font-mono">
+                      {{ settings.whatsapp_credits_balance|default:"500" }}
+                      <span class="text-xs font-normal text-muted-foreground">msgs</span>
+                    </div>
+                  </div>
+                  <div class="text-right sm:text-left border-l border-blue-200/80 dark:border-blue-900/50 pl-4">
+                    <div class="text-[10px] font-semibold text-muted-foreground uppercase">Total Dispatched</div>
+                    <div class="text-sm font-bold text-foreground font-mono">
+                      {{ settings.whatsapp_messages_sent_count|default:"0" }}
+                      <span class="text-[10px] font-normal text-muted-foreground">sent</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Exhausted Warning -->
+              {% if settings.whatsapp_credits_enforced != 'false' and settings.whatsapp_credits_balance|default:0|add:0 <= 0 %}
+              <div class="p-2.5 rounded-lg bg-rose-100/90 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0 text-rose-600"></i>
+                <span><strong>Message quota has been exhausted.</strong> Automated message sending is paused. Please contact your software provider to recharge credits.</span>
+              </div>
+              {% endif %}
+            </div>
+
             <!-- 1. Master Gateway Switch & Provider Card -->
             <div class="bg-card rounded-2xl border border-border/90 p-6 shadow-xs space-y-6">
               
@@ -890,11 +953,11 @@
                   <div>
                     <div class="flex items-center gap-1.5">
                       <h3 class="text-sm font-bold text-foreground">Gateway Provider &amp; Engine</h3>
-                      <span class="text-muted-foreground/60 cursor-pointer" title="Choose between Local PC WhatsApp (Free/Zero API), Simulator Mode, or Cloud APIs">
+                      <span class="text-muted-foreground/60 cursor-pointer" title="Dedicated Automated WhatsApp Gateway (Standard Rate: 40 Paise / Message)">
                         <i data-lucide="info" class="w-3.5 h-3.5"></i>
                       </span>
                     </div>
-                    <p class="text-xs text-muted-foreground">Choose between Local PC WhatsApp (Free/Zero API), Simulator Mode, or Cloud APIs</p>
+                    <p class="text-xs text-muted-foreground">Dedicated Automated WhatsApp Gateway (Standard Rate: 40 Paise / Message)</p>
                   </div>
                 </div>
 
@@ -922,10 +985,14 @@
                   <select 
                     name="whatsapp_provider" 
                     id="whatsappProviderSelect"
+                    onchange="handleGatewayProviderChange(this.value)"
                     class="w-full h-10 px-3 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer truncate"
                   >
-                    <option value="LOCAL_WHATSAPP" {% if settings.whatsapp_provider == 'LOCAL_WHATSAPP' %}selected{% endif %}>
-                      Local WhatsApp Gateway (Free / Zero API)
+                    <option value="LOCAL_WHATSAPP" {% if settings.whatsapp_provider == 'LOCAL_WHATSAPP' or not settings.whatsapp_provider %}selected{% endif %}>
+                      Dedicated WhatsApp Gateway (Standard ₹0.40 / msg)
+                    </option>
+                    <option value="META_OFFICIAL" {% if settings.whatsapp_provider == 'META_OFFICIAL' %}selected{% endif %}>
+                      Official WhatsApp Cloud API (Meta Graph API)
                     </option>
                     <option value="MANUAL_DEEPLINK" {% if settings.whatsapp_provider == 'MANUAL_DEEPLINK' %}selected{% endif %}>
                       Manual Deep-Link (WhatsApp Web 1-Click)
@@ -934,7 +1001,17 @@
                       Simulator / Dev Logger (No Gateway)
                     </option>
                   </select>
-                  <p class="text-[11px] text-muted-foreground leading-normal">Send free automated messages via local bridge on this PC.</p>
+                  <p id="providerHelperText" class="text-[11px] text-muted-foreground leading-normal">
+                    {% if settings.whatsapp_provider == 'META_OFFICIAL' %}
+                      Official Meta WhatsApp Business Cloud API direct delivery. Standard Rate: 40 Paise / Message.
+                    {% elif settings.whatsapp_provider == 'MANUAL_DEEPLINK' %}
+                      Manual 1-click WhatsApp Web chat links. Opens WhatsApp Web / Desktop with pre-filled message.
+                    {% elif settings.whatsapp_provider == 'SIMULATOR' %}
+                      Simulator / Dev Logger. Messages are recorded in Notification Logs without sending or incurring charges.
+                    {% else %}
+                      Send automated receipts and fee reminder alerts directly to parent numbers (Standard Rate: 40 Paise / Message).
+                    {% endif %}
+                  </p>
                 </div>
 
                 <!-- Dispatch Mode (Automatic vs Manual vs Both) -->
@@ -966,7 +1043,7 @@
               </div>
 
               <!-- Row 2: Full-Width Local WhatsApp Bridge Interactive Card -->
-              <div id="localBridgeCard" class="w-full rounded-2xl border p-5 transition-all bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-emerald-50/50 dark:from-emerald-950/20 dark:via-slate-900/40 dark:to-emerald-950/20 border-emerald-300 dark:border-emerald-800/60 shadow-2xs">
+              <div id="localBridgeCard" class="w-full rounded-2xl border p-5 transition-all bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-emerald-50/50 dark:from-emerald-950/20 dark:via-slate-900/40 dark:to-emerald-950/20 border-emerald-300 dark:border-emerald-800/60 shadow-2xs {% if settings.whatsapp_provider and settings.whatsapp_provider != 'LOCAL_WHATSAPP' %}hidden{% endif %}">
                 
                 <div class="flex items-center justify-between pb-3 border-b border-emerald-200 dark:border-emerald-900/50">
                   <div class="flex items-center gap-2.5">
@@ -974,8 +1051,8 @@
                       <i data-lucide="message-circle" class="w-4 h-4"></i>
                     </span>
                     <div>
-                      <h4 class="text-xs font-bold text-foreground">Local PC WhatsApp Bridge</h4>
-                      <p class="text-[10px] text-muted-foreground">100% Free Self-Hosted Gateway • Runs on this computer without cloud API tokens</p>
+                      <h4 class="text-xs font-bold text-foreground">Dedicated WhatsApp Gateway Engine</h4>
+                      <p class="text-[10px] text-muted-foreground">Standard Rate: ₹0.40 (40 Paise) per message • Active Prepaid Quota</p>
                     </div>
                   </div>
 
@@ -1065,9 +1142,326 @@
                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                         <span>Check Connection Again</span>
                       </button>
+                </div>
+
+              </div>
+
+              <!-- Meta WhatsApp Official Cloud API Interactive Card -->
+              <div id="metaOfficialCard" class="w-full rounded-2xl border p-5 transition-all bg-gradient-to-br from-indigo-50/70 via-blue-50/30 to-indigo-50/50 dark:from-indigo-950/20 dark:via-slate-900/40 dark:to-indigo-950/20 border-indigo-300 dark:border-indigo-800/60 shadow-2xs space-y-4 {% if settings.whatsapp_provider != 'META_OFFICIAL' %}hidden{% endif %}">
+                
+                <!-- Card Header -->
+                <div class="flex items-center justify-between pb-3 border-b border-indigo-200 dark:border-indigo-900/50">
+                  <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-2xs bg-indigo-600 text-white font-bold">
+                      <i data-lucide="cloud" class="w-4 h-4"></i>
+                    </span>
+                    <div>
+                      <h4 class="text-xs font-bold text-foreground flex items-center gap-2">
+                        Official Meta WhatsApp Cloud API Gateway
+                        <span class="text-[9px] uppercase px-1.5 py-0.5 rounded-sm bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-300 font-extrabold tracking-wider">Meta Graph API</span>
+                      </h4>
+                      <p class="text-[10px] text-muted-foreground">Direct Cloud Delivery • Meta Business Verified • 40 Paise / Message Quota</p>
+                    </div>
+                  </div>
+
+                  <!-- Live Meta Credentials Status Badge -->
+                  <div id="metaStatusBadge">
+                    {% if settings.whatsapp_meta_phone_id and settings.whatsapp_meta_access_token %}
+                      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-2xs">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> CONFIGURED
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs">
+                        <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> SETUP REQUIRED
+                      </span>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- Info Notice / Permissions Guide -->
+                <div class="p-3.5 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-indigo-200/80 dark:border-indigo-900/40 text-xs text-foreground space-y-2">
+                  <div class="flex items-center gap-2 font-bold text-indigo-700 dark:text-indigo-400">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
+                    <span>Official Meta Business Platform Requirements</span>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                    <div class="flex items-start gap-1.5">
+                      <span class="text-indigo-600 font-bold">•</span>
+                      <span><strong>Permanent Token:</strong> Generate via Meta Business Suite &rarr; System Users with <code class="text-indigo-600 font-mono text-[10px]">whatsapp_business_messaging</code> and <code class="text-indigo-600 font-mono text-[10px]">whatsapp_business_management</code> scopes.</span>
+                    </div>
+                    <div class="flex items-start gap-1.5">
+                      <span class="text-indigo-600 font-bold">•</span>
+                      <span><strong>Phone Number ID:</strong> Found on WhatsApp &rarr; API Setup tab in developers.facebook.com (15-digit ID, distinct from your mobile number).</span>
                     </div>
                   </div>
                 </div>
+
+                <!-- Grid of Main Inputs -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  
+                  <!-- Phone Number ID -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase flex items-center justify-between">
+                      <span>Phone Number ID <span class="text-rose-500">*</span></span>
+                      <span class="text-[10px] text-muted-foreground font-mono font-normal">e.g. 104928374650192</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="whatsapp_meta_phone_id"
+                      id="metaPhoneIdInput"
+                      value="{{ settings.whatsapp_meta_phone_id }}"
+                      placeholder="15-digit Phone Number ID"
+                      class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    >
+                    <p class="text-[10px] text-muted-foreground">Found under WhatsApp Dashboard &rarr; API Setup.</p>
+                  </div>
+
+                  <!-- WhatsApp Business Account ID (WABA ID) -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase flex items-center justify-between">
+                      <span>WABA Account ID <span class="text-rose-500">*</span></span>
+                      <span class="text-[10px] text-muted-foreground font-mono font-normal">WhatsApp Business Account ID</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="whatsapp_meta_waba_id"
+                      id="metaWabaIdInput"
+                      value="{{ settings.whatsapp_meta_waba_id }}"
+                      placeholder="e.g. 102938475610293"
+                      class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    >
+                    <p class="text-[10px] text-muted-foreground">Meta Business Suite &rarr; Settings &rarr; WhatsApp Accounts.</p>
+                  </div>
+
+                  <!-- Permanent / Temporary Access Token (Full Width) -->
+                  <div class="space-y-1 sm:col-span-2">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase flex items-center justify-between flex-wrap gap-2">
+                      <span>Meta Cloud API Access Token <span class="text-rose-500">*</span></span>
+                      <div class="flex items-center gap-3">
+                        <button 
+                          type="button" 
+                          onclick="toggleMetaTokenHelpModal()" 
+                          class="text-[10px] font-bold text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-1"
+                        >
+                          <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+                          <span>Token Setup Guide</span>
+                        </button>
+                        <button 
+                          type="button" 
+                          onclick="toggleMetaTokenVisibility()" 
+                          class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center gap-1"
+                        >
+                          <i id="metaTokenEyeIcon" data-lucide="eye" class="w-3 h-3"></i>
+                          <span id="metaTokenEyeText">Show Token</span>
+                        </button>
+                      </div>
+                    </label>
+
+                    <!-- Collapsible Token Setup Guide Banner -->
+                    <div id="metaTokenHelpGuide" class="p-3.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-xs text-blue-950 dark:text-blue-200 space-y-2 hidden">
+                      <div class="font-bold flex items-center gap-1.5 text-blue-800 dark:text-blue-300">
+                        <i data-lucide="key" class="w-4 h-4 text-blue-600"></i>
+                        <span>How to Obtain Your Meta WhatsApp Access Token</span>
+                      </div>
+                      <ol class="list-decimal list-inside text-[11px] text-blue-900/90 dark:text-blue-300/90 space-y-1.5 pl-1 leading-relaxed">
+                        <li><strong>For Testing (24-Hour Token):</strong> Open <a href="https://developers.facebook.com" target="_blank" class="underline font-bold text-blue-700 dark:text-blue-300">developers.facebook.com</a> &rarr; Your App &rarr; WhatsApp &rarr; <strong>API Setup</strong> &rarr; Copy <em>Temporary access token</em>.</li>
+                        <li><strong>For Production (Permanent Token):</strong> Open <a href="https://business.facebook.com" target="_blank" class="underline font-bold text-blue-700 dark:text-blue-300">Meta Business Suite</a> &rarr; <strong>Settings</strong> &rarr; <strong>Users</strong> &rarr; <strong>System Users</strong>.</li>
+                        <li>Click <strong>Add System User</strong> (Role: <code class="font-bold font-mono">Admin System User</code>).</li>
+                        <li>Click <strong>Generate New Token</strong> &rarr; Select your WhatsApp App &rarr; Check scopes:
+                          <span class="inline-block bg-white dark:bg-slate-900 px-1 py-0.5 rounded text-[10px] font-mono font-bold text-indigo-600">whatsapp_business_messaging</span> and
+                          <span class="inline-block bg-white dark:bg-slate-900 px-1 py-0.5 rounded text-[10px] font-mono font-bold text-indigo-600">whatsapp_business_management</span>.
+                        </li>
+                        <li>Set Token Expiration to <strong>Never</strong> &rarr; Click <strong>Generate Token</strong> &rarr; Paste the token below.</li>
+                      </ol>
+                    </div>
+
+                    <div class="relative">
+                      <input
+                        type="password"
+                        name="whatsapp_meta_access_token"
+                        id="metaAccessTokenInput"
+                        value="{{ settings.whatsapp_meta_access_token }}"
+                        placeholder="EAAB..."
+                        autocomplete="new-password"
+                        class="w-full h-10 pl-3.5 pr-10 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                      >
+                    </div>
+                    <p class="text-[10px] text-muted-foreground">Permanent System User Token (recommended) or 24-hr Developer Token starting with <code class="font-mono text-indigo-600 font-bold">EA...</code>.</p>
+                  </div>
+
+                  <!-- Meta App ID -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
+                      Meta App ID
+                    </label>
+                    <input
+                      type="text"
+                      name="whatsapp_meta_app_id"
+                      id="metaAppIdInput"
+                      value="{{ settings.whatsapp_meta_app_id }}"
+                      placeholder="e.g. 584930291823746"
+                      class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    >
+                    <p class="text-[10px] text-muted-foreground">From Meta App Dashboard top navbar.</p>
+                  </div>
+
+                  <!-- Graph API Version -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
+                      Meta Graph API Version
+                    </label>
+                    <select
+                      name="whatsapp_meta_api_version"
+                      id="metaApiVersionSelect"
+                      class="w-full h-10 px-3 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
+                    >
+                      <option value="v21.0" {% if settings.whatsapp_meta_api_version == 'v21.0' or not settings.whatsapp_meta_api_version %}selected{% endif %}>v21.0 (Recommended / Latest)</option>
+                      <option value="v20.0" {% if settings.whatsapp_meta_api_version == 'v20.0' %}selected{% endif %}>v20.0</option>
+                      <option value="v19.0" {% if settings.whatsapp_meta_api_version == 'v19.0' %}selected{% endif %}>v19.0</option>
+                      <option value="v18.0" {% if settings.whatsapp_meta_api_version == 'v18.0' %}selected{% endif %}>v18.0</option>
+                    </select>
+                    <p class="text-[10px] text-muted-foreground">Meta Graph REST endpoint version.</p>
+                  </div>
+
+                  <!-- Webhook Callback URL (Full Width) -->
+                  <div class="space-y-1 sm:col-span-2">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase flex items-center justify-between">
+                      <span>Meta Webhook Callback URL</span>
+                      <button 
+                        type="button" 
+                        onclick="copyMetaWebhookUrl()" 
+                        class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center gap-1"
+                      >
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                        <span id="copyWebhookLabel">Copy Callback URL</span>
+                      </button>
+                    </label>
+                    <input
+                      type="text"
+                      id="metaWebhookCallbackUrlInput"
+                      readonly
+                      value="{{ request.scheme }}://{{ request.get_host }}/api/whatsapp/webhook/"
+                      class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 select-all cursor-pointer"
+                      onclick="this.select()"
+                    >
+                    <p class="text-[10px] text-muted-foreground">Paste into Meta App Dashboard &rarr; WhatsApp &rarr; Configuration &rarr; Callback URL.</p>
+                  </div>
+
+                  <!-- Webhook Verify Token -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase flex items-center justify-between">
+                      <span>Webhook Verify Token</span>
+                      <button 
+                        type="button" 
+                        onclick="generateRandomWebhookToken()" 
+                        class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                      >Generate Secret</button>
+                    </label>
+                    <input
+                      type="text"
+                      name="whatsapp_meta_webhook_token"
+                      id="metaWebhookTokenInput"
+                      value="{{ settings.whatsapp_meta_webhook_token|default:'sutawane_cloud_verify_2026' }}"
+                      placeholder="e.g. sutawane_cloud_verify_2026"
+                      class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    >
+                    <p class="text-[10px] text-muted-foreground">Custom challenge string entered in Meta Webhook configuration.</p>
+                  </div>
+
+                  <!-- Template Language Code -->
+                  <div class="space-y-1">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
+                      Default Template Language Code
+                    </label>
+                    <input
+                      type="text"
+                      name="whatsapp_meta_template_lang"
+                      id="metaTemplateLangInput"
+                      value="{{ settings.whatsapp_meta_template_lang|default:'en_US' }}"
+                      placeholder="en_US"
+                      class="w-full h-10 px-3.5 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    >
+                    <p class="text-[10px] text-muted-foreground">E.g., <code class="font-mono text-indigo-600">en_US</code>, <code class="font-mono text-indigo-600">en</code>, <code class="font-mono text-indigo-600">hi</code> (Hindi), <code class="font-mono text-indigo-600">mr</code> (Marathi).</p>
+                  </div>
+
+                </div>
+
+                <!-- Collapsible Meta Approved Templates Accordion -->
+                <div class="pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40">
+                  <button 
+                    type="button" 
+                    onclick="toggleMetaTemplatesSection()" 
+                    class="w-full flex items-center justify-between p-2.5 rounded-xl bg-white/70 dark:bg-slate-900/40 hover:bg-white dark:hover:bg-slate-900 border border-indigo-200/70 dark:border-indigo-900/40 text-xs font-bold text-foreground cursor-pointer transition-all"
+                  >
+                    <span class="flex items-center gap-2">
+                      <i data-lucide="file-code" class="w-4 h-4 text-indigo-600"></i>
+                      <span>Meta Approved Template Mapping (Bypass 24-Hour Window)</span>
+                    </span>
+                    <i id="metaTemplatesChevron" data-lucide="chevron-down" class="w-4 h-4 text-muted-foreground transition-transform"></i>
+                  </button>
+
+                  <div id="metaTemplatesCollapse" class="pt-3 space-y-3 hidden">
+                    <div class="text-[11px] text-muted-foreground leading-relaxed bg-indigo-50/50 dark:bg-indigo-950/20 p-2.5 rounded-lg border border-indigo-200/50">
+                      When initiating WhatsApp conversations with parents outside a 24-hour window, Meta mandates using pre-approved template names configured in Meta WhatsApp Manager.
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <!-- Fee Receipt Template -->
+                      <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-muted-foreground uppercase block truncate">Fee Receipt Template</label>
+                        <input
+                          type="text"
+                          name="whatsapp_meta_template_receipt"
+                          value="{{ settings.whatsapp_meta_template_receipt|default:'fee_receipt' }}"
+                          placeholder="fee_receipt"
+                          class="w-full h-9 px-3 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-foreground"
+                        >
+                      </div>
+                      <!-- Welcome Template -->
+                      <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-muted-foreground uppercase block truncate">Welcome / Reg Template</label>
+                        <input
+                          type="text"
+                          name="whatsapp_meta_template_welcome"
+                          value="{{ settings.whatsapp_meta_template_welcome|default:'student_welcome' }}"
+                          placeholder="student_welcome"
+                          class="w-full h-9 px-3 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-foreground"
+                        >
+                      </div>
+                      <!-- Due Reminder Template -->
+                      <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-muted-foreground uppercase block truncate">Fee Reminder Template</label>
+                        <input
+                          type="text"
+                          name="whatsapp_meta_template_reminder"
+                          value="{{ settings.whatsapp_meta_template_reminder|default:'fee_reminder' }}"
+                          placeholder="fee_reminder"
+                          class="w-full h-9 px-3 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-foreground"
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Verification Action Bar -->
+                <div class="pt-3 border-t border-indigo-200/60 dark:border-indigo-900/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div class="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    <span>Verify credentials directly against Meta Graph API before saving</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    id="btnVerifyMetaCreds"
+                    onclick="verifyMetaApiCredentials()"
+                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    <span>Verify Meta Cloud API Credentials</span>
+                  </button>
+                </div>
+
+                <!-- Verification Result Display Area -->
+                <div id="metaVerificationResult" class="hidden"></div>
 
               </div>
 
@@ -1075,7 +1469,7 @@
               <div class="form-row-2col">
                 
                 <!-- API Endpoint / Webhook URL -->
-                <div class="space-y-1.5 min-w-0">
+                <div id="localEndpointContainer" class="space-y-1.5 min-w-0 {% if settings.whatsapp_provider and settings.whatsapp_provider != 'LOCAL_WHATSAPP' %}hidden{% endif %}">
                   <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
                     API Endpoint / Webhook URL
                   </label>
@@ -1091,7 +1485,7 @@
                 </div>
 
                 <!-- Sender / Helpline Phone -->
-                <div class="space-y-1.5 min-w-0">
+                <div id="whatsappSenderPhoneContainer" class="space-y-1.5 min-w-0">
                   <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block truncate">
                     Accounts / Helpline Phone (In Footer)
                   </label>
@@ -1242,12 +1636,12 @@
                 </div>
               </div>
 
-              <div class="p-3 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-[11px] text-emerald-950 dark:text-emerald-200 leading-relaxed shadow-2xs">
-                <span class="font-bold flex items-center gap-1.5 mb-1 text-emerald-800 dark:text-emerald-300">
-                  <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i>
-                  Local WhatsApp Gateway:
+              <div class="p-3 rounded-xl bg-blue-50/90 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-[11px] text-blue-950 dark:text-blue-200 leading-relaxed shadow-2xs">
+                <span class="font-bold flex items-center gap-1.5 mb-1 text-blue-800 dark:text-blue-300">
+                  <i data-lucide="check-circle-2" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                  Active Gateway Dispatch:
                 </span>
-                Sends directly to <strong>any valid 10-digit mobile number</strong> from your linked phone without token limits or per-message billing.
+                Sends a live test notification directly to the 10-digit mobile number using your configured gateway engine (Local Bridge or Meta Official Cloud API).
               </div>
 
               <!-- High-Contrast Guaranteed Visible Button -->
@@ -1449,19 +1843,29 @@
                 <th class="py-3 px-3.5 text-center">Delivery Status</th>
                 <th class="py-3 px-4">Message Snippet</th>
                 <th class="py-3 px-3 text-right">Sent By</th>
+                <th class="py-3 px-3.5 text-center">Action</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-border/60 bg-card">
               {% for log in audit_logs %}
-                <tr class="hover:bg-muted/30 transition-colors">
-                  <td class="py-2.5 px-3.5 text-center font-mono font-bold text-muted-foreground text-[11px]">
+                <tr
+                  class="hover:bg-muted/50 cursor-pointer transition-colors group"
+                  onclick="openNotificationLogModal('{{ log.id }}')"
+                  title="Click to view full message details"
+                >
+                  <td class="py-2.5 px-3.5 text-center font-mono font-bold text-muted-foreground text-[11px] group-hover:text-primary transition-colors">
                     {{ forloop.counter }}
                   </td>
                   <td class="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
                     {{ log.created_at|date:"d M Y, H:i" }}
                   </td>
                   <td class="py-2.5 px-3.5 font-mono font-bold text-foreground whitespace-nowrap">
-                    <a href="tel:+{{ log.recipient_mobile }}" class="hover:text-blue-600 flex items-center gap-1">
+                    <a
+                      href="tel:+{{ log.recipient_mobile }}"
+                      onclick="event.stopPropagation();"
+                      class="hover:text-blue-600 flex items-center gap-1"
+                      title="Direct call"
+                    >
                       <i data-lucide="phone" class="w-3 h-3 text-muted-foreground"></i>
                       <span>+{{ log.recipient_mobile }}</span>
                     </a>
@@ -1490,16 +1894,45 @@
                       </span>
                     {% endif %}
                   </td>
-                  <td class="py-2.5 px-4 text-xs text-muted-foreground max-w-xs truncate" title="{{ log.message_text }}">
+                  <td class="py-2.5 px-4 text-xs text-muted-foreground max-w-xs truncate group-hover:text-foreground transition-colors" title="{{ log.message_text }}">
                     {{ log.message_text|truncatechars:75 }}
                   </td>
                   <td class="py-2.5 px-3 text-right font-medium text-muted-foreground whitespace-nowrap">
                     {{ log.sent_by|default:"admin" }}
                   </td>
+                  <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick="event.stopPropagation(); openNotificationLogModal('{{ log.id }}')"
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-muted hover:bg-primary hover:text-primary-foreground text-foreground border border-input transition-colors shadow-2xs cursor-pointer"
+                      title="View complete message details"
+                    >
+                      <i data-lucide="eye" class="w-3 h-3"></i>
+                      <span>Details</span>
+                    </button>
+                    <!-- Safe JSON payload container for this record -->
+                    <script type="application/json" id="notif-log-data-{{ log.id }}">
+                      {
+                        "id": "{{ log.id|escapejs }}",
+                        "counter": "{{ forloop.counter }}",
+                        "recipientMobile": "{{ log.recipient_mobile|escapejs }}",
+                        "recipientName": "{{ log.recipient_name|escapejs }}",
+                        "category": "{{ log.get_message_type_display|escapejs }}",
+                        "categoryCode": "{{ log.message_type|escapejs }}",
+                        "entityId": "{{ log.entity_id|default:'-'|escapejs }}",
+                        "provider": "{{ log.provider|escapejs }}",
+                        "status": "{{ log.status|escapejs }}",
+                        "dispatchedAt": "{{ log.created_at|date:'d M Y, H:i'|escapejs }}",
+                        "sentBy": "{{ log.sent_by|default:'System'|escapejs }}",
+                        "messageText": "{{ log.message_text|escapejs }}",
+                        "responsePayload": "{{ log.response_payload|default:''|escapejs }}"
+                      }
+                    </script>
+                  </td>
                 </tr>
               {% empty %}
                 <tr>
-                  <td colspan="9" class="py-8 text-center text-xs text-muted-foreground">
+                  <td colspan="10" class="py-8 text-center text-xs text-muted-foreground">
                     No notification dispatch records match the selected filters.
                   </td>
                 </tr>
@@ -1767,11 +2200,496 @@
       }
     };
 
-    window.checkLocalBridgeStatus = checkLocalBridgeStatus;
+    // --- Gateway Provider Switching Logic ---
+    window.handleGatewayProviderChange = function(provider) {
+      const localBridgeCard = document.getElementById('localBridgeCard');
+      const metaOfficialCard = document.getElementById('metaOfficialCard');
+      const localEndpointContainer = document.getElementById('localEndpointContainer');
+      const helper = document.getElementById('providerHelperText');
 
-    // Check bridge status initially and start rapid poll timer
-    checkLocalBridgeStatus();
-    bridgePollTimer = setInterval(checkLocalBridgeStatus, 2500);
+      if (provider === 'META_OFFICIAL') {
+        if (localBridgeCard) localBridgeCard.classList.add('hidden');
+        if (metaOfficialCard) metaOfficialCard.classList.remove('hidden');
+        if (localEndpointContainer) localEndpointContainer.classList.add('hidden');
+        if (helper) helper.textContent = 'Official Meta WhatsApp Business Cloud API direct delivery. Standard Rate: 40 Paise / Message.';
+      } else if (provider === 'LOCAL_WHATSAPP' || !provider) {
+        if (localBridgeCard) localBridgeCard.classList.remove('hidden');
+        if (metaOfficialCard) metaOfficialCard.classList.add('hidden');
+        if (localEndpointContainer) localEndpointContainer.classList.remove('hidden');
+        if (helper) helper.textContent = 'Send automated receipts and fee reminder alerts directly to parent numbers (Standard Rate: 40 Paise / Message).';
+        if (typeof checkLocalBridgeStatus === 'function') {
+          checkLocalBridgeStatus();
+        }
+      } else if (provider === 'MANUAL_DEEPLINK') {
+        if (localBridgeCard) localBridgeCard.classList.add('hidden');
+        if (metaOfficialCard) metaOfficialCard.classList.add('hidden');
+        if (localEndpointContainer) localEndpointContainer.classList.add('hidden');
+        if (helper) helper.textContent = 'Manual 1-click WhatsApp Web chat links. Opens WhatsApp Web / Desktop with pre-filled message.';
+      } else if (provider === 'SIMULATOR') {
+        if (localBridgeCard) localBridgeCard.classList.add('hidden');
+        if (metaOfficialCard) metaOfficialCard.classList.add('hidden');
+        if (localEndpointContainer) localEndpointContainer.classList.add('hidden');
+        if (helper) helper.textContent = 'Simulator / Dev Logger. Messages are recorded in Notification Logs without sending or incurring charges.';
+      }
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    };
+
+    window.toggleMetaTokenVisibility = function() {
+      const tokenInput = document.getElementById('metaAccessTokenInput');
+      const icon = document.getElementById('metaTokenEyeIcon');
+      const text = document.getElementById('metaTokenEyeText');
+      if (!tokenInput) return;
+      if (tokenInput.type === 'password') {
+        tokenInput.type = 'text';
+        if (text) text.textContent = 'Hide Token';
+        if (icon) icon.setAttribute('data-lucide', 'eye-off');
+      } else {
+        tokenInput.type = 'password';
+        if (text) text.textContent = 'Show Token';
+        if (icon) icon.setAttribute('data-lucide', 'eye');
+      }
+      if (window.lucide) lucide.createIcons();
+    };
+
+    window.toggleMetaTemplatesSection = function() {
+      const collapse = document.getElementById('metaTemplatesCollapse');
+      const chevron = document.getElementById('metaTemplatesChevron');
+      if (!collapse) return;
+      const isHidden = collapse.classList.contains('hidden');
+      if (isHidden) {
+        collapse.classList.remove('hidden');
+        if (chevron) chevron.classList.add('rotate-180');
+      } else {
+        collapse.classList.add('hidden');
+        if (chevron) chevron.classList.remove('rotate-180');
+      }
+      if (window.lucide) lucide.createIcons();
+    };
+
+    window.toggleMetaTokenHelpModal = function() {
+      const guide = document.getElementById('metaTokenHelpGuide');
+      if (!guide) return;
+      guide.classList.toggle('hidden');
+      if (window.lucide) lucide.createIcons();
+    };
+
+    window.copyMetaWebhookUrl = function() {
+      const urlInput = document.getElementById('metaWebhookCallbackUrlInput');
+      if (!urlInput) return;
+      navigator.clipboard.writeText(urlInput.value).then(() => {
+        const lbl = document.getElementById('copyWebhookLabel');
+        if (lbl) {
+          lbl.textContent = 'Copied!';
+          setTimeout(() => { lbl.textContent = 'Copy Callback URL'; }, 2000);
+        }
+      }).catch(() => {
+        urlInput.select();
+        document.execCommand('copy');
+      });
+    };
+
+    window.generateRandomWebhookToken = function() {
+      const tokenInput = document.getElementById('metaWebhookTokenInput');
+      if (!tokenInput) return;
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let rand = 'sutawane_';
+      for (let i = 0; i < 16; i++) {
+        rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      tokenInput.value = rand;
+    };
+
+    window.verifyMetaApiCredentials = async function() {
+      const btn = document.getElementById('btnVerifyMetaCreds');
+      const resContainer = document.getElementById('metaVerificationResult');
+      const statusBadge = document.getElementById('metaStatusBadge');
+      const phoneIdInput = document.getElementById('metaPhoneIdInput');
+      const tokenInput = document.getElementById('metaAccessTokenInput');
+      const versionSelect = document.getElementById('metaApiVersionSelect');
+
+      const phoneId = phoneIdInput ? phoneIdInput.value.trim() : '';
+      const token = tokenInput ? tokenInput.value.trim() : '';
+      const version = versionSelect ? versionSelect.value.trim() : 'v21.0';
+
+      if (!phoneId || !token) {
+        if (resContainer) {
+          resContainer.className = 'p-3.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/30 text-rose-800 dark:text-rose-200 text-xs flex items-start gap-2.5';
+          resContainer.innerHTML = `
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+            <div>
+              <strong class="font-bold">Missing Required Credentials:</strong>
+              <p class="text-[11px] mt-0.5 text-rose-700 dark:text-rose-300">Please provide both <strong>Phone Number ID</strong> and <strong>Permanent System User Access Token</strong> above before testing verification.</p>
+            </div>
+          `;
+          resContainer.classList.remove('hidden');
+          if (window.lucide) lucide.createIcons();
+        }
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Verifying with Meta Graph API...</span>';
+        if (window.lucide) lucide.createIcons();
+      }
+
+      try {
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        const formData = new FormData();
+        formData.append('phone_id', phoneId);
+        formData.append('access_token', token);
+        formData.append('api_version', version);
+        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken);
+
+        const resp = await fetch('/api/settings/meta-verify/', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        const data = await resp.json();
+
+        if (data && data.success && data.status === 'VERIFIED') {
+          if (statusBadge) {
+            statusBadge.innerHTML = `
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> META VERIFIED
+              </span>
+            `;
+          }
+          if (resContainer) {
+            resContainer.className = 'p-4 rounded-xl border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/90 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 text-xs space-y-2.5';
+            resContainer.innerHTML = `
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                  </span>
+                  <strong class="font-bold text-emerald-900 dark:text-emerald-200 text-xs sm:text-sm">Meta WhatsApp Cloud API Successfully Verified!</strong>
+                </div>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-bold">API ${version} ACTIVE</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
+                <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
+                  <span class="text-[10px] uppercase text-muted-foreground block font-bold">Display Number</span>
+                  <span class="font-bold font-mono text-foreground">${data.phone_number || 'N/A'}</span>
+                </div>
+                <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
+                  <span class="text-[10px] uppercase text-muted-foreground block font-bold">Business Name</span>
+                  <span class="font-bold text-foreground truncate block">${data.verified_name || 'Verified WABA'}</span>
+                </div>
+                <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
+                  <span class="text-[10px] uppercase text-muted-foreground block font-bold">Quality Rating</span>
+                  <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase">${data.quality_rating || 'GREEN'}</span>
+                </div>
+                <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
+                  <span class="text-[10px] uppercase text-muted-foreground block font-bold">Verification</span>
+                  <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase">${data.code_verification_status || 'VERIFIED'}</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-emerald-700 dark:text-emerald-300">Credentials are valid and ready. Click <strong>"Save Notification Configuration"</strong> below to persist your settings.</p>
+            `;
+            resContainer.classList.remove('hidden');
+          }
+        } else {
+          if (statusBadge) {
+            statusBadge.innerHTML = `
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-2xs">
+                <i data-lucide="x-circle" class="w-3.5 h-3.5"></i> VERIFICATION FAILED
+              </span>
+            `;
+          }
+          const errMsg = (data && data.error) ? data.error : 'Failed to communicate with Meta Graph API.';
+          if (resContainer) {
+            resContainer.className = 'p-3.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/30 text-rose-800 dark:text-rose-200 text-xs space-y-2';
+            resContainer.innerHTML = `
+              <div class="flex items-start gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+                <div>
+                  <strong class="font-bold text-rose-900 dark:text-rose-100">Meta API Verification Failed:</strong>
+                  <p class="text-[11px] mt-1 font-mono text-rose-700 dark:text-rose-300 bg-white/60 dark:bg-slate-900/50 p-2 rounded-md border border-rose-200 dark:border-rose-900 select-all">${errMsg}</p>
+                </div>
+              </div>
+              <ul class="list-disc list-inside text-[11px] text-rose-700 dark:text-rose-300 space-y-0.5 pl-1">
+                <li>Verify your <strong>Phone Number ID</strong> matches the ID on the WhatsApp API Setup page.</li>
+                <li>Verify your <strong>Permanent Token</strong> was created under System Users with <code class="font-mono font-bold">whatsapp_business_messaging</code> permission.</li>
+                <li>Ensure the token has not been revoked or expired.</li>
+              </ul>
+            `;
+            resContainer.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        if (resContainer) {
+          resContainer.className = 'p-3.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/30 text-rose-800 dark:text-rose-200 text-xs flex items-start gap-2';
+          resContainer.innerHTML = `
+            <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+            <div>
+              <strong class="font-bold">Network / Diagnostic Error:</strong>
+              <p class="text-[11px] mt-0.5">${err.message}</p>
+            </div>
+          `;
+          resContainer.classList.remove('hidden');
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i><span>Verify Meta Cloud API Credentials</span>';
+        }
+        if (window.lucide) lucide.createIcons();
+      }
+    };
+
+    // --- Notification Log Modal Detail Logic ---
+    window.openNotificationLogModal = function(logId) {
+      const scriptEl = document.getElementById('notif-log-data-' + logId);
+      if (!scriptEl) return;
+
+      let data;
+      try {
+        data = JSON.parse(scriptEl.textContent);
+      } catch (err) {
+        console.error('Failed to parse log JSON:', err);
+        return;
+      }
+
+      const modal = document.getElementById('notificationDetailModal');
+      if (!modal) return;
+
+      document.getElementById('notifModalRecipientMobile').textContent = '+' + data.recipientMobile;
+      document.getElementById('notifModalRecipientName').textContent = data.recipientName || 'Parent';
+      document.getElementById('notifModalCategory').textContent = data.category || 'General Notification';
+      document.getElementById('notifModalEntityId').textContent = data.entityId || '-';
+      document.getElementById('notifModalProvider').textContent = data.provider || 'LOCAL_WHATSAPP';
+      document.getElementById('notifModalDispatchedAt').textContent = data.dispatchedAt;
+      document.getElementById('notifModalSentBy').textContent = data.sentBy || 'System';
+      document.getElementById('notifModalMessageText').textContent = data.messageText || '';
+
+      // Status Badge
+      const badge = document.getElementById('notifModalStatusBadge');
+      if (data.status === 'SENT') {
+        badge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> SENT SUCCESSFULLY';
+      } else if (data.status === 'SIMULATED') {
+        badge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span> SIMULATED';
+      } else {
+        badge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> DELIVERY FAILED';
+      }
+
+      // Response Payload / Diagnostic
+      const respBox = document.getElementById('notifModalResponseBox');
+      const respPayload = document.getElementById('notifModalResponsePayload');
+      if (data.responsePayload && data.responsePayload.trim()) {
+        respPayload.textContent = data.responsePayload;
+        respBox.classList.remove('hidden');
+      } else if (data.status === 'FAILED') {
+        respPayload.textContent = 'Gateway dispatch error: No response returned from bridge or bridge was disconnected.';
+        respBox.classList.remove('hidden');
+      } else {
+        respBox.classList.add('hidden');
+      }
+
+      // WhatsApp Direct Link
+      const cleanPhone = (data.recipientMobile || '').replace(/\D/g, '');
+      const intlPhone = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+      const waUrl = `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(data.messageText || '')}`;
+      const waBtn = document.getElementById('notifModalWhatsAppWebBtn');
+      if (waBtn) {
+        waBtn.href = waUrl;
+      }
+
+      const copyLabel = document.getElementById('notifModalCopyBtnLabel');
+      if (copyLabel) copyLabel.textContent = 'Copy Text';
+
+      modal.classList.remove('hidden');
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    };
+
+    window.closeNotificationLogModal = function() {
+      const modal = document.getElementById('notificationDetailModal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    window.copyNotifModalText = function() {
+      const textEl = document.getElementById('notifModalMessageText');
+      if (!textEl) return;
+      navigator.clipboard.writeText(textEl.textContent).then(() => {
+        const copyLabel = document.getElementById('notifModalCopyBtnLabel');
+        if (copyLabel) {
+          copyLabel.textContent = 'Copied!';
+          setTimeout(() => { copyLabel.textContent = 'Copy Text'; }, 2000);
+        }
+      }).catch(err => {
+        console.warn('Clipboard write failed:', err);
+      });
+    };
+
+    // Initialize Gateway Provider view on page load
+    const initialProviderSelect = document.getElementById('whatsappProviderSelect');
+    if (initialProviderSelect && typeof window.handleGatewayProviderChange === 'function') {
+      window.handleGatewayProviderChange(initialProviderSelect.value);
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeNotificationLogModal();
+      }
+    });
   });
 </script>
+{% endblock %}
+
+{% block modals %}
+<!-- =========================================================================
+     NOTIFICATION DISPATCH RECORD DETAIL MODAL (Instant Popup on Row Click)
+     ========================================================================= -->
+<div
+  id="notificationDetailModal"
+  class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 hidden animate-in fade-in duration-150"
+  onclick="if (event.target === this) closeNotificationLogModal();"
+>
+  <div
+    class="bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    onclick="event.stopPropagation();"
+  >
+    <!-- Modal Header -->
+    <div class="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-card z-10 shrink-0">
+      <div class="flex items-center gap-3 min-w-0">
+        <div id="notifModalIconWrap" class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-500/20">
+          <i data-lucide="message-square" class="w-5 h-5"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="text-sm sm:text-base font-bold text-foreground leading-tight">Notification Dispatch Details</h3>
+            <span id="notifModalStatusBadge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border">
+              SENT
+            </span>
+          </div>
+          <p class="text-xs text-muted-foreground flex items-center gap-2 pt-0.5 truncate">
+            <span>Reference: <strong id="notifModalEntityId" class="font-mono text-foreground font-semibold">-</strong></span>
+            <span>•</span>
+            <span id="notifModalDispatchedAt">-</span>
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onclick="closeNotificationLogModal()"
+        class="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer shrink-0"
+        title="Close dialog (Escape)"
+      >
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
+      
+      <!-- Key Meta Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Recipient -->
+        <div class="bg-muted/30 border border-border/70 rounded-xl p-3 space-y-1">
+          <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Recipient</span>
+          <div class="flex items-center justify-between gap-2">
+            <span id="notifModalRecipientMobile" class="font-mono font-bold text-sm text-foreground flex items-center gap-1.5">
+              <i data-lucide="phone" class="w-3.5 h-3.5 text-primary"></i>
+              <span>-</span>
+            </span>
+            <span id="notifModalRecipientName" class="text-xs text-muted-foreground font-medium truncate">Parent</span>
+          </div>
+        </div>
+
+        <!-- Category -->
+        <div class="bg-muted/30 border border-border/70 rounded-xl p-3 space-y-1">
+          <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Category / Type</span>
+          <div class="font-bold text-sm text-foreground flex items-center gap-1.5">
+            <i data-lucide="tag" class="w-3.5 h-3.5 text-primary"></i>
+            <span id="notifModalCategory">-</span>
+          </div>
+        </div>
+
+        <!-- Dispatch Gateway -->
+        <div class="bg-muted/30 border border-border/70 rounded-xl p-3 space-y-1">
+          <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Gateway / Provider</span>
+          <div class="font-mono font-bold text-sm text-foreground flex items-center gap-1.5">
+            <i data-lucide="radio" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span id="notifModalProvider">LOCAL_WHATSAPP</span>
+          </div>
+        </div>
+
+        <!-- Sender User -->
+        <div class="bg-muted/30 border border-border/70 rounded-xl p-3 space-y-1">
+          <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Dispatched By</span>
+          <div class="font-bold text-sm text-foreground flex items-center gap-1.5">
+            <i data-lucide="user-check" class="w-3.5 h-3.5 text-primary"></i>
+            <span id="notifModalSentBy">Class Owner</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dispatched Message Card (WhatsApp Styled) -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="font-bold text-xs text-foreground flex items-center gap-1.5">
+            <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Full Dispatched Message Text</span>
+          </label>
+          <button
+            type="button"
+            onclick="copyNotifModalText()"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+          >
+            <i data-lucide="copy" class="w-3 h-3"></i>
+            <span id="notifModalCopyBtnLabel">Copy Text</span>
+          </button>
+        </div>
+        <div class="relative bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/25 rounded-xl p-4 shadow-2xs">
+          <pre id="notifModalMessageText" class="text-xs font-sans text-foreground whitespace-pre-wrap leading-relaxed select-text font-normal"></pre>
+        </div>
+      </div>
+
+      <!-- Gateway Response / Failure Diagnostics -->
+      <div id="notifModalResponseBox" class="space-y-1.5 hidden">
+        <label class="font-bold text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+          <span>Gateway Diagnostic / Failure Response</span>
+        </label>
+        <div class="bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 rounded-xl p-3 font-mono text-[11px] text-rose-800 dark:text-rose-300 whitespace-pre-wrap break-all" id="notifModalResponsePayload">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="p-4 border-t border-border flex items-center justify-between gap-3 bg-muted/20 shrink-0">
+      <a
+        id="notifModalWhatsAppWebBtn"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+        style="background-color: #25D366 !important; color: #ffffff !important;"
+      >
+        <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
+        <span>Open in WhatsApp Web</span>
+      </a>
+
+      <button
+        type="button"
+        onclick="closeNotificationLogModal()"
+        class="px-4 py-2 rounded-lg border border-input bg-background hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
 {% endblock %}

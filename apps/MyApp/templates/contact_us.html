@@ -1,15 +1,418 @@
 {% extends 'public_base.html' %}
 {% load static %}
 
-{% block title %}Contact & Campus Directory · Sutawane Group Vaijapur{% endblock %}
-{% block meta_desc %}Get in touch with Sutawane Classes Vaijapur. Visit our main campus on Ladgaon Road, Niwara Nagari, Near Dongare Hospital, call our helpline, or submit an admission counseling request.{% endblock %}
+{% block title %}Campuses & Contact Desk · Vaijapur, Kopargaon & Yeola · Sutawane Group{% endblock %}
+{% block meta_desc %}Contact Sutawane Classes across Vaijapur, Kopargaon & Yeola campuses. Connect with Prof. Sutawane Sir on +91 98814 65883 for admissions, batch schedules & free demo counseling.{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ==========================================================================
+     NEXT-LEVEL CREATIVE BRANCH & CONTACT DESK SYSTEM
+     ========================================================================== */
+  .branch-switcher-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-bottom: 2.5rem;
+  }
+
+  .branch-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1.45rem;
+    border-radius: 9999px;
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    color: #475569;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .branch-tab-btn:hover {
+    border-color: #CBD5E1;
+    color: #0F172A;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  }
+
+  .branch-tab-btn.active {
+    background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%);
+    border-color: #4338CA;
+    color: #FFFFFF;
+    box-shadow: 0 8px 24px -4px rgba(67, 56, 202, 0.45);
+    transform: translateY(-1px);
+  }
+
+  .branch-tab-btn .tab-badge {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    background: #F1F5F9;
+    color: #475569;
+    transition: all 0.2s ease;
+  }
+
+  .branch-tab-btn.active .tab-badge {
+    background: rgba(255, 255, 255, 0.22);
+    color: #FFFFFF;
+  }
+
+  /* Branch Spotlight Card */
+  .branch-spotlight-card {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 16px 36px -8px rgba(15, 23, 42, 0.06);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s ease;
+  }
+
+  .branch-spotlight-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #4F46E5 0%, #6366F1 50%, #7C3AED 100%);
+  }
+
+  .branch-spotlight-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid #F1F5F9;
+    flex-wrap: wrap;
+  }
+
+  .branch-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .branch-icon-box {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+    border: 1.5px solid #C7D2FE;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #4338CA;
+    flex-shrink: 0;
+  }
+
+  .branch-name-text {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .branch-subtitle-text {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #6366F1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 0.2rem;
+  }
+
+  .branch-open-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    color: #065F46;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .branch-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    margin-bottom: 1.85rem;
+  }
+
+  .branch-info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+  }
+
+  .info-icon-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .info-text-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1;
+  }
+
+  .info-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748B;
+  }
+
+  .info-value-main {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.45;
+  }
+
+  .info-value-sub {
+    font-size: 0.8125rem;
+    color: #64748B;
+    font-weight: 500;
+  }
+
+  .info-phone-link {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #2563EB;
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: color 0.15s ease;
+  }
+  .info-phone-link:hover {
+    color: #1D4ED8;
+    text-decoration: underline;
+  }
+
+  /* Mentor Person Spotlight Highlight */
+  .mentor-highlight-box {
+    background: linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 100%);
+    border: 1.5px solid #E0E7FF;
+    border-radius: 16px;
+    padding: 0.9rem 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .mentor-left-details {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .mentor-avatar-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.05rem;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  }
+
+  .mentor-title-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0F172A;
+  }
+
+  .mentor-subtitle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4F46E5;
+  }
+
+  /* Branch Actions Row */
+  .branch-action-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .btn-branch-call {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    background: #0F172A;
+    color: #FFFFFF !important;
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
+    transition: all 0.2s ease;
+  }
+  .btn-branch-call:hover {
+    background: #1E293B;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3);
+  }
+
+  .btn-branch-wa {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    background: #25D366;
+    color: #FFFFFF !important;
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);
+    transition: all 0.2s ease;
+  }
+  .btn-branch-wa:hover {
+    background: #1EBE5B;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(37, 211, 102, 0.4);
+  }
+
+  /* All 3 Campuses Quick Cards Strip */
+  .three-campuses-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .mini-campus-card {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .mini-campus-card:hover {
+    border-color: #6366F1;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.12);
+  }
+  .mini-campus-card.active {
+    border-color: #4F46E5;
+    background: #FAF5FF;
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.15);
+  }
+
+  .mini-campus-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0F172A;
+    margin-bottom: 0.25rem;
+  }
+  .mini-campus-addr {
+    font-size: 0.75rem;
+    color: #64748B;
+    line-height: 1.35;
+    margin-bottom: 0.75rem;
+  }
+  .mini-campus-phone {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #4F46E5;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  /* Clean Creative Inquiry Form */
+  .modern-inquiry-form-card {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 24px;
+    padding: 2.25rem;
+    box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.08);
+  }
+
+  .form-mentor-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 0.65rem 0.95rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.8125rem;
+  }
+
+  .form-mentor-banner strong {
+    color: #0F172A;
+  }
+
+  .form-mentor-phone {
+    color: #2563EB;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  @media (max-width: 900px) {
+    .three-campuses-strip {
+      grid-template-columns: 1fr;
+    }
+    .branch-action-buttons {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- ==========================================================================
      1. HERO HEADER WITH AMBIENT HALO
      ========================================================================== -->
 <section class="modern-page-hero" id="top">
-  <!-- Atmospheric diffused glow halo -->
   <div class="page-hero-halo" aria-hidden="true"></div>
 
   <div class="modern-container">
@@ -17,20 +420,20 @@
       
       <!-- Eyebrow Notification Pill -->
       <a href="#demoForm" class="hero-notification-pill">
-        <span class="pill-badge-indigo">ADMISSIONS DESK</span>
-        <span class="pill-text-content">Campus Open Today for Parent Counseling &amp; 3-Day Demo Passes</span>
+        <span class="pill-badge-indigo">ADMISSIONS 2026–27</span>
+        <span class="pill-text-content">3 Campuses Open: Vaijapur · Kopargaon · Yeola</span>
         <span class="pill-arrow-indicator">→</span>
       </a>
 
       <!-- Page Title -->
       <h1 class="modern-page-title">
-        Connect with Our Academic Desk.<br>
-        <span class="gradient-text-indigo">We Are Here to Guide Your Child's Future.</span>
+        Connect with Our Campuses.<br>
+        <span class="gradient-text-indigo">Direct Guidance by Prof. Sutawane Sir.</span>
       </h1>
 
       <!-- Subtitle Description -->
       <p class="modern-page-desc">
-        Have questions regarding batch schedules, fee structures, or curriculum pacing? Visit our main campus on Ladgaon Road, Niwara Nagari, Near Dongare Hospital in Vaijapur or connect directly with our senior counseling team.
+        Personalized counseling for 8th–10th Board, 11th–12th Science (PCB/PCM), MHT-CET, NEET &amp; JEE across our <strong>Vaijapur</strong>, <strong>Kopargaon</strong>, and <strong>Yeola</strong> campuses. Central helpline: <strong>+91 98814 65883</strong>.
       </p>
 
     </div>
@@ -38,149 +441,200 @@
 </section>
 
 <!-- ==========================================================================
-     2. CONTACT SPLIT GRID SECTION
+     2. INTERACTIVE BRANCH SWITCHER & CONTACT DETAILS
      ========================================================================== -->
 <section class="modern-section" style="padding-top:0;">
   <div class="modern-container">
+
+    <!-- Branch Selection Tabs -->
+    <div class="branch-switcher-strip" role="tablist" aria-label="Branch Selector">
+      <button type="button" class="branch-tab-btn active" id="tab-vaijapur" onclick="switchBranch('vaijapur')">
+        <span>🏛️ Vaijapur</span>
+        <span class="tab-badge">Main Campus</span>
+      </button>
+      <button type="button" class="branch-tab-btn" id="tab-kopargaon" onclick="switchBranch('kopargaon')">
+        <span>🏢 Kopargaon</span>
+        <span class="tab-badge">Science Center</span>
+      </button>
+      <button type="button" class="branch-tab-btn" id="tab-yeola" onclick="switchBranch('yeola')">
+        <span>🏢 Yeola</span>
+        <span class="tab-badge">Academic Wing</span>
+      </button>
+    </div>
+
     <div class="contact-split-grid">
       
-      <!-- Left Column: Campus Info & Fast Channels -->
+      <!-- Left Column: Active Branch Spotlight -->
       <div class="contact-info-column">
         
-        <!-- Main Campus Card -->
-        <div class="modern-contact-card">
-          <div class="contact-card-header">
-            <div class="campus-title-group">
-              <div class="campus-pin-icon">📍</div>
+        <div class="branch-spotlight-card" id="branchCard">
+          <!-- Card Header -->
+          <div class="branch-spotlight-head">
+            <div class="branch-title-group">
+              <div class="branch-icon-box" id="spotlightIcon">🏛️</div>
               <div>
-                <h3 class="campus-title-text">Vaijapur Main Campus</h3>
-                <small style="color:#64748B;font-weight:600;">Head Office &amp; Central Learning Center</small>
+                <h2 class="branch-name-text" id="spotlightName">Vaijapur Main Campus</h2>
+                <div class="branch-subtitle-text" id="spotlightBadge">Head Office &amp; Central Learning Center</div>
               </div>
             </div>
-            <span class="batch-seat-badge">
+            <span class="branch-open-pill">
               <span class="live-dot-pulse"></span>
               <span>Open Today</span>
             </span>
           </div>
 
-          <div class="contact-details-list">
-            <div class="contact-detail-item">
-              <div class="detail-icon-circle">🏢</div>
-              <div class="detail-text-block">
-                <strong>Campus Address</strong>
-                Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur, Taluka Vaijapur, Dist. Chhatrapati Sambhajinagar (Aurangabad), Maharashtra 423701.
+          <!-- Academic Mentor Person Banner -->
+          <div class="mentor-highlight-box">
+            <div class="mentor-left-details">
+              <div class="mentor-avatar-badge">PS</div>
+              <div>
+                <div class="mentor-title-name" id="spotlightPerson">Prof. Sutawane Sir</div>
+                <div class="mentor-subtitle" id="spotlightRole">Founder &amp; Chief Academic Director</div>
+              </div>
+            </div>
+            <a href="tel:+919881465883" class="btn-branch-call" style="padding:0.45rem 0.85rem;font-size:0.8rem;border-radius:8px;">
+              <span>📞 Call Direct</span>
+            </a>
+          </div>
+
+          <!-- Info Details List -->
+          <div class="branch-info-grid">
+            <!-- Campus Address -->
+            <div class="branch-info-row">
+              <div class="info-icon-badge">📍</div>
+              <div class="info-text-group">
+                <span class="info-label">Campus Address</span>
+                <span class="info-value-main" id="spotlightAddress">Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur</span>
+                <span class="info-value-sub" id="spotlightDistrict">Dist. Chhatrapati Sambhajinagar - 423701</span>
               </div>
             </div>
 
-            <div class="contact-detail-item">
-              <div class="detail-icon-circle">📞</div>
-              <div class="detail-text-block">
-                <strong>Helpline Desk</strong>
-                <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}">{{ institute_settings.phone|default:'+91 98765 43210' }}</a>
+            <!-- Central Contact Helpline -->
+            <div class="branch-info-row">
+              <div class="info-icon-badge">📞</div>
+              <div class="info-text-group">
+                <span class="info-label">Admissions &amp; Inquiry Helpline (All Branches)</span>
+                <a href="tel:+919881465883" class="info-phone-link" id="spotlightPhoneLink">
+                  <span>+91 98814 65883</span>
+                  <span style="font-size:0.75rem;color:#16A34A;font-weight:700;">(Tap to Call)</span>
+                </a>
+                <span class="info-value-sub">One unified direct helpline for Vaijapur, Kopargaon &amp; Yeola</span>
               </div>
             </div>
 
-            <div class="contact-detail-item">
-              <div class="detail-icon-circle">📱</div>
-              <div class="detail-text-block">
-                <strong>Senior Counselor Direct</strong>
-                <a href="tel:+917776824564">+91 77768 24564</a>
+            <!-- Campus Timings -->
+            <div class="branch-info-row">
+              <div class="info-icon-badge">⏰</div>
+              <div class="info-text-group">
+                <span class="info-label">Campus Office Hours</span>
+                <span class="info-value-main" id="spotlightHours">Monday to Saturday: 7:30 AM – 8:00 PM</span>
+                <span class="info-value-sub">Sunday: 8:00 AM – 1:00 PM</span>
               </div>
             </div>
+          </div>
 
-            <div class="contact-detail-item">
-              <div class="detail-icon-circle">✉️</div>
-              <div class="detail-text-block">
-                <strong>Official Email</strong>
-                <a href="mailto:{{ institute_settings.email|default:'contact@sutawaneclasses.com' }}">{{ institute_settings.email|default:'contact@sutawaneclasses.com' }}</a>
-              </div>
-            </div>
-
-            <div class="contact-detail-item" style="padding-top:0.85rem;border-top:1px solid #F1F5F9;">
-              <div class="detail-icon-circle">⏰</div>
-              <div class="detail-text-block">
-                <strong>Campus Visiting Hours</strong>
-                Monday to Saturday: 7:30 AM – 8:00 PM<br>
-                Sunday: 8:00 AM – 1:00 PM
-              </div>
-            </div>
+          <!-- Quick Action Buttons -->
+          <div class="branch-action-buttons">
+            <a href="tel:+919881465883" class="btn-branch-call">
+              <span>📞 Call: +91 98814 65883</span>
+            </a>
+            <a href="https://wa.me/919881465883?text=Hello%20Prof.%20Sutawane%20Sir,%20I%20want%20to%20inquire%20about%20admissions%20for%20Vaijapur%20branch." id="spotlightWaLink" target="_blank" rel="noopener noreferrer" class="btn-branch-wa">
+              <span>💬 WhatsApp Inquiry</span>
+              <span>↗</span>
+            </a>
           </div>
         </div>
 
-        <!-- WhatsApp Fast Pass Box -->
-        <div class="contact-whatsapp-box">
-          <div class="wa-box-header">
-            <div class="wa-icon-bubble">💬</div>
-            <div class="wa-title-group">
-              <h4>Instant WhatsApp Desk</h4>
-              <p>Average reply time: within 15 minutes</p>
+        <!-- 3-Campus Quick Access Cards Strip -->
+        <div class="three-campuses-strip">
+          <div class="mini-campus-card active" id="mini-vaijapur" onclick="switchBranch('vaijapur')">
+            <div>
+              <div class="mini-campus-name">🏛️ Vaijapur (Main)</div>
+              <div class="mini-campus-addr">Ladgaon Rd, Niwara Nagari, Near Dongare Hospital</div>
             </div>
+            <div class="mini-campus-phone">📞 +91 98814 65883</div>
           </div>
-          <p class="wa-box-desc">
-            Prefer texting? Chat directly with our admissions coordinator on WhatsApp for quick fee installment details, syllabus booklets, and class timings.
-          </p>
-          <a href="https://wa.me/917776824564?text=Hello%20Sutawane%20Classes,%20I%20want%20to%20know%20more%20about%20admissions." target="_blank" rel="noopener noreferrer" class="btn-whatsapp-chat">
-            <span>Start WhatsApp Chat</span>
-            <span>↗</span>
-          </a>
+
+          <div class="mini-campus-card" id="mini-kopargaon" onclick="switchBranch('kopargaon')">
+            <div>
+              <div class="mini-campus-name">🏢 Kopargaon</div>
+              <div class="mini-campus-addr">Near Shivaji Chowk, Main Road</div>
+            </div>
+            <div class="mini-campus-phone">📞 +91 98814 65883</div>
+          </div>
+
+          <div class="mini-campus-card" id="mini-yeola" onclick="switchBranch('yeola')">
+            <div>
+              <div class="mini-campus-name">🏢 Yeola</div>
+              <div class="mini-campus-addr">Near Civil Court, Main Road</div>
+            </div>
+            <div class="mini-campus-phone">📞 +91 98814 65883</div>
+          </div>
         </div>
 
       </div>
 
-      <!-- Right Column: Interactive Admission Form -->
+      <!-- Right Column: Creative Essential Inquiry Form -->
       <div class="modern-inquiry-form-card" id="demoForm">
         <div class="inquiry-form-head">
-          <span class="modern-badge">✦ QUICK ADMISSION INQUIRY ✦</span>
-          <h2 class="modern-section-title" style="font-size:2rem;margin-bottom:0.4rem;">Book Your Free Counseling Session</h2>
-          <p style="font-size:0.925rem;color:#64748B;line-height:1.55;">
-            Fill out the details below and our senior counseling team will reserve your 3-day demo pass and dispatch batch timetables directly to your WhatsApp.
+          <span class="modern-badge">✦ DIRECT ADMISSIONS DESK ✦</span>
+          <h2 class="modern-section-title" style="font-size:1.85rem;margin-bottom:0.35rem;">Book Free 3-Day Demo Pass</h2>
+          <p style="font-size:0.9rem;color:#64748B;line-height:1.5;margin-bottom:1rem;">
+            Reserve your complimentary counseling &amp; 3-day classroom demo pass directly with our academic team.
           </p>
         </div>
 
+        <!-- Academic Director Banner -->
+        <div class="form-mentor-banner">
+          <div>
+            <span>👨‍🏫 <strong>Academic Mentor:</strong> Prof. Sutawane Sir</span>
+          </div>
+          <a href="tel:+919881465883" class="form-mentor-phone">📞 +91 98814 65883</a>
+        </div>
+
         <form id="contactPageForm" onsubmit="handleContactPageSubmit(event)">
-          <div class="form-grid-row">
-            <div class="modern-form-group">
-              <label for="contact_student_name">Student Full Name *</label>
-              <input type="text" id="contact_student_name" class="modern-form-input" required placeholder="e.g. Atharva Kulkarni">
-            </div>
-            <div class="modern-form-group">
-              <label for="contact_phone">Parent / Guardian Phone *</label>
-              <input type="tel" id="contact_phone" class="modern-form-input" required placeholder="e.g. 9876543210">
-            </div>
-          </div>
-
-          <div class="form-grid-row">
-            <div class="modern-form-group">
-              <label for="contact_standard">Class / Batch Seeking *</label>
-              <select id="contact_standard" class="modern-form-select" required>
-                <option value="" disabled selected>Select Desired Batch</option>
-                <option value="11th Science (PCB/PCM)">11th Science (Board + MHT-CET / NEET)</option>
-                <option value="12th Science Target Batch">12th Science Target Batch (CET / NEET)</option>
-                <option value="MHT-CET Rankers Batch">MHT-CET Intensive Entrance Batch</option>
-                <option value="NEET Medical Master Batch">NEET-UG Medical Master Batch</option>
-                <option value="10th SSC State Board">10th State Board Foundation</option>
-                <option value="8th & 9th Concept Builder">8th &amp; 9th Pre-Foundation</option>
-                <option value="11th & 12th Commerce">11th &amp; 12th Commerce</option>
-              </select>
-            </div>
-            <div class="modern-form-group">
-              <label for="contact_student_phone">Student WhatsApp Mobile</label>
-              <input type="tel" id="contact_student_phone" class="modern-form-input" placeholder="e.g. 9876543210">
-            </div>
-          </div>
-
+          <!-- 1. Student / Parent Name -->
           <div class="modern-form-group">
-            <label for="contact_previous_marks">Current School / College &amp; Previous Percentage</label>
-            <input type="text" id="contact_previous_marks" class="modern-form-input" placeholder="e.g. New High School Vaijapur, scored 92% in 9th">
+            <label for="contact_student_name">Student or Parent Full Name *</label>
+            <input type="text" id="contact_student_name" class="modern-form-input" required placeholder="e.g. Rahul Patil (or Parent Name)">
           </div>
 
+          <!-- 2. WhatsApp Phone Number -->
           <div class="modern-form-group">
-            <label for="contact_message">Specific Questions or Academic Goals</label>
-            <textarea id="contact_message" class="modern-form-textarea" rows="3" placeholder="Tell us if you need hostel guidance, scholarship details, or timing flexibility..."></textarea>
+            <label for="contact_phone">Contact Mobile Number (WhatsApp) *</label>
+            <input type="tel" id="contact_phone" class="modern-form-input" required placeholder="e.g. 9881465883" pattern="[0-9]{10}" title="Please enter a valid 10-digit mobile number">
+          </div>
+
+          <!-- 3. Target Branch Selection -->
+          <div class="modern-form-group">
+            <label for="contact_branch">Preferred Campus Branch *</label>
+            <select id="contact_branch" class="modern-form-select" required onchange="syncBranchWithForm(this.value)">
+              <option value="Vaijapur (Main Campus)">🏛️ Vaijapur (Main Campus · Ladgaon Road)</option>
+              <option value="Kopargaon Campus">🏢 Kopargaon Campus (Near Shivaji Chowk)</option>
+              <option value="Yeola Campus">🏢 Yeola Campus (Near Civil Court)</option>
+            </select>
+          </div>
+
+          <!-- 4. Target Batch Selection -->
+          <div class="modern-form-group">
+            <label for="contact_standard">Target Class / Stream *</label>
+            <select id="contact_standard" class="modern-form-select" required>
+              <option value="" disabled selected>Select Desired Program</option>
+              <option value="11th & 12th Science (PCB/PCM)">11th &amp; 12th Science (Integrated Board + CET / NEET)</option>
+              <option value="MHT-CET & NEET Target">MHT-CET &amp; NEET Intensive Entrance Track</option>
+              <option value="8th to 10th Foundation">8th to 10th State Board Pre-Foundation</option>
+              <option value="11th & 12th Commerce">11th &amp; 12th Commerce Stream</option>
+            </select>
+          </div>
+
+          <!-- 5. Optional Note / Question -->
+          <div class="modern-form-group">
+            <label for="contact_message">Any Specific Question or Goal (Optional)</label>
+            <textarea id="contact_message" class="modern-form-textarea" rows="2" placeholder="e.g. Looking for hostel guidance, daily timetable details, or scholarship inquiry..."></textarea>
           </div>
 
           <button type="submit" class="btn-taskharbor-primary" style="width:100%;justify-content:center;padding:0.95rem;font-size:1rem;margin-top:0.5rem;">
-            <span>Submit Academic Inquiry via WhatsApp</span>
+            <span>Submit via WhatsApp (+91 98814 65883)</span>
             <span class="btn-pill-arrow">→</span>
           </button>
         </form>
@@ -191,33 +645,35 @@
 </section>
 
 <!-- ==========================================================================
-     3. LOCATION MAP & DIRECTIONS SECTION
+     3. INTERACTIVE CAMPUS MAP & DIRECTIONS SECTION
      ========================================================================== -->
 <section class="modern-section" style="padding-top:0;padding-bottom:5.5rem;">
   <div class="modern-container">
     <div class="campus-map-section-wrap text-center">
-      <span class="modern-badge">✦ PRIME ACCESSIBLE LOCATION ✦</span>
-      <h3 class="modern-section-title" style="font-size:2.2rem;margin-bottom:0.75rem;">Easily Accessible at Vaijapur</h3>
-      <p class="modern-section-desc mx-auto" style="margin-bottom:0;">
-        Located on Ladgaon Road, Niwara Nagari, Near Dongare Hospital, ensuring a peaceful, safe, and easily accessible learning environment for all students.
+      <span class="modern-badge">✦ INTERACTIVE CAMPUS LOCATOR ✦</span>
+      <h3 class="modern-section-title" style="font-size:2.2rem;margin-bottom:0.75rem;" id="mapHeading">
+        Find Our Vaijapur Main Campus
+      </h3>
+      <p class="modern-section-desc mx-auto" style="margin-bottom:1.5rem;" id="mapSubdesc">
+        Located on Ladgaon Road, Niwara Nagari, Near Dongare Hospital in Vaijapur. Peaceful, secure, and accessible learning environment.
       </p>
 
-      <!-- Commute Highlights -->
-      <div class="commute-badges-row">
-        <span class="commute-pill-chip">🏥 Near Dongare Hospital</span>
-        <span class="commute-pill-chip">🚗 Dedicated Safe Student Parking</span>
-        <span class="commute-pill-chip">🛡️ 24/7 CCTV Monitored Campus</span>
-        <span class="commute-pill-chip">❄️ Air-Conditioned Smart Halls</span>
-      </div>
-
       <!-- Map Embed Frame -->
-      <div class="commute-map-frame">
+      <div class="commute-map-frame" style="position:relative;border-radius:24px;overflow:hidden;border:2px solid #E2E8F0;box-shadow:0 16px 40px -10px rgba(15,23,42,0.1);height:420px;">
         <iframe 
-          title="Sutawane Classes Vaijapur Location Map"
+          id="campusMapIframe"
+          title="Sutawane Classes Campus Location Map"
           src="https://maps.google.com/maps?q=Ladgaon%20Road,%20Niwara%20Nagari,%20Near%20Dongare%20Hospital,%20Vaijapur,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed"
           style="width:100%;height:100%;border:0;" 
           loading="lazy">
         </iframe>
+      </div>
+
+      <div style="margin-top:1.25rem;">
+        <a href="https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur" id="mapDirectLink" target="_blank" rel="noopener noreferrer" class="btn-taskharbor-frosted" style="display:inline-flex;">
+          <span>Open Full Directions in Google Maps</span>
+          <span>↗</span>
+        </a>
       </div>
     </div>
   </div>
@@ -226,25 +682,135 @@
 
 {% block extra_js %}
 <script>
+  // Centralized Branch Configuration
+  const branchData = {
+    vaijapur: {
+      name: "Vaijapur Main Campus",
+      badge: "Head Office & Central Learning Center",
+      icon: "🏛️",
+      person: "Prof. Sutawane Sir",
+      role: "Founder & Academic Director",
+      address: "Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur",
+      district: "Dist. Chhatrapati Sambhajinagar - 423701",
+      phone: "+91 98814 65883",
+      phoneRaw: "9881465883",
+      hours: "Monday to Saturday: 7:30 AM – 8:00 PM",
+      hoursSub: "Sunday: 8:00 AM – 1:00 PM",
+      mapHeading: "Find Our Vaijapur Main Campus",
+      mapSubdesc: "Located on Ladgaon Road, Niwara Nagari, Near Dongare Hospital in Vaijapur. Peaceful, secure, and accessible learning environment.",
+      mapEmbedUrl: "https://maps.google.com/maps?q=Ladgaon%20Road,%20Niwara%20Nagari,%20Near%20Dongare%20Hospital,%20Vaijapur,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
+      mapDirectUrl: "https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur",
+      formValue: "Vaijapur (Main Campus)"
+    },
+    kopargaon: {
+      name: "Kopargaon Campus",
+      badge: "Premier Science & MHT-CET Wing",
+      icon: "🏢",
+      person: "Prof. Sutawane Sir",
+      role: "Academic Director & Faculty Lead",
+      address: "Near Shivaji Chowk, Main Road, Kopargaon",
+      district: "Dist. Ahmednagar - 423601",
+      phone: "+91 98814 65883",
+      phoneRaw: "9881465883",
+      hours: "Monday to Saturday: 8:00 AM – 7:30 PM",
+      hoursSub: "Sunday: 8:30 AM – 12:30 PM",
+      mapHeading: "Find Our Kopargaon Campus",
+      mapSubdesc: "Located near Shivaji Chowk on Main Road in Kopargaon. Prime central location with modern smart lecture halls.",
+      mapEmbedUrl: "https://maps.google.com/maps?q=Shivaji%20Chowk,%20Kopargaon,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
+      mapDirectUrl: "https://maps.google.com/?q=Shivaji+Chowk+Kopargaon+Maharashtra",
+      formValue: "Kopargaon Campus"
+    },
+    yeola: {
+      name: "Yeola Campus",
+      badge: "Academic Coaching & Foundation Wing",
+      icon: "🏢",
+      person: "Prof. Sutawane Sir",
+      role: "Academic Director & Faculty Lead",
+      address: "Near Civil Court, Main Road, Yeola",
+      district: "Dist. Nashik - 423401",
+      phone: "+91 98814 65883",
+      phoneRaw: "9881465883",
+      hours: "Monday to Saturday: 8:00 AM – 7:30 PM",
+      hoursSub: "Sunday: 8:30 AM – 12:30 PM",
+      mapHeading: "Find Our Yeola Campus",
+      mapSubdesc: "Located near Civil Court on Main Road in Yeola. Dedicated classrooms and personalized academic care.",
+      mapEmbedUrl: "https://maps.google.com/maps?q=Civil%20Court,%20Yeola,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
+      mapDirectUrl: "https://maps.google.com/?q=Civil+Court+Yeola+Maharashtra",
+      formValue: "Yeola Campus"
+    }
+  };
+
+  let activeBranchKey = 'vaijapur';
+
+  function switchBranch(key) {
+    if (!branchData[key]) return;
+    activeBranchKey = key;
+    const data = branchData[key];
+
+    // 1. Update Tabs
+    document.querySelectorAll('.branch-tab-btn').forEach(btn => btn.classList.remove('active'));
+    const activeTab = document.getElementById(`tab-${key}`);
+    if (activeTab) activeTab.classList.add('active');
+
+    // 2. Update Mini Cards
+    document.querySelectorAll('.mini-campus-card').forEach(card => card.classList.remove('active'));
+    const activeMini = document.getElementById(`mini-${key}`);
+    if (activeMini) activeMini.classList.add('active');
+
+    // 3. Update Spotlight Card
+    document.getElementById('spotlightIcon').textContent = data.icon;
+    document.getElementById('spotlightName').textContent = data.name;
+    document.getElementById('spotlightBadge').textContent = data.badge;
+    document.getElementById('spotlightPerson').textContent = data.person;
+    document.getElementById('spotlightRole').textContent = data.role;
+    document.getElementById('spotlightAddress').textContent = data.address;
+    document.getElementById('spotlightDistrict').textContent = data.district;
+    document.getElementById('spotlightHours').textContent = data.hours;
+
+    // 4. Update Spotlight Links
+    const waText = encodeURIComponent(`Hello Prof. Sutawane Sir, I want to inquire about admissions for ${data.name}.`);
+    document.getElementById('spotlightWaLink').href = `https://wa.me/919881465883?text=${waText}`;
+
+    // 5. Update Map Embed & Links
+    document.getElementById('mapHeading').textContent = data.mapHeading;
+    document.getElementById('mapSubdesc').textContent = data.mapSubdesc;
+    document.getElementById('campusMapIframe').src = data.mapEmbedUrl;
+    document.getElementById('mapDirectLink').href = data.mapDirectUrl;
+
+    // 6. Sync Form Dropdown
+    const branchSelect = document.getElementById('contact_branch');
+    if (branchSelect) {
+      branchSelect.value = data.formValue;
+    }
+  }
+
+  function syncBranchWithForm(selectedFormVal) {
+    for (const [key, b] of Object.entries(branchData)) {
+      if (b.formValue === selectedFormVal) {
+        switchBranch(key);
+        break;
+      }
+    }
+  }
+
   function handleContactPageSubmit(e) {
     e.preventDefault();
     const name = document.getElementById('contact_student_name').value.trim();
-    const parentPhone = document.getElementById('contact_phone').value.trim();
+    const phone = document.getElementById('contact_phone').value.trim();
+    const branch = document.getElementById('contact_branch').value;
     const standard = document.getElementById('contact_standard').value;
-    const studentPhone = document.getElementById('contact_student_phone').value.trim();
-    const marks = document.getElementById('contact_previous_marks').value.trim();
     const msg = document.getElementById('contact_message').value.trim();
 
-    const text = `*New 3-Day Demo Inquiry - Sutawane Group*\n\n` +
-                 `*Student Name:* ${name}\n` +
-                 `*Parent Phone:* ${parentPhone}\n` +
-                 (studentPhone ? `*Student WhatsApp:* ${studentPhone}\n` : '') +
-                 `*Batch Desired:* ${standard}\n` +
-                 (marks ? `*School / Prev Marks:* ${marks}\n` : '') +
-                 (msg ? `*Questions:* ${msg}\n` : '') +
-                 `\n_Submitted via Contact Page on Sutawane Group Web Portal_`;
+    const text = `*New 3-Day Demo & Counseling Inquiry - Sutawane Group*\n\n` +
+                 `*Student/Parent Name:* ${name}\n` +
+                 `*Contact Mobile:* ${phone}\n` +
+                 `*Preferred Branch:* ${branch}\n` +
+                 `*Target Course:* ${standard}\n` +
+                 `*Academic Mentor:* Prof. Sutawane Sir (+91 98814 65883)\n` +
+                 (msg ? `*Questions/Notes:* ${msg}\n` : '') +
+                 `\n_Submitted via Sutawane Classes Public Contact Portal_`;
 
-    const targetWhatsApp = "917776824564";
+    const targetWhatsApp = "919881465883";
     const encoded = encodeURIComponent(text);
     const waUrl = `https://wa.me/${targetWhatsApp}?text=${encoded}`;
 

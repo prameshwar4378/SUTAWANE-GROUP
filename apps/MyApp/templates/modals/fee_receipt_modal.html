@@ -261,7 +261,7 @@
           <span>Full Tab</span>
         </a>
 
-        {% if whatsapp_show_manual_buttons and whatsapp_url and not payment.is_reversed %}
+        {% if whatsapp_url and not payment.is_reversed %}
         <a
           href="{{ whatsapp_url }}"
           target="_blank"

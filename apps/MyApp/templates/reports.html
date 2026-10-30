@@ -378,7 +378,7 @@
             </thead>
             <tbody class="divide-y divide-border">
               {% for m in session_audit.monthlyTrend %}
-                <tr class="hover:bg-muted/40 transition-colors month-row {% if m.has_activity %}month-active-row bg-emerald-50/20 dark:bg-emerald-950/10 font-semibold{% else %}month-inactive-row opacity-60 text-muted-foreground{% endif %}">
+                <tr class="hover:bg-muted/40 transition-colors month-row {% if m.has_activity %}month-active-row bg-emerald-50/20 dark:bg-emerald-950/10 font-semibold{% else %}month-inactive-row opacity-60 text-muted-foreground hidden{% endif %}" {% if not m.has_activity %}style="display: none;"{% endif %}>
                   <td class="py-2.5 px-3 text-foreground">
                     <div class="flex items-center gap-2">
                       <span>{{ m.monthLabel }}</span>
@@ -945,16 +945,28 @@
   function toggleActiveMonthsOnly(checkbox) {
     const inactiveRows = document.querySelectorAll('.month-inactive-row');
     inactiveRows.forEach(row => {
-      row.style.display = checkbox.checked ? 'none' : '';
+      if (checkbox.checked) {
+        row.classList.add('hidden');
+        row.style.display = 'none';
+      } else {
+        row.classList.remove('hidden');
+        row.style.display = '';
+      }
     });
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
+  function initActiveMonthsToggle() {
     const cb = document.getElementById('toggleActiveMonthsOnlyCheckbox');
     if (cb) {
       toggleActiveMonthsOnly(cb);
     }
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initActiveMonthsToggle);
+  } else {
+    initActiveMonthsToggle();
+  }
 
   function printFinancialReport() {
     document.body.classList.add('printing-report');

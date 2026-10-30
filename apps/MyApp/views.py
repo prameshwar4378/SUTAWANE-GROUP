@@ -13,7 +13,8 @@ from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q, Count, Sum
+from django.db.models import Q, Count, Sum, F, Value, Subquery, OuterRef, DecimalField
+from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.core.paginator import Paginator
 
@@ -46,6 +47,7 @@ from .reports_export import (
     export_payment_modes_excel,
     export_payment_modes_pdf,
     export_expense_categories_excel,
+    export_expense_categories_pdf,
     export_statement_excel,
     export_statement_pdf,
 )
@@ -60,6 +62,8 @@ from .cache_utils import (
     safe_cache_get,
     safe_cache_set,
     build_cache_key,
+    invalidate_financial_cache,
+    invalidate_student_cache,
     TTL_DASHBOARD,
     TTL_REPORTS,
     TTL_DUES,
@@ -98,6 +102,56 @@ def parse_form_date(value, *, default=None):
         return timezone.make_aware(datetime.strptime(value, '%Y-%m-%d'))
     except (TypeError, ValueError):
         raise ValueError('Enter a valid date in YYYY-MM-DD format.')
+
+
+def get_payment_point_in_time_balance(payment, admission_payments=None):
+    """
+    Computes the remaining due balance for an admission or previous due
+    as of the point in time this payment receipt was recorded.
+    Ensures historical reprints accurately reflect the ledger balance at the time of issue,
+    rather than being distorted by subsequent payments.
+    """
+    remaining_balance = MONEY_ZERO
+    if payment.admission and hasattr(payment.admission, 'fee_plan'):
+        tot = payment.admission.fee_plan.net_payable
+        if admission_payments is not None:
+            prior_payments = [
+                x for x in admission_payments
+                if not x.is_reversed and x.id != payment.id and (
+                    x.payment_date < payment.payment_date or
+                    (x.payment_date == payment.payment_date and x.created_at < payment.created_at) or
+                    (x.payment_date == payment.payment_date and x.created_at == payment.created_at and str(x.id) < str(payment.id))
+                )
+            ]
+            prior_paid = sum((x.total_amount for x in prior_payments), MONEY_ZERO)
+        else:
+            prior_filter = (
+                Q(payment_date__lt=payment.payment_date) |
+                Q(payment_date=payment.payment_date, created_at__lt=payment.created_at) |
+                Q(payment_date=payment.payment_date, created_at=payment.created_at, id__lt=payment.id)
+            )
+            prior_paid = payment.admission.payments.filter(
+                is_reversed=False
+            ).filter(prior_filter).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+
+        cumulative_paid = prior_paid + (payment.total_amount if not payment.is_reversed else MONEY_ZERO)
+        remaining_balance = max(MONEY_ZERO, tot - cumulative_paid)
+
+    elif payment.previous_due:
+        pd = payment.previous_due
+        prior_filter = (
+            Q(payment_date__lt=payment.payment_date) |
+            Q(payment_date=payment.payment_date, created_at__lt=payment.created_at) |
+            Q(payment_date=payment.payment_date, created_at=payment.created_at, id__lt=payment.id)
+        )
+        prior_paid = pd.payments.filter(
+            is_reversed=False
+        ).filter(prior_filter).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+
+        cumulative_paid = prior_paid + (payment.total_amount if not payment.is_reversed else MONEY_ZERO)
+        remaining_balance = max(MONEY_ZERO, pd.outstanding_amount - cumulative_paid)
+
+    return remaining_balance
 
 
 def can_manage_system(request):
@@ -144,8 +198,9 @@ def public_about_us_view(request):
 
 
 def public_contact_us_view(request):
-    """Public Contact Desk & Campus Directory."""
-    return render(request, 'contact_us.html')
+    """Public Contact Desk & Campus Directory for Vaijapur, Kopargaon & Yeola."""
+    branches = list(Branch.objects.filter(is_active=True).order_by('name'))
+    return render(request, 'contact_us.html', {'branch_list': branches})
 
 def login_view(request):
     """
@@ -683,9 +738,108 @@ def developer_portal_view(request):
             )
             return redirect('developer_portal')
 
+        # 5. WhatsApp Messaging Quota & Monetization Management
+        elif action == 'update_whatsapp_quota':
+            sub_action = request.POST.get('sub_action')
+            rate_val = request.POST.get('rate_per_message', '0.40').strip()
+            is_enforced = request.POST.get('is_enforced') == 'true'
+
+            # Update rate
+            try:
+                rate_dec = Decimal(rate_val)
+                rate_str = f"{rate_dec:.2f}"
+            except Exception:
+                rate_str = '0.40'
+            SystemSetting.objects.update_or_create(key='whatsapp_rate_per_message', defaults={'value': rate_str})
+
+            # Update enforcement
+            SystemSetting.objects.update_or_create(key='whatsapp_credits_enforced', defaults={'value': 'true' if is_enforced else 'false'})
+
+            # Handle quota balance adjustment
+            bal_setting, _ = SystemSetting.objects.get_or_create(key='whatsapp_credits_balance', defaults={'value': '500'})
+            try:
+                curr_bal = int(bal_setting.value or 0)
+            except (ValueError, TypeError):
+                curr_bal = 0
+
+            recharge_setting, _ = SystemSetting.objects.get_or_create(key='whatsapp_total_recharged_credits', defaults={'value': str(curr_bal)})
+            try:
+                curr_total_recharge = int(recharge_setting.value or curr_bal)
+            except (ValueError, TypeError):
+                curr_total_recharge = curr_bal
+
+            if sub_action == 'set_balance':
+                try:
+                    new_bal = max(0, int(request.POST.get('set_credits', curr_bal)))
+                except (ValueError, TypeError):
+                    new_bal = curr_bal
+                bal_setting.value = str(new_bal)
+                bal_setting.save(update_fields=['value'])
+                if new_bal > curr_bal:
+                    recharge_setting.value = str(curr_total_recharge + (new_bal - curr_bal))
+                    recharge_setting.save(update_fields=['value'])
+                messages.success(request, f"WhatsApp message balance successfully set to {new_bal:,} credits.")
+
+            elif sub_action == 'add_credits':
+                try:
+                    add_amt = max(0, int(request.POST.get('add_credits', 0)))
+                except (ValueError, TypeError):
+                    add_amt = 0
+                new_bal = curr_bal + add_amt
+                bal_setting.value = str(new_bal)
+                bal_setting.save(update_fields=['value'])
+                recharge_setting.value = str(curr_total_recharge + add_amt)
+                recharge_setting.save(update_fields=['value'])
+                messages.success(request, f"Added {add_amt:,} credits! New WhatsApp balance is {new_bal:,} messages.")
+
+            elif sub_action == 'reset_sent_counter':
+                SystemSetting.objects.update_or_create(key='whatsapp_messages_sent_count', defaults={'value': '0'})
+                messages.success(request, "Total messages sent counter was reset to 0.")
+
+            else:
+                messages.success(request, "WhatsApp messaging quota and pricing settings updated.")
+
+            invalidate_global_context_cache()
+            return redirect('developer_portal')
+
     # Gather data for Developer Portal
     license_status = get_license_status()
     all_users = User.objects.all().order_by('role', 'username')
+
+    # WhatsApp Messaging Quota & Monetization Metrics
+    settings_map = get_cached_settings_dict()
+    try:
+        quota_bal = int(settings_map.get('whatsapp_credits_balance', 500))
+    except (ValueError, TypeError):
+        quota_bal = 500
+
+    try:
+        quota_rate = Decimal(settings_map.get('whatsapp_rate_per_message', '0.40'))
+    except Exception:
+        quota_rate = Decimal('0.40')
+
+    quota_enforced = settings_map.get('whatsapp_credits_enforced', 'true') != 'false'
+
+    try:
+        quota_sent = int(settings_map.get('whatsapp_messages_sent_count', 0))
+    except (ValueError, TypeError):
+        quota_sent = 0
+
+    try:
+        quota_total_recharged = int(settings_map.get('whatsapp_total_recharged_credits', quota_bal))
+    except (ValueError, TypeError):
+        quota_total_recharged = quota_bal
+
+    quota_billed_amount = quota_sent * quota_rate
+
+    whatsapp_quota = {
+        'balance': quota_bal,
+        'rate': quota_rate,
+        'enforced': quota_enforced,
+        'sent_count': quota_sent,
+        'total_recharged': quota_total_recharged,
+        'billed_amount': quota_billed_amount,
+    }
 
     stats = {
         'students_count': Student.objects.count(),
@@ -703,6 +857,7 @@ def developer_portal_view(request):
         'license': license_status,
         'users': all_users,
         'stats': stats,
+        'whatsapp_quota': whatsapp_quota,
     }
     return render(request, 'developer_portal.html', context)
 
@@ -841,6 +996,8 @@ def dashboard_view(request):
         payments_qs = payments_qs.filter(session_id=active_session.id)
         if active_session.start_date and active_session.end_date:
             expenses_qs = expenses_qs.filter(expense_date__range=[active_session.start_date, active_session.end_date])
+        else:
+            expenses_qs = expenses_qs.none()
 
     now = timezone.localtime()
     today_date = now.date()
@@ -879,15 +1036,19 @@ def dashboard_view(request):
         # 5. Session Cumulative Macro Metrics
         active_students_count = admissions_qs.count()
         total_expected_fees = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
-        # Fee-plan collection metrics must exclude payments made against carried-forward
-        # previous-session dues. Those receipts are cash movement, but not current
-        # admission fee collections.
-        current_fee_payments_qs = payments_qs.filter(
-            admission__isnull=False,
-            admission__session_id=active_session.id if active_session and not is_all_sessions else None,
-        ) if active_session and not is_all_sessions else payments_qs.filter(admission__isnull=False)
+        # Fee-plan collection metrics must strictly correspond to active admissions in scope
+        current_fee_payments_qs = payments_qs.filter(admission__in=admissions_qs)
         total_collected_fees = current_fee_payments_qs.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
-        total_pending_fees = max(MONEY_ZERO, total_expected_fees - total_collected_fees)
+
+        # Calculate true pending fees across active student accounts (never netting one student's surplus against another's debt)
+        paid_per_adm = dict(
+            current_fee_payments_qs.values('admission_id').annotate(tot=Sum('total_amount')).values_list('admission_id', 'tot')
+        )
+        total_pending_fees = sum(
+            (max(MONEY_ZERO, fp.net_payable - paid_per_adm.get(fp.admission_id, MONEY_ZERO))
+             for fp in FeePlan.objects.filter(admission__in=admissions_qs)),
+            MONEY_ZERO
+        )
 
         # 6. Installments Due Today & Overdue Dues
         due_today_count = 0
@@ -900,10 +1061,16 @@ def dashboard_view(request):
         ).select_related('fee_plan').prefetch_related('allocations__payment')
 
         for inst in installments:
+            adm_id = inst.fee_plan.admission_id
+            adm_pending = max(MONEY_ZERO, inst.fee_plan.net_payable - paid_per_adm.get(adm_id, MONEY_ZERO))
+            # STRICT RULE: Cleared students must never appear as overdue
+            if adm_pending <= MONEY_ZERO:
+                continue
+
             paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
-            bal = max(MONEY_ZERO, inst.amount_due - paid)
+            bal = min(max(MONEY_ZERO, inst.amount_due - paid), adm_pending)
             if bal > 0 and inst.due_date:
-                inst_date = timezone.localtime(inst.due_date).date()
+                inst_date = timezone.localtime(inst.due_date).date() if timezone.is_aware(inst.due_date) else inst.due_date.date()
                 if inst_date == today_date:
                     due_today_count += 1
                     due_today_amount += bal
@@ -940,6 +1107,16 @@ def dashboard_view(request):
 
             if not is_all_sessions and active_session:
                 m_coll_filter = m_coll_filter.filter(session_id=active_session.id)
+                if active_session.start_date and active_session.end_date:
+                    if m_end < active_session.start_date or m_start > active_session.end_date:
+                        m_exp_filter = m_exp_filter.none()
+                    else:
+                        m_exp_filter = m_exp_filter.filter(
+                            expense_date__gte=max(m_start, active_session.start_date),
+                            expense_date__lte=min(m_end, active_session.end_date)
+                        )
+                else:
+                    m_exp_filter = m_exp_filter.none()
 
             m_coll = m_coll_filter.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
             m_exp = m_exp_filter.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
@@ -975,6 +1152,13 @@ def dashboard_view(request):
 
         if not is_all_sessions and active_session:
             recent_payments = recent_payments.filter(session_id=active_session.id)
+            if active_session.start_date and active_session.end_date:
+                recent_expenses = recent_expenses.filter(
+                    expense_date__gte=active_session.start_date,
+                    expense_date__lte=active_session.end_date
+                )
+            else:
+                recent_expenses = recent_expenses.none()
 
         recent_payments = recent_payments.order_by('-created_at')[:15]
         recent_expenses = recent_expenses.order_by('-created_at')[:15]
@@ -1032,9 +1216,21 @@ def dashboard_view(request):
                     b_payments = b_payments.filter(session=active_session)
                 b_collections = b_payments.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
 
+                # Calculate true pending dues for this branch's active admissions
+                b_paid_map = dict(
+                    b_payments.filter(admission__in=b_adms).values('admission_id').annotate(tot=Sum('total_amount')).values_list('admission_id', 'tot')
+                )
+                b_pending_dues = sum(
+                    (max(MONEY_ZERO, fp.net_payable - b_paid_map.get(fp.admission_id, MONEY_ZERO))
+                     for fp in FeePlan.objects.filter(admission__in=b_adms)),
+                    MONEY_ZERO
+                )
+
                 b_expenses_q = Expense.objects.filter(branch=b)
                 if not is_all_sessions and active_session and active_session.start_date and active_session.end_date:
                     b_expenses_q = b_expenses_q.filter(expense_date__range=[active_session.start_date, active_session.end_date])
+                elif not is_all_sessions and active_session and (not active_session.start_date or not active_session.end_date):
+                    b_expenses_q = b_expenses_q.none()
                 b_expenses = b_expenses_q.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
 
                 branch_comparison.append({
@@ -1045,7 +1241,7 @@ def dashboard_view(request):
                     'total_collections': b_collections,
                     'total_expenses': b_expenses,
                     'net_movement': b_collections - b_expenses,
-                    'pending_dues': max(MONEY_ZERO, b_expected - b_collections),
+                    'pending_dues': b_pending_dues,
                 })
 
         total_expenses_all = expenses_qs.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
@@ -1460,7 +1656,46 @@ def students_list_view(request):
                     amount_due=total_fees,
                 )
 
-            messages.success(request, f"Student '{student.full_name}' admitted successfully into {branch.name} ({admission.standard})!")
+            # Automatic WhatsApp Welcome / Admission Confirmation Dispatch
+            inst_settings = get_institute_settings_dict()
+            auto_admission = (
+                inst_settings.get('whatsapp_enabled', 'true') != 'false' and
+                inst_settings.get('whatsapp_admission_auto', 'true') != 'false'
+            )
+            target_phone = student.parent_phone or student.student_phone
+            whatsapp_dispatched = False
+            if auto_admission and target_phone:
+                inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
+                helpline = inst_settings.get('whatsapp_sender_phone') or (branch.phone if branch else '+91 98814 65883')
+                adm_msg = build_admission_whatsapp_message(
+                    institute_name=inst_name,
+                    student_name=student.full_name,
+                    student_code=student.student_code or '',
+                    roll_number=admission.roll_number or '',
+                    standard=admission.standard or '',
+                    session_name=session.name if session else '',
+                    branch_name=branch.name if branch else '',
+                    total_fees=float(total_fees),
+                    helpline=helpline
+                )
+                disp_res = dispatch_whatsapp_message(
+                    recipient=target_phone,
+                    message=adm_msg,
+                    message_type='ADMISSION_NOTICE',
+                    recipient_name=student.full_name,
+                    entity_id=student.student_code or admission.roll_number,
+                    sent_by=request.current_user.name if hasattr(request, 'current_user') and request.current_user else 'Staff'
+                )
+                whatsapp_dispatched = disp_res.get('success', False)
+
+            if whatsapp_dispatched:
+                messages.success(
+                    request,
+                    f"Student '{student.full_name}' admitted successfully into {branch.name} ({admission.standard})! "
+                    f"📱 Welcome WhatsApp alert dispatched to +{target_phone}."
+                )
+            else:
+                messages.success(request, f"Student '{student.full_name}' admitted successfully into {branch.name} ({admission.standard})!")
             return redirect('student_detail', student_id=student.id)
 
         # 2. Toggle Archive / Active Status
@@ -1558,6 +1793,55 @@ def students_list_view(request):
                 Q(standard__icontains=term)
             )
 
+    if fee_status_filter and fee_status_filter != 'ALL':
+        paid_subquery = Coalesce(
+            Subquery(
+                Payment.objects.filter(
+                    admission=OuterRef('pk'),
+                    is_reversed=False
+                ).values('admission').annotate(
+                    tot=Sum('total_amount')
+                ).values('tot')[:1],
+                output_field=DecimalField(max_digits=12, decimal_places=2)
+            ),
+            Value(Decimal('0.00'), output_field=DecimalField(max_digits=12, decimal_places=2))
+        )
+        admissions_qs = admissions_qs.annotate(
+            _paid_tot=paid_subquery,
+            _plan_net=Coalesce(
+                F('fee_plan__net_payable'),
+                Value(Decimal('0.00'), output_field=DecimalField(max_digits=12, decimal_places=2))
+            )
+        )
+        if fee_status_filter == 'PAID':
+            admissions_qs = admissions_qs.filter(
+                Q(_paid_tot__gte=F('_plan_net'), _plan_net__gt=0) | Q(_plan_net=0)
+            )
+        elif fee_status_filter == 'PARTIAL':
+            admissions_qs = admissions_qs.filter(
+                _paid_tot__gt=0,
+                _paid_tot__lt=F('_plan_net')
+            )
+        elif fee_status_filter == 'UNPAID':
+            admissions_qs = admissions_qs.filter(
+                _paid_tot__lte=0,
+                _plan_net__gt=0
+            )
+        elif fee_status_filter == 'HAS_DUES':
+            if session_id and session_id != 'ALL':
+                prev_due_students = Student.objects.filter(
+                    previous_dues__current_session_id=session_id,
+                    previous_dues__outstanding_amount__gt=F('previous_dues__collected_amount')
+                )
+            else:
+                prev_due_students = Student.objects.filter(
+                    previous_dues__outstanding_amount__gt=F('previous_dues__collected_amount')
+                )
+            admissions_qs = admissions_qs.filter(
+                Q(_plan_net__gt=F('_paid_tot')) |
+                Q(student__in=prev_due_students)
+            )
+
     admissions_qs = admissions_qs.order_by('-created_at')
 
     # 1. Fast Database-Level Metric Aggregations
@@ -1565,7 +1849,7 @@ def students_list_view(request):
     # Fast cached subquery aggregates (eliminates repeated full-table scans on pagination)
     kpi_cache_key = build_cache_key(
         'students',
-        f"kpis_{branch_id}_{session_id}_{standard_filter}_{search_q}_{status_filter}"
+        f"kpis_{branch_id}_{session_id}_{standard_filter}_{search_q}_{status_filter}_{fee_status_filter}"
     )
     cached_kpis = safe_cache_get(kpi_cache_key)
 
@@ -1589,8 +1873,8 @@ def students_list_view(request):
             active_count = admissions_qs.filter(is_active=True).count()
             archived_count = max(0, total_count - active_count)
 
-        tot_session_fees_agg = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
-        tot_session_paid_agg = Payment.objects.filter(admission__in=admissions_qs, is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+        tot_session_fees_agg = FeePlan.objects.filter(admission_id__in=admissions_qs.values('id')).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+        tot_session_paid_agg = Payment.objects.filter(admission_id__in=admissions_qs.values('id'), is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
         total_session_fees = tot_session_fees_agg
         total_session_paid = tot_session_paid_agg
         total_session_pending = max(MONEY_ZERO, total_session_fees - total_session_paid)
@@ -2061,15 +2345,8 @@ def student_detail_view(request, student_id):
 
     for p in all_payments:
         if not p.is_reversed and target_phone:
-            remaining_balance = MONEY_ZERO
-            if p.admission:
-                fp = getattr(p.admission, 'fee_plan', None)
-                tot_f = fp.net_payable if fp else MONEY_ZERO
-                paid_f = sum((x.total_amount for x in p.admission.payments.all() if not x.is_reversed), MONEY_ZERO)
-                remaining_balance = max(MONEY_ZERO, tot_f - paid_f)
-            elif p.previous_due:
-                pd = p.previous_due
-                remaining_balance = max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount)
+            adm_payments = list(p.admission.payments.all()) if p.admission else None
+            remaining_balance = get_payment_point_in_time_balance(p, admission_payments=adm_payments)
 
             branch_name = p.branch.name if p.branch else (p.admission.branch.name if p.admission and p.admission.branch else '')
             branch_phone = p.branch.phone if p.branch and p.branch.phone else (p.admission.branch.phone if p.admission and p.admission.branch and p.admission.branch.phone else inst_settings.get('phone', ''))
@@ -2198,18 +2475,35 @@ def student_statement_excel_view(request, student_id):
 
 def suggest_next_standard(standard: str) -> str:
     """
-    Standard progression mapping matching React suggestNextStandard.
+    Standard progression mapping matching database courses and React flow.
     """
+    if not standard:
+        return ''
     mapping = {
         'Class 8': 'Class 9',
         'Class 9': 'Class 10',
-        'Class 10': 'Class 11 Science',
+        'Class 10': '11th - CET',
+        '10th': '11th - CET',
+        '10th-Board': '11th-Board',
+        '10th Board': '11th-Board',
         'Class 11 Science': 'Class 12 Science',
         'Class 11 Commerce': 'Class 12 Commerce',
         'Class 11': 'Class 12',
+        '11th - CET': '12th CET',
+        '11th-CET': '12th CET',
+        '11th CET': '12th CET',
+        '11th-Board': '12th-Board',
+        '11th Board': '12th-Board',
+        '11th': '12th',
         'MHT-CET / JEE Foundation': 'MHT-CET / JEE Target Batch',
     }
-    return mapping.get(standard, standard)
+    if standard in mapping:
+        return mapping[standard]
+    if '11th' in standard:
+        return standard.replace('11th', '12th')
+    if '11' in standard and '12' not in standard:
+        return standard.replace('11', '12')
+    return standard
 
 
 def student_promotion_preview_view(request, student_id):
@@ -2228,15 +2522,28 @@ def student_promotion_preview_view(request, student_id):
 
     # Sessions
     sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
+    for s in sessions:
+        s.is_current = bool(current_adm and s.id == current_adm.session_id)
+
     target_session_id = request.GET.get('target_session_id')
     target_session = None
 
     if target_session_id:
         target_session = AcademicSession.objects.filter(id=target_session_id).first()
 
+    no_future_session = False
     if not target_session and sessions:
-        # Pick session different from current admission session
-        target_session = next((s for s in sessions if not current_adm or s.id != current_adm.session_id), sessions[0])
+        # Prefer chronologically future session relative to current admission
+        if current_adm and current_adm.session and current_adm.session.start_date:
+            future_session = next((s for s in reversed(sessions) if s.start_date and s.start_date > current_adm.session.start_date), None)
+            if future_session:
+                target_session = future_session
+            else:
+                no_future_session = True
+
+        if not target_session:
+            # Fallback to session different from current admission session
+            target_session = next((s for s in sessions if not current_adm or s.id != current_adm.session_id), sessions[0])
 
     is_already_promoted = False
     if target_session:
@@ -2266,6 +2573,7 @@ def student_promotion_preview_view(request, student_id):
         'current_pending_due': current_pending_due,
         'sessions': sessions,
         'target_session': target_session,
+        'no_future_session': no_future_session,
         'is_already_promoted': is_already_promoted,
         'suggested_standard': suggested_standard,
         'suggested_roll': suggested_roll,
@@ -2983,7 +3291,50 @@ def fee_collect_view(request):
                     prev_due.collected_amount += amount
                     prev_due.save()
 
-                messages.success(request, f"Payment of ₹{amount:,.0f} recorded! Receipt #{receipt_no} generated.")
+                invalidate_financial_cache()
+                invalidate_student_cache()
+
+                # Automatic WhatsApp Receipt Dispatch Trigger
+                inst_settings = get_institute_settings_dict()
+                auto_whatsapp = (
+                    inst_settings.get('whatsapp_enabled', 'true') != 'false' and
+                    inst_settings.get('whatsapp_receipt_auto', 'true') != 'false'
+                )
+                target_phone = student.parent_phone or student.student_phone
+                whatsapp_dispatched = False
+                if auto_whatsapp and target_phone:
+                    inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
+                    helpline = inst_settings.get('whatsapp_sender_phone') or (target_branch.phone if target_branch else '+91 98814 65883')
+                    remaining_prev = max(MONEY_ZERO, prev_due.outstanding_amount - prev_due.collected_amount)
+                    rcpt_msg = build_receipt_whatsapp_message(
+                        institute_name=inst_name,
+                        student_name=student.full_name,
+                        student_code=student.student_code or '',
+                        roll_number=active_adm.roll_number if active_adm else '',
+                        standard=f"Carried Dues ({prev_due.original_session.name})",
+                        receipt_number=receipt_no,
+                        total_amount=float(amount),
+                        payment_date=parsed_payment_date.strftime('%d-%b-%Y'),
+                        payment_mode=payment_mode,
+                        reference_number=reference_number or '',
+                        remaining_balance=float(remaining_prev),
+                        branch_name=target_branch.name if target_branch else '',
+                        helpline=helpline
+                    )
+                    disp_res = dispatch_whatsapp_message(
+                        recipient=target_phone,
+                        message=rcpt_msg,
+                        message_type='PAYMENT_RECEIPT',
+                        recipient_name=student.full_name,
+                        entity_id=receipt_no,
+                        sent_by=request.current_user.name if hasattr(request, 'current_user') and request.current_user else 'Staff'
+                    )
+                    whatsapp_dispatched = disp_res.get('success', False)
+
+                if whatsapp_dispatched:
+                    messages.success(request, f"Payment of ₹{amount:,.0f} recorded! Receipt #{receipt_no} generated. 📱 WhatsApp receipt dispatched to +{target_phone}.")
+                else:
+                    messages.success(request, f"Payment of ₹{amount:,.0f} recorded! Receipt #{receipt_no} generated.")
                 return redirect(f"{request.path}?tab=history&q={receipt_no}&open_receipt={payment.id}")
 
             # Route B: Admission Installment Payment
@@ -3065,7 +3416,7 @@ def fee_collect_view(request):
                             )
                             remaining_amount -= alloc_now
 
-                    if remaining_amount > 0.005:
+                    if remaining_amount > Decimal('0.005'):
                         raise RuntimeError("Payment allocation invariant failed after validation.")
 
                     # Update next promise due date if balance remains
@@ -3077,7 +3428,51 @@ def fee_collect_view(request):
                                 inst.save()
                                 break
 
-            messages.success(request, f"Payment of ₹{amount:,.0f} recorded! Receipt #{receipt_no} generated.")
+            remaining_after = max(MONEY_ZERO, pending_due - amount)
+            invalidate_financial_cache()
+            invalidate_student_cache()
+
+            # Automatic WhatsApp Receipt Dispatch Trigger
+            inst_settings = get_institute_settings_dict()
+            auto_whatsapp = (
+                inst_settings.get('whatsapp_enabled', 'true') != 'false' and
+                inst_settings.get('whatsapp_receipt_auto', 'true') != 'false'
+            )
+            target_phone = student.parent_phone or student.student_phone
+            whatsapp_dispatched = False
+            if auto_whatsapp and target_phone:
+                inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
+                helpline = inst_settings.get('whatsapp_sender_phone') or (target_adm.branch.phone if target_adm and target_adm.branch else '+91 98814 65883')
+                branch_name = target_adm.branch.name if target_adm and target_adm.branch else ''
+                rcpt_msg = build_receipt_whatsapp_message(
+                    institute_name=inst_name,
+                    student_name=student.full_name,
+                    student_code=student.student_code or '',
+                    roll_number=target_adm.roll_number if target_adm else '',
+                    standard=target_adm.standard if target_adm else 'General',
+                    receipt_number=receipt_no,
+                    total_amount=float(amount),
+                    payment_date=parsed_payment_date.strftime('%d-%b-%Y'),
+                    payment_mode=payment_mode,
+                    reference_number=reference_number or '',
+                    remaining_balance=float(remaining_after),
+                    branch_name=branch_name,
+                    helpline=helpline
+                )
+                disp_res = dispatch_whatsapp_message(
+                    recipient=target_phone,
+                    message=rcpt_msg,
+                    message_type='PAYMENT_RECEIPT',
+                    recipient_name=student.full_name,
+                    entity_id=receipt_no,
+                    sent_by=request.current_user.name if hasattr(request, 'current_user') and request.current_user else 'Staff'
+                )
+                whatsapp_dispatched = disp_res.get('success', False)
+
+            if whatsapp_dispatched:
+                messages.success(request, f"Payment of ₹{amount:,.0f} recorded! Receipt #{receipt_no} generated. 📱 WhatsApp receipt dispatched to +{target_phone}.")
+            else:
+                messages.success(request, f"Payment of ₹{amount:,.0f} recorded! Receipt #{receipt_no} generated.")
             return redirect(f"{request.path}?tab=history&q={receipt_no}&open_receipt={payment.id}")
 
     # GET: Assemble View
@@ -3455,6 +3850,13 @@ def collect_fee_modal_view(request, student_id):
             except ValueError as exc:
                 form_error = str(exc)
 
+        next_due_datetime = None
+        if not form_error and next_due_date_str:
+            try:
+                next_due_datetime = parse_form_date(next_due_date_str)
+            except ValueError as exc:
+                form_error = f"Invalid next due date: {exc}"
+
         if form_error:
             context = {
                 'student': student,
@@ -3469,13 +3871,6 @@ def collect_fee_modal_view(request, student_id):
                 'form_error': form_error,
             }
             return render(request, 'modals/collect_fee_modal.html', context)
-
-        next_due_datetime = None
-        if next_due_date_str:
-            try:
-                next_due_datetime = parse_form_date(next_due_date_str)
-            except ValueError:
-                pass
 
         with transaction.atomic():
             receipt_no = generate_sequential_receipt_number(target_adm.branch, target_adm.session)
@@ -3519,20 +3914,21 @@ def collect_fee_modal_view(request, student_id):
                             break
 
         remaining_after = max(MONEY_ZERO, pending_due - amount)
+        invalidate_financial_cache()
+        invalidate_student_cache()
 
         # Automatic WhatsApp Receipt Dispatch Trigger
         inst_settings = get_institute_settings_dict()
         auto_whatsapp = (
             inst_settings.get('whatsapp_enabled', 'true') != 'false' and
-            inst_settings.get('whatsapp_receipt_auto', 'true') != 'false' and
-            inst_settings.get('whatsapp_mode', 'both') in ('automatic', 'both')
+            inst_settings.get('whatsapp_receipt_auto', 'true') != 'false'
         )
         whatsapp_dispatched = False
         whatsapp_url = None
         target_phone = student.parent_phone or student.student_phone
         if target_phone:
             inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
-            helpline = inst_settings.get('whatsapp_sender_phone', '')
+            helpline = inst_settings.get('whatsapp_sender_phone') or (target_adm.branch.phone if target_adm and target_adm.branch else '+91 98814 65883')
             branch_name = target_adm.branch.name if target_adm and target_adm.branch else ''
             rcpt_msg = build_receipt_whatsapp_message(
                 institute_name=inst_name,
@@ -3671,16 +4067,8 @@ def payment_receipt_modal_view(request, payment_id):
 
     allocations = payment.allocations.select_related('installment').all()
 
-    # Remaining balance for this admission or previous due
-    remaining_balance = MONEY_ZERO
-    if payment.admission and hasattr(payment.admission, 'fee_plan'):
-        fp = payment.admission.fee_plan
-        tot = fp.net_payable
-        paid = payment.admission.payments.filter(is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
-        remaining_balance = max(MONEY_ZERO, tot - paid)
-    elif payment.previous_due:
-        pd = payment.previous_due
-        remaining_balance = max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount)
+    # Remaining balance for this admission or previous due as of when receipt was issued
+    remaining_balance = get_payment_point_in_time_balance(payment)
 
     amount_in_words = number_to_words_inr(payment.total_amount)
 
@@ -3728,15 +4116,7 @@ def payment_receipt_print_view(request, payment_id):
     )
     allocations = payment.allocations.select_related('installment').all()
 
-    remaining_balance = MONEY_ZERO
-    if payment.admission and hasattr(payment.admission, 'fee_plan'):
-        fp = payment.admission.fee_plan
-        tot = fp.net_payable
-        paid = payment.admission.payments.filter(is_reversed=False).aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
-        remaining_balance = max(MONEY_ZERO, tot - paid)
-    elif payment.previous_due:
-        pd = payment.previous_due
-        remaining_balance = max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount)
+    remaining_balance = get_payment_point_in_time_balance(payment)
 
     amount_in_words = number_to_words_inr(payment.total_amount)
     current_mode = request.GET.get('format', 'a4_dual').lower()
@@ -3805,6 +4185,9 @@ def payment_receipt_void_view(request, payment_id):
                 pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
                 pd.save()
 
+        invalidate_financial_cache()
+        invalidate_student_cache()
+
         messages.success(request, f"Fee Receipt #{payment.receipt_number} has been voided/reversed successfully. Balances restored.")
         return redirect('fee_collect')
 
@@ -3828,6 +4211,7 @@ def fees_dues_view(request):
                 try:
                     inst.due_date = parse_form_date(new_date_str)
                     inst.save()
+                    invalidate_financial_cache()
                     messages.success(request, f"Fee due date for {inst.label} updated to {new_date_str} successfully!")
                 except ValueError as e:
                     messages.error(request, f"Failed to update due date: {e}")
@@ -3853,8 +4237,9 @@ def fees_dues_view(request):
     sort_direction = request.GET.get('direction', 'asc').lower()
     try:
         page_size = int(request.GET.get('page_size', 25))
-        if page_size not in (10, 25, 50, 100):
-            page_size = 25
+        if page_size not in (2, 5, 10, 25, 50, 100, 250, 500):
+            if page_size <= 0 or page_size > 1000:
+                page_size = 25
     except (TypeError, ValueError):
         page_size = 25
 
@@ -3893,75 +4278,126 @@ def fees_dues_view(request):
 
         for adm in adm_query:
             student = adm.student
-            if not hasattr(adm, 'fee_plan'):
-                continue
-            fp = adm.fee_plan
 
-            # Calculate previous dues
+            # Calculate previous dues for this student
             if adm.session_id and session_filter != 'ALL':
                 prev_dues_list = [pd for pd in student.previous_dues.all() if pd.current_session_id == adm.session_id]
             else:
                 prev_dues_list = list(student.previous_dues.all())
             prev_dues_pending = sum(
-                max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount)
-                for pd in prev_dues_list
+                (max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount) for pd in prev_dues_list),
+                MONEY_ZERO
             )
 
-            for inst in sorted(fp.installments.all(), key=lambda x: x.installment_no):
-                paid = sum(
-                    a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed
-                )
-                balance = max(MONEY_ZERO, inst.amount_due - paid)
+            # Check session fee plan and actual pending for this student
+            has_fee_plan = hasattr(adm, 'fee_plan')
+            student_session_fee = adm.fee_plan.net_payable if has_fee_plan else MONEY_ZERO
+            student_session_paid = sum((p.total_amount for p in adm.payments.all() if not p.is_reversed), MONEY_ZERO)
+            student_session_pending = max(MONEY_ZERO, student_session_fee - student_session_paid)
+            student_overall_pending = student_session_pending + prev_dues_pending
 
-                # STRICT RULE: Cleared / 0 balance students MUST NEVER appear in dues register
-                if balance <= 0.0:
-                    continue
+            has_pending_installment = False
+            if has_fee_plan and student_session_pending > MONEY_ZERO:
+                fp = adm.fee_plan
+                for inst in sorted(fp.installments.all(), key=lambda x: x.installment_no):
+                    paid = sum(
+                        a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed
+                    )
+                    balance = max(MONEY_ZERO, inst.amount_due - paid)
 
-                inst_date = timezone.localtime(inst.due_date).date() if inst.due_date else None
-                if paid > 0 and paid < inst.amount_due:
-                    computed_status = 'PARTIAL'
-                elif not inst_date:
-                    computed_status = 'UPCOMING'
-                elif today > inst_date:
-                    computed_status = 'OVERDUE'
-                elif today == inst_date:
-                    computed_status = 'DUE'
-                else:
-                    computed_status = 'UPCOMING'
+                    # STRICT RULE: Cleared / 0 balance installments MUST NEVER appear in dues register
+                    if balance <= MONEY_ZERO:
+                        continue
 
-                days_overdue = (today - inst_date).days if inst_date and today > inst_date else 0
-                overall_pending = balance + prev_dues_pending
+                    has_pending_installment = True
+                    inst_date = (timezone.localtime(inst.due_date).date() if timezone.is_aware(inst.due_date) else inst.due_date.date()) if inst.due_date else None
 
-                raw_dues.append({
-                    'id': inst.id,
-                    'installment_id': inst.id,
-                    'installment_no': inst.installment_no,
-                    'label': inst.label,
-                    'due_date': inst_date,
-                    'due_date_iso': inst_date.strftime('%Y-%m-%d') if inst_date else '',
-                    'due_date_formatted': inst_date.strftime('%d %b %Y') if inst_date else '—',
-                    'amount_due': inst.amount_due,
-                    'amount_paid': paid,
-                    'balance_remaining': balance,
-                    'status': computed_status,
-                    'days_overdue': days_overdue,
-                    'admission_id': adm.id,
-                    'branch_id': adm.branch_id,
-                    'branch_name': adm.branch.name if adm.branch else '—',
-                    'branch_phone': adm.branch.phone if adm.branch else '',
-                    'session_id': adm.session_id,
-                    'session_name': adm.session.name if adm.session else '—',
-                    'student_id': student.id,
-                    'student_name': student.full_name,
-                    'student_code': student.student_code,
-                    'roll_number': adm.roll_number or '—',
-                    'standard': adm.standard or '—',
-                    'parent_phone': student.parent_phone or '—',
-                    'student_phone': student.student_phone or '—',
-                    'previous_dues_pending': prev_dues_pending,
-                    'overall_pending_amount': overall_pending,
-                    'whatsapp_url': None,
-                })
+                    # Correct Priority: Past due is OVERDUE regardless of token partial payments
+                    if not inst_date:
+                        computed_status = 'UPCOMING'
+                    elif today > inst_date:
+                        computed_status = 'OVERDUE'
+                    elif paid > 0 and paid < inst.amount_due:
+                        computed_status = 'PARTIAL'
+                    elif today == inst_date:
+                        computed_status = 'DUE'
+                    else:
+                        computed_status = 'UPCOMING'
+
+                    days_overdue = (today - inst_date).days if inst_date and today > inst_date else 0
+
+                    raw_dues.append({
+                        'id': inst.id,
+                        'installment_id': inst.id,
+                        'installment_no': inst.installment_no,
+                        'label': inst.label,
+                        'due_date': inst_date,
+                        'due_date_iso': inst_date.strftime('%Y-%m-%d') if inst_date else '',
+                        'due_date_str': inst_date.strftime('%Y-%m-%d') if inst_date else '',
+                        'due_date_formatted': inst_date.strftime('%d %b %Y') if inst_date else '—',
+                        'amount_due': inst.amount_due,
+                        'amount_paid': paid,
+                        'balance_remaining': balance,
+                        'status': computed_status,
+                        'days_overdue': days_overdue,
+                        'admission_id': adm.id,
+                        'branch_id': adm.branch_id,
+                        'branch_name': adm.branch.name if adm.branch else '—',
+                        'branch_phone': adm.branch.phone if adm.branch else '',
+                        'session_id': adm.session_id,
+                        'session_name': adm.session.name if adm.session else '—',
+                        'student_id': student.id,
+                        'student_name': student.full_name,
+                        'student_code': student.student_code,
+                        'roll_number': adm.roll_number or '—',
+                        'standard': adm.standard or '—',
+                        'parent_phone': student.parent_phone or '—',
+                        'student_phone': student.student_phone or '—',
+                        'session_pending_amount': student_session_pending,
+                        'previous_dues_pending': prev_dues_pending,
+                        'overall_pending_amount': student_overall_pending,
+                        'whatsapp_url': None,
+                    })
+
+            # If student has prior carried-over dues, add previous dues records so they are never lost
+            for pd in prev_dues_list:
+                pd_bal = max(MONEY_ZERO, pd.outstanding_amount - pd.collected_amount)
+                if pd_bal > MONEY_ZERO:
+                    pd_date = (timezone.localtime(pd.created_at).date() if timezone.is_aware(pd.created_at) else pd.created_at.date()) if pd.created_at else None
+                    days_od = max(1, (today - pd_date).days if pd_date else 1)
+                    orig_session_name = pd.original_session.name if pd.original_session else 'Prior'
+                    raw_dues.append({
+                        'id': f"prev_{pd.id}",
+                        'installment_id': f"prev_{pd.id}",
+                        'installment_no': 0,
+                        'label': f"Prior Dues ({orig_session_name})",
+                        'due_date': pd_date,
+                        'due_date_iso': pd_date.strftime('%Y-%m-%d') if pd_date else '',
+                        'due_date_str': pd_date.strftime('%Y-%m-%d') if pd_date else '',
+                        'due_date_formatted': f"Prior ({orig_session_name})",
+                        'amount_due': pd.outstanding_amount,
+                        'amount_paid': pd.collected_amount,
+                        'balance_remaining': pd_bal,
+                        'status': 'OVERDUE',
+                        'days_overdue': days_od,
+                        'admission_id': adm.id,
+                        'branch_id': adm.branch_id,
+                        'branch_name': adm.branch.name if adm.branch else '—',
+                        'branch_phone': adm.branch.phone if adm.branch else '',
+                        'session_id': adm.session_id,
+                        'session_name': adm.session.name if adm.session else '—',
+                        'student_id': student.id,
+                        'student_name': student.full_name,
+                        'student_code': student.student_code,
+                        'roll_number': adm.roll_number or '—',
+                        'standard': adm.standard or '—',
+                        'parent_phone': student.parent_phone or '—',
+                        'student_phone': student.student_phone or '—',
+                        'session_pending_amount': student_session_pending,
+                        'previous_dues_pending': pd_bal,
+                        'overall_pending_amount': student_overall_pending,
+                        'whatsapp_url': None,
+                    })
 
         # 4. Global KPI Aggregations (across all raw dues before status/date filtering)
         overdue_list = [d for d in raw_dues if d['status'] == 'OVERDUE']
@@ -3970,14 +4406,14 @@ def fees_dues_view(request):
         upcoming_list = [d for d in raw_dues if d['status'] == 'UPCOMING']
 
         kpis = {
-            'total_pending_amount': sum(d['balance_remaining'] for d in raw_dues),
-            'total_overdue_amount': sum(d['balance_remaining'] for d in overdue_list),
-            'overdue_count': len(overdue_list),
-            'total_due_today_amount': sum(d['balance_remaining'] for d in due_today_list),
-            'due_today_count': len(due_today_list),
-            'partial_count': len(partial_list),
-            'upcoming_count': len(upcoming_list),
-            'total_accounts': len(raw_dues),
+            'total_pending_amount': sum((d['balance_remaining'] for d in raw_dues), MONEY_ZERO),
+            'total_overdue_amount': sum((d['balance_remaining'] for d in overdue_list), MONEY_ZERO),
+            'overdue_count': len({d['student_id'] for d in overdue_list}),
+            'total_due_today_amount': sum((d['balance_remaining'] for d in due_today_list), MONEY_ZERO),
+            'due_today_count': len({d['student_id'] for d in due_today_list}),
+            'partial_count': len({d['student_id'] for d in partial_list}),
+            'upcoming_count': len({d['student_id'] for d in upcoming_list}),
+            'total_accounts': len({d['student_id'] for d in raw_dues}),
         }
         safe_cache_set(dues_cache_key, (raw_dues, kpis), TTL_DUES)
 
@@ -3986,7 +4422,16 @@ def fees_dues_view(request):
 
     # Status Filter
     if status_filter != 'ALL':
-        filtered_dues = [d for d in filtered_dues if d['status'] == status_filter]
+        if status_filter == 'OVERDUE':
+            filtered_dues = [d for d in filtered_dues if d['status'] == 'OVERDUE' or (d['due_date'] and d['due_date'] < today)]
+        elif status_filter == 'DUE':
+            filtered_dues = [d for d in filtered_dues if d['status'] == 'DUE' or d['due_date'] == today]
+        elif status_filter == 'PARTIAL':
+            filtered_dues = [d for d in filtered_dues if d['status'] == 'PARTIAL' or (d['amount_paid'] > 0 and d['amount_paid'] < d['amount_due'])]
+        elif status_filter == 'UPCOMING':
+            filtered_dues = [d for d in filtered_dues if d['status'] == 'UPCOMING']
+        else:
+            filtered_dues = [d for d in filtered_dues if d['status'] == status_filter]
 
     # Date Range Preset Filter
     if date_preset == 'OVERDUE':
@@ -4057,10 +4502,16 @@ def fees_dues_view(request):
     filtered_dues.sort(key=sort_key, reverse=(sort_direction == 'desc'))
 
     # 7. Check for Export Requests (Excel / PDF)
+    if export_type in ('excel', 'pdf'):
+        b_obj = Branch.objects.filter(id=branch_filter).first() if branch_filter != 'ALL' else None
+        s_obj = AcademicSession.objects.filter(id=session_filter).first() if session_filter != 'ALL' else None
+        meta_branch = b_obj.name if b_obj else 'All Branches'
+        meta_session = s_obj.name if s_obj else 'All Sessions'
+
     if export_type == 'excel':
         meta = {
-            'branch_name': Branch.objects.filter(id=branch_filter).first().name if branch_filter != 'ALL' else 'All Branches',
-            'session_name': AcademicSession.objects.filter(id=session_filter).first().name if session_filter != 'ALL' else 'All Sessions',
+            'branch_name': meta_branch,
+            'session_name': meta_session,
         }
         excel_bytes = export_dues_to_excel(filtered_dues, meta)
         filename = f"Sutawane_Classes_Pending_Dues_{today.strftime('%Y%m%d')}.xlsx"
@@ -4071,8 +4522,8 @@ def fees_dues_view(request):
     elif export_type == 'pdf':
         meta = {
             'institute_name': 'Sutawane Classes',
-            'branch_name': Branch.objects.filter(id=branch_filter).first().name if branch_filter != 'ALL' else 'All Branches',
-            'session_name': AcademicSession.objects.filter(id=session_filter).first().name if session_filter != 'ALL' else 'All Sessions',
+            'branch_name': meta_branch,
+            'session_name': meta_session,
         }
         pdf_bytes = export_dues_to_pdf(filtered_dues, meta)
         filename = f"Sutawane_Classes_Pending_Dues_{today.strftime('%Y%m%d')}.pdf"
@@ -4102,7 +4553,7 @@ def fees_dues_view(request):
                 student_code=d['student_code'],
                 roll_number=d['roll_number'],
                 standard=d['standard'],
-                current_pending_amount=d['balance_remaining'],
+                current_pending_amount=d.get('session_pending_amount', d['balance_remaining']),
                 previous_dues_pending=d['previous_dues_pending'],
                 overall_pending_amount=d['overall_pending_amount'],
                 next_due_date=d['due_date'].strftime('%d %B %Y') if d['due_date'] else None,
@@ -4138,6 +4589,7 @@ def fees_dues_view(request):
         'available_standards': available_standards,
         'branches': branches,
         'sessions': sessions,
+        'selected_session': AcademicSession.objects.filter(id=session_filter).first() if session_filter != 'ALL' else None,
         'has_active_filters': has_active_filters,
         'filters': {
             'q': search_query,
@@ -4160,6 +4612,7 @@ def fees_dues_view(request):
             'has_next': page_num < total_pages,
             'prev_page': page_num - 1,
             'next_page': page_num + 1,
+            'start_index': start_idx,
         }
     }
 
@@ -4754,6 +5207,8 @@ def financial_reports_view(request):
             target_session = AcademicSession.objects.filter(is_current=True).first()
         if not target_session and sessions.exists():
             target_session = sessions.first()
+        if target_session:
+            selected_session_id = str(target_session.id)
 
     # 1. SESSION AUDIT DATA
     if active_tab == 'SESSION_AUDIT':
@@ -4813,7 +5268,17 @@ def financial_reports_view(request):
                     pay_qs = pay_qs.filter(branch_id=selected_branch_id)
                 payments = list(pay_qs)
                 total_collections = sum((p.total_amount for p in payments), MONEY_ZERO)
-                total_pending_dues = max(MONEY_ZERO, total_fees_agreed - total_collections)
+
+                # Scope paid mapping to active admissions for calculating true pending dues
+                active_adm_ids = {a.id for a in active_admissions}
+                paid_per_adm = dict(
+                    pay_qs.filter(admission_id__in=active_adm_ids).values('admission_id').annotate(tot=Sum('total_amount')).values_list('admission_id', 'tot')
+                )
+                total_pending_dues = sum(
+                    (max(MONEY_ZERO, (a.fee_plan.net_payable if (hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None) else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)) - paid_per_adm.get(a.id, MONEY_ZERO))
+                     for a in active_admissions),
+                    MONEY_ZERO
+                )
                 collection_efficiency = round((float(total_collections) / float(total_fees_agreed) * 100), 1) if total_fees_agreed and float(total_fees_agreed) > 0 else 0.0
     
                 exp_qs = Expense.objects.all().select_related('category', 'branch')
@@ -4822,6 +5287,8 @@ def financial_reports_view(request):
                         expense_date__gte=target_session.start_date,
                         expense_date__lte=target_session.end_date
                     )
+                elif target_session and (not target_session.start_date or not target_session.end_date):
+                    exp_qs = exp_qs.none()
                 if selected_branch_id != 'ALL':
                     exp_qs = exp_qs.filter(branch_id=selected_branch_id)
                 session_expenses = list(exp_qs)
@@ -4831,7 +5298,8 @@ def financial_reports_view(request):
                 is_surplus = net_surplus >= 0
     
                 # Campus & Branch Performance Breakdown
-                for b in branches:
+                audit_branches = [b for b in branches if b.id == selected_branch_id] if selected_branch_id != 'ALL' else branches
+                for b in audit_branches:
                     b_adms = [a for a in active_admissions if a.branch_id == b.id]
                     b_fees = sum(
                         (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
@@ -4842,7 +5310,11 @@ def financial_reports_view(request):
                     b_pays = [p for p in payments if p.branch_id == b.id]
                     b_col = sum((p.total_amount for p in b_pays), MONEY_ZERO)
                     b_exp = sum((e.amount for e in session_expenses if e.branch_id == b.id), MONEY_ZERO)
-                    b_dues = max(MONEY_ZERO, b_fees - b_col)
+                    b_dues = sum(
+                        (max(MONEY_ZERO, (a.fee_plan.net_payable if (hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None) else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)) - paid_per_adm.get(a.id, MONEY_ZERO))
+                         for a in b_adms),
+                        MONEY_ZERO
+                    )
                     b_net = b_col - b_exp
                     b_rate = round((float(b_col) / float(b_fees) * 100), 1) if b_fees and float(b_fees) > 0 else 0.0
     
@@ -4871,15 +5343,20 @@ def financial_reports_view(request):
                     std_map[std]['totalFees'] += f_amt
     
                 for p in payments:
-                    if p.admission and p.admission.standard:
-                        std = p.admission.standard
-                        if std in std_map:
-                            std_map[std]['collected'] += p.total_amount
+                    std = (p.admission.standard or 'General') if p.admission else 'General'
+                    if std not in std_map:
+                        std_map[std] = {'studentCount': 0, 'totalFees': MONEY_ZERO, 'collected': MONEY_ZERO}
+                    std_map[std]['collected'] += p.total_amount
     
                 for std, s_info in std_map.items():
                     s_fees = s_info['totalFees']
                     s_col = s_info['collected']
-                    s_dues = max(MONEY_ZERO, s_fees - s_col)
+                    s_adms = [a for a in active_admissions if (a.standard or 'General') == std]
+                    s_dues = sum(
+                        (max(MONEY_ZERO, (a.fee_plan.net_payable if (hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None) else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)) - paid_per_adm.get(a.id, MONEY_ZERO))
+                         for a in s_adms),
+                        MONEY_ZERO
+                    )
                     s_rate = round((float(s_col) / float(s_fees) * 100), 1) if s_fees and float(s_fees) > 0 else 0.0
                     standard_breakdown.append({
                         'standard': std,
@@ -4915,6 +5392,26 @@ def financial_reports_view(request):
                             cur_dt = cur_dt.replace(year=y+1, month=1, day=1)
                         else:
                             cur_dt = cur_dt.replace(month=m+1, day=1)
+                else:
+                    # Consolidated mode or session without dates: pre-populate full 12 months for each transaction year
+                    trans_years = set()
+                    for p in payments:
+                        p_dt = timezone.localtime(p.payment_date) if timezone.is_aware(p.payment_date) else p.payment_date
+                        trans_years.add(p_dt.year)
+                    for e in session_expenses:
+                        e_dt = timezone.localtime(e.expense_date) if timezone.is_aware(e.expense_date) else e.expense_date
+                        trans_years.add(e_dt.year)
+                    if not trans_years:
+                        trans_years.add(timezone.localtime().year)
+                    for y in sorted(trans_years):
+                        for m in range(1, 13):
+                            k = f"{y}-{m:02d}"
+                            m_trend_map[k] = {
+                                'monthKey': k,
+                                'monthLabel': f"{month_names[m-1]} {y}",
+                                'collections': MONEY_ZERO,
+                                'expenses': MONEY_ZERO,
+                            }
     
                 # Never drop payments: add and accumulate every actual payment month
                 for p in payments:
@@ -5023,11 +5520,13 @@ def financial_reports_view(request):
         if cached_modes is not None:
             payment_modes_data = cached_modes
         else:
-            p_modes_qs = Payment.objects.filter(is_reversed=False, admission__isnull=False)
+            p_modes_qs = Payment.objects.filter(is_reversed=False)
             if selected_branch_id != 'ALL':
                 p_modes_qs = p_modes_qs.filter(branch_id=selected_branch_id)
             if selected_session_id != 'ALL':
-                p_modes_qs = p_modes_qs.filter(session_id=selected_session_id)
+                p_modes_qs = p_modes_qs.filter(
+                    Q(session_id=selected_session_id) | Q(admission__session_id=selected_session_id)
+                )
 
             mode_map = {
                 'CASH': {'amount': MONEY_ZERO, 'count': 0},
@@ -5090,8 +5589,10 @@ def financial_reports_view(request):
             e_cats_qs = Expense.objects.all()
             if selected_branch_id != 'ALL':
                 e_cats_qs = e_cats_qs.filter(branch_id=selected_branch_id)
-            if selected_session_id != 'ALL' and target_session:
+            if selected_session_id != 'ALL' and target_session and target_session.start_date and target_session.end_date:
                 e_cats_qs = e_cats_qs.filter(expense_date__gte=target_session.start_date, expense_date__lte=target_session.end_date)
+            elif selected_session_id != 'ALL' and target_session and (not target_session.start_date or not target_session.end_date):
+                e_cats_qs = e_cats_qs.none()
 
             cat_aggs = e_cats_qs.values('category_id', 'category__name').annotate(
                 total_amt=Sum('amount'),
@@ -5279,7 +5780,7 @@ def daily_reports_view(request):
         m_1based = (selected_month % 12) + 1
         num_days = calendar.monthrange(selected_year, m_1based)[1]
         start_dt = timezone.make_aware(datetime(selected_year, m_1based, 1, 0, 0, 0))
-        end_dt = timezone.make_aware(datetime(selected_year, m_1based, num_days, 23, 59, 59))
+        end_dt = timezone.make_aware(datetime.combine(datetime(selected_year, m_1based, num_days).date(), datetime.max.time()))
         period_label = f"Monthly Statement: {calendar.month_name[m_1based]} {selected_year}"
 
     else:  # CUSTOM
@@ -5293,6 +5794,9 @@ def daily_reports_view(request):
         except ValueError:
             e_obj = datetime.now().date()
             custom_end_date = today_str
+        if s_obj > e_obj:
+            s_obj, e_obj = e_obj, s_obj
+            custom_start_date, custom_end_date = s_obj.strftime('%Y-%m-%d'), e_obj.strftime('%Y-%m-%d')
         start_dt = timezone.make_aware(datetime.combine(s_obj, datetime.min.time()))
         end_dt = timezone.make_aware(datetime.combine(e_obj, datetime.max.time()))
         period_label = f"Custom Range: {s_obj.strftime('%d %b %Y')} to {e_obj.strftime('%d %b %Y')}"
@@ -5307,7 +5811,7 @@ def daily_reports_view(request):
     if selected_branch_id != 'ALL':
         pay_qs = pay_qs.filter(branch_id=selected_branch_id)
     if selected_session_id != 'ALL':
-        pay_qs = pay_qs.filter(session_id=selected_session_id)
+        pay_qs = pay_qs.filter(Q(session_id=selected_session_id) | Q(admission__session_id=selected_session_id))
 
     exp_qs = Expense.objects.filter(
         expense_date__gte=start_dt,
@@ -5327,10 +5831,10 @@ def daily_reports_view(request):
     net_movement = total_collections - total_expenses
     is_profit = net_movement >= 0
 
-    # Mode and Category breakdowns
+    # Mode and Category breakdowns (normalized uppercase)
     collections_by_mode = {}
     for p in payments:
-        m = p.payment_mode or 'OTHER'
+        m = str(p.payment_mode or 'OTHER').strip().upper()
         if m not in collections_by_mode:
             collections_by_mode[m] = {'amount': MONEY_ZERO, 'count': 0}
         collections_by_mode[m]['amount'] += p.total_amount
@@ -5338,7 +5842,7 @@ def daily_reports_view(request):
 
     expenses_by_mode = {}
     for e in expenses:
-        m = e.payment_mode or 'OTHER'
+        m = str(e.payment_mode or 'OTHER').strip().upper()
         if m not in expenses_by_mode:
             expenses_by_mode[m] = {'amount': MONEY_ZERO, 'count': 0}
         expenses_by_mode[m]['amount'] += e.amount
@@ -5378,6 +5882,12 @@ def daily_reports_view(request):
             )
         ]
 
+    filtered_collections_sum = sum((p.total_amount for p in filtered_collections), MONEY_ZERO) if q_col else total_collections
+    filtered_collections_count = len(filtered_collections) if q_col else collections_count
+    filtered_expenses_sum = sum((e.amount for e in filtered_expenses), MONEY_ZERO) if q_exp else total_expenses
+    filtered_expenses_count = len(filtered_expenses) if q_exp else expenses_count
+    filtered_net = filtered_collections_sum - filtered_expenses_sum
+
     # Statement Payload for Exports & APIs
     statement_data = {
         'period': {
@@ -5385,12 +5895,14 @@ def daily_reports_view(request):
             'endDate': end_dt.isoformat(),
         },
         'summary': {
-            'totalCollections': total_collections,
-            'collectionsCount': collections_count,
-            'totalExpenses': total_expenses,
-            'expensesCount': expenses_count,
-            'netMovement': net_movement,
-            'isProfit': is_profit,
+            'totalCollections': filtered_collections_sum,
+            'collectionsCount': filtered_collections_count,
+            'totalExpenses': filtered_expenses_sum,
+            'expensesCount': filtered_expenses_count,
+            'netMovement': filtered_net,
+            'isProfit': filtered_net >= 0,
+            'grossTotalCollections': total_collections,
+            'grossTotalExpenses': total_expenses,
             'collectionsByMode': collections_by_mode,
             'expensesByMode': expenses_by_mode,
             'expensesByCategory': expenses_by_category,
@@ -6159,7 +6671,7 @@ def get_institute_settings_dict():
     res = {
         'institute_name': settings_map.get('institute_name', 'Sutawane Classes Vaijapur'),
         'tagline': settings_map.get('tagline', 'Excellence in Coaching & Board Preparations'),
-        'phone': settings_map.get('phone', '+91 98765 43210'),
+        'phone': settings_map.get('phone', '+91 98814 65883'),
         'email': settings_map.get('email', 'contact@sutawaneclasses.com'),
         'address': settings_map.get('address', 'Ladgaon Road, Niwara Nagari, Near Dongare Hospital'),
         'address_line_2': settings_map.get('address_line_2', 'Niwara Nagari, Near Dongare Hospital, Vaijapur'),
@@ -6267,6 +6779,9 @@ def settings_manage_view(request):
     Central Institute Settings & Master Branding View matching React SettingsPage.tsx.
     Manages central coaching branding, logo, receipt templates, and organization profile.
     """
+    settings_dict = get_institute_settings_dict()
+    settings_map = settings_dict
+
     if request.method == 'POST':
         action = request.POST.get('action', 'save_profile')
         active_tab = request.POST.get('active_tab', 'profile')
@@ -6301,20 +6816,33 @@ def settings_manage_view(request):
                 return redirect("/settings/?tab=whatsapp")
 
             # Persist any updated provider/mode/endpoint if submitted along with test
-            for k in ['whatsapp_enabled', 'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone']:
+            for k in [
+                'whatsapp_enabled', 'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone',
+                'whatsapp_meta_phone_id', 'whatsapp_meta_waba_id', 'whatsapp_meta_access_token',
+                'whatsapp_meta_app_id', 'whatsapp_meta_api_version', 'whatsapp_meta_webhook_token',
+                'whatsapp_meta_template_receipt', 'whatsapp_meta_template_welcome',
+                'whatsapp_meta_template_reminder', 'whatsapp_meta_template_lang',
+            ]:
                 if k in request.POST:
                     SystemSetting.objects.update_or_create(key=k, defaults={'value': request.POST.get(k, '').strip()})
             invalidate_global_context_cache()
+            settings_map = get_cached_settings_dict()
 
-            sender_name = request.current_user.name if hasattr(request, 'current_user') and request.current_user else 'Admin'
+            user_id = request.session.get('user_id')
+            user_obj = User.objects.filter(id=user_id).first() if user_id else None
+            sender_name = getattr(user_obj, 'name', None) or (getattr(request, 'current_user', None) and getattr(request.current_user, 'name', None)) or 'Admin'
             now_str = timezone.localtime().strftime('%d-%b-%Y %I:%M %p')
+            institute_label = settings_map.get('institute_name', 'Institute Management System')
+            rate_label = settings_map.get('whatsapp_rate_per_message', '0.40')
+            prov = request.POST.get('whatsapp_provider') or settings_map.get('whatsapp_provider', 'LOCAL_WHATSAPP')
+            prov_label = "Official WhatsApp Cloud API (Meta Graph API)" if prov == 'META_OFFICIAL' else "Dedicated Automated WhatsApp Gateway"
             msg_text = (
-                f"🌟 *TEST PING — Sutawane Classes ERP* 🚀\n\n"
-                f"Namaskar! Greetings from Sutawane Classes.\n"
-                f"✅ Your Local WhatsApp Gateway is *ONLINE, CONNECTED & FUNCTIONAL* on this computer!\n\n"
-                f"• Gateway: 100% Free Self-Hosted Local Bridge (Port 3000)\n"
-                f"• Verified At: {now_str}\n"
-                f"• Zero cloud API costs or message charges.\n\n"
+                f"🌟 *TEST PING — {institute_label}* 🚀\n\n"
+                f"Namaskar! Greetings from {institute_label}.\n"
+                f"✅ Your WhatsApp Gateway is *ONLINE, CONNECTED & FUNCTIONAL*!\n\n"
+                f"• Provider: {prov_label}\n"
+                f"• Rate: ₹{rate_label} (40 Paise) per message\n"
+                f"• Verified At: {now_str}\n\n"
                 f"Student fee receipts, reminders, and admission alerts are now active."
             )
             res = dispatch_whatsapp_message(
@@ -6345,7 +6873,11 @@ def settings_manage_view(request):
                 'address', 'address_line_2', 'city', 'taluka', 'district', 'state', 'pincode',
                 'website', 'receipt_footer', 'receipt_prefix', 'receipt_signatory',
                 'bank_beneficiary_name', 'bank_name', 'bank_account_no', 'bank_ifsc', 'bank_branch', 'upi_id',
-                'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone'
+                'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone',
+                'whatsapp_meta_phone_id', 'whatsapp_meta_waba_id', 'whatsapp_meta_access_token',
+                'whatsapp_meta_app_id', 'whatsapp_meta_api_version', 'whatsapp_meta_webhook_token',
+                'whatsapp_meta_template_receipt', 'whatsapp_meta_template_welcome',
+                'whatsapp_meta_template_reminder', 'whatsapp_meta_template_lang',
             ]
             for f in all_fields:
                 if f in request.POST:
@@ -6535,4 +7067,119 @@ def api_whatsapp_status_view(request):
         'error': 'Local WhatsApp Bridge is not running on port 3000.',
         'endpoint': 'http://localhost:3000/send'
     })
+
+
+def api_verify_meta_credentials_view(request):
+    """
+    POST /api/settings/meta-verify/
+    Verifies Meta Official WhatsApp Cloud API credentials by pinging Graph API.
+    Endpoint: https://graph.facebook.com/{version}/{phone_number_id}
+    Returns verified status, phone number, business name, and quality rating.
+    """
+    if request.method not in ('POST', 'GET'):
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    import urllib.request
+    import urllib.error
+    import json
+
+    settings_map = get_cached_settings_dict()
+    phone_id = (request.POST.get('phone_id') or request.GET.get('phone_id') or settings_map.get('whatsapp_meta_phone_id', '')).strip()
+    access_token = (request.POST.get('access_token') or request.GET.get('access_token') or settings_map.get('whatsapp_meta_access_token', '')).strip()
+    api_version = (request.POST.get('api_version') or request.GET.get('api_version') or settings_map.get('whatsapp_meta_api_version', 'v21.0')).strip() or 'v21.0'
+
+    if not phone_id or not access_token:
+        return JsonResponse({
+            'success': False,
+            'status': 'MISSING_CREDENTIALS',
+            'error': 'Both Phone Number ID and Permanent Access Token are required to test Meta Cloud API.'
+        }, status=400)
+
+    url = f"https://graph.facebook.com/{api_version}/{phone_id}?fields=display_phone_number,verified_name,code_verification_status,quality_rating,id"
+    req = urllib.request.Request(
+        url,
+        headers={
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        }
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10.0) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            return JsonResponse({
+                'success': True,
+                'status': 'VERIFIED',
+                'phone_number': data.get('display_phone_number'),
+                'verified_name': data.get('verified_name'),
+                'code_verification_status': data.get('code_verification_status'),
+                'quality_rating': data.get('quality_rating'),
+                'phone_id': data.get('id'),
+            })
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode('utf-8') if e.fp else str(e)
+        try:
+            err_json = json.loads(err_body)
+            err_msg = err_json.get('error', {}).get('message', err_body)
+        except Exception:
+            err_msg = err_body
+        return JsonResponse({
+            'success': False,
+            'status': 'ERROR',
+            'error': f"Meta Graph API error (HTTP {e.code}): {err_msg}"
+        }, status=200)
+    except Exception as ex:
+        return JsonResponse({
+            'success': False,
+            'status': 'CONNECTION_ERROR',
+            'error': f"Network error connecting to Meta Graph API: {str(ex)}"
+        }, status=200)
+
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def api_whatsapp_meta_webhook_view(request):
+    """
+    Official Meta WhatsApp Cloud API Webhook Handler.
+    GET: Handles Meta Webhook verification challenge (hub.mode, hub.verify_token, hub.challenge).
+    POST: Ingests real-time message delivery receipts (sent, delivered, read, failed).
+    """
+    settings_map = get_cached_settings_dict()
+    configured_token = settings_map.get('whatsapp_meta_webhook_token', '').strip()
+
+    if request.method == 'GET':
+        mode = request.GET.get('hub.mode')
+        verify_token = request.GET.get('hub.verify_token')
+        challenge = request.GET.get('hub.challenge')
+
+        if mode == 'subscribe':
+            if not configured_token or verify_token == configured_token:
+                return HttpResponse(challenge or 'CHALLENGE_ACCEPTED', content_type='text/plain', status=200)
+            return HttpResponse('Verification token mismatch', content_type='text/plain', status=403)
+        return HttpResponse('Invalid webhook challenge mode', content_type='text/plain', status=400)
+
+    elif request.method == 'POST':
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+            entries = body.get('entry', [])
+            for entry in entries:
+                for change in entry.get('changes', []):
+                    value = change.get('value', {})
+                    statuses = value.get('statuses', [])
+                    for s in statuses:
+                        status = s.get('status')
+                        recipient_id = s.get('recipient_id', '')
+                        if status == 'failed' and recipient_id:
+                            errors = s.get('errors', [])
+                            err_msg = errors[0].get('message') if errors else 'Delivery failed'
+                            NotificationLog.objects.filter(recipient_mobile__endswith=recipient_id[-10:]).order_by('-created_at')[:1].update(
+                                status='FAILED',
+                                response_payload=f"Meta Webhook: {err_msg}"
+                            )
+            return HttpResponse('EVENT_RECEIVED', content_type='text/plain', status=200)
+        except Exception:
+            return HttpResponse('EVENT_RECEIVED', content_type='text/plain', status=200)
+
+    return HttpResponse('Method not allowed', status=405)
+
 

@@ -42,7 +42,7 @@
       hx-select="#studentsContentArea"
       hx-swap="outerHTML"
       hx-push-url="true"
-      hx-trigger="change, keyup changed delay:250ms from:input[name=q]"
+      hx-trigger="submit, change, keyup changed delay:250ms from:input[name=q]"
       class="space-y-3"
     >
       <input type="hidden" name="page_size" id="hiddenFilterPageSize" value="{{ filters.page_size|default:25 }}">
@@ -252,12 +252,12 @@
               class="h-8 bg-background border border-input rounded-md px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-2xs"
               onchange="updatePageSize(this.value)"
             >
-              <option value="10" {% if filters.page_size == 10 %}selected{% endif %}>10 per page</option>
-              <option value="25" {% if filters.page_size == 25 or not filters.page_size %}selected{% endif %}>25 per page</option>
-              <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50 per page</option>
-              <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100 per page</option>
-              <option value="250" {% if filters.page_size == 250 %}selected{% endif %}>250 per page</option>
-              <option value="500" {% if filters.page_size == 500 %}selected{% endif %}>500 per page</option>
+              <option value="10" {% if filters.page_size == 10 or filters.page_size == '10' %}selected{% endif %}>10 per page</option>
+              <option value="25" {% if filters.page_size == 25 or filters.page_size == '25' or not filters.page_size %}selected{% endif %}>25 per page</option>
+              <option value="50" {% if filters.page_size == 50 or filters.page_size == '50' %}selected{% endif %}>50 per page</option>
+              <option value="100" {% if filters.page_size == 100 or filters.page_size == '100' %}selected{% endif %}>100 per page</option>
+              <option value="250" {% if filters.page_size == 250 or filters.page_size == '250' %}selected{% endif %}>250 per page</option>
+              <option value="500" {% if filters.page_size == 500 or filters.page_size == '500' %}selected{% endif %}>500 per page</option>
             </select>
           </div>
 
@@ -870,6 +870,14 @@
             />
           </div>
         </div>
+
+        <!-- WhatsApp Welcome Alert Banner -->
+        <div class="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-900 dark:text-emerald-300 text-xs">
+          <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+          <span class="font-medium text-emerald-800 dark:text-emerald-200">
+            Official WhatsApp welcome greeting &amp; admission confirmation will be automatically dispatched to the parent's mobile upon registration.
+          </span>
+        </div>
       </div>
 
       <!-- Modal Footer (Fixed/Pinned) -->
@@ -1387,14 +1395,33 @@
 
   // --- Table Page Size Controller ---
   function updatePageSize(size) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('page_size', size);
-    url.searchParams.set('page', '1');
     const hiddenInput = document.getElementById('hiddenFilterPageSize');
     if (hiddenInput) {
       hiddenInput.value = size;
     }
-    window.location.href = url.toString();
+    const filterForm = document.getElementById('studentsFilterForm');
+    const params = new URLSearchParams(window.location.search);
+    if (filterForm) {
+      const formData = new FormData(filterForm);
+      for (const [key, val] of formData.entries()) {
+        if (val) params.set(key, val);
+      }
+    }
+    params.set('page_size', size);
+    params.set('page', '1');
+
+    const targetUrl = `{% url 'students_list' %}?${params.toString()}`;
+
+    if (window.htmx) {
+      htmx.ajax('GET', targetUrl, {
+        target: '#studentsContentArea',
+        select: '#studentsContentArea',
+        swap: 'outerHTML',
+        pushUrl: true
+      });
+    } else {
+      window.location.href = targetUrl;
+    }
   }
 
   // --- Jump to Page Controller ---
@@ -1405,9 +1432,28 @@
       alert('Please enter a valid page number between 1 and ' + maxPages);
       return;
     }
-    const url = new URL(window.location.href);
-    url.searchParams.set('page', p);
-    window.location.href = url.toString();
+    const filterForm = document.getElementById('studentsFilterForm');
+    const params = new URLSearchParams(window.location.search);
+    if (filterForm) {
+      const formData = new FormData(filterForm);
+      for (const [key, val] of formData.entries()) {
+        if (val) params.set(key, val);
+      }
+    }
+    params.set('page', p);
+
+    const targetUrl = `{% url 'students_list' %}?${params.toString()}`;
+
+    if (window.htmx) {
+      htmx.ajax('GET', targetUrl, {
+        target: '#studentsContentArea',
+        select: '#studentsContentArea',
+        swap: 'outerHTML',
+        pushUrl: true
+      });
+    } else {
+      window.location.href = targetUrl;
+    }
   }
 
   function initRowClick() {
@@ -1451,6 +1497,11 @@
     initRowClick();
     if (window.lucide) {
       lucide.createIcons();
+    }
+    const pageSizeSelect = document.getElementById('tablePageSizeSelect');
+    const hiddenPageSize = document.getElementById('hiddenFilterPageSize');
+    if (pageSizeSelect && hiddenPageSize) {
+      hiddenPageSize.value = pageSizeSelect.value;
     }
   });
 

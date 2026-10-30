@@ -77,7 +77,7 @@
       <tr class="dues-row hover:bg-muted/50 transition-colors cursor-pointer" data-url="{% url 'student_detail' d.student_id %}" title="Click to view {{ d.student_name }}'s profile">
         <!-- # -->
         <td class="py-3 px-3 text-center font-mono text-xs text-muted-foreground col-srNo">
-          {{ forloop.counter }}
+          {{ pagination.start_index|default:0|add:forloop.counter }}
         </td>
 
         <!-- Student Name -->

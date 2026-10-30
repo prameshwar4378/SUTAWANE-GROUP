@@ -338,6 +338,24 @@
       transform: translateX(3px) !important;
     }
 
+    .btn-demo-mobile {
+      display: none !important;
+    }
+
+    /* Universal Responsive & Overflow Resets */
+    html, body {
+      width: 100% !important;
+      max-width: 100vw !important;
+      overflow-x: hidden !important;
+      position: relative !important;
+    }
+
+    body.modern-body {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+
     /* Responsive Adjustments */
     @media (max-width: 1024px) {
       .modern-nav-links {
@@ -356,29 +374,121 @@
       }
     }
 
+    @media (max-width: 768px) {
+      /* Smooth, Centered Ambient Glow (Prevents Asymmetrical Split on Mobile) */
+      .ambient-glow-left {
+        top: -100px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 100vw !important;
+        max-width: 500px !important;
+        height: 350px !important;
+        background: radial-gradient(circle, rgba(199, 210, 254, 0.45) 0%, rgba(224, 242, 254, 0.25) 50%, transparent 75%) !important;
+        filter: blur(50px) !important;
+      }
+      .ambient-glow-right {
+        display: none !important;
+      }
+    }
+
     @media (max-width: 640px) {
       .header-full-container {
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-left: 0.85rem !important;
+        padding-right: 0.85rem !important;
+        width: 100% !important;
       }
-      .top-announcement-right {
-        display: none !important;
+      .top-announcement-bar {
+        padding: 0.35rem 0.5rem !important;
+        font-size: 0.725rem !important;
       }
       .top-announcement-inner {
         justify-content: center !important;
       }
+      .top-announcement-left {
+        font-size: 0.725rem !important;
+        gap: 0.35rem !important;
+        justify-content: center !important;
+        width: 100% !important;
+        text-align: center !important;
+      }
+      .top-announcement-right {
+        display: none !important;
+      }
+      .modern-header-inner {
+        padding: 0.6rem 0 !important;
+        gap: 0.45rem !important;
+        width: 100% !important;
+      }
+      .modern-brand {
+        gap: 0.55rem !important;
+        min-width: 0 !important;
+        flex-shrink: 1 !important;
+      }
+      .modern-logo-box {
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 10px !important;
+        flex-shrink: 0 !important;
+      }
       .modern-brand-name {
-        font-size: 1.05rem !important;
+        font-size: 0.95rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 165px !important;
+        line-height: 1.15 !important;
       }
       .modern-brand-tag {
-        font-size: 0.65rem !important;
+        font-size: 0.6rem !important;
+        margin-top: 0.1rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 165px !important;
+      }
+      .modern-header-actions {
+        gap: 0.4rem !important;
+        flex-shrink: 0 !important;
       }
       .btn-nav-login {
         display: none !important;
       }
+      .btn-demo-full {
+        display: none !important;
+      }
+      .btn-demo-mobile {
+        display: inline !important;
+      }
       .btn-header-demo {
-        padding: 0.45rem 1rem !important;
-        font-size: 0.8125rem !important;
+        padding: 0.4rem 0.8rem !important;
+        font-size: 0.775rem !important;
+        gap: 0.3rem !important;
+        white-space: nowrap !important;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3) !important;
+      }
+      .modern-menu-btn {
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0.35rem !important;
+        border-radius: 9px !important;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .header-full-container {
+        padding-left: 0.65rem !important;
+        padding-right: 0.65rem !important;
+      }
+      .modern-brand-name {
+        font-size: 0.875rem !important;
+        max-width: 125px !important;
+      }
+      .modern-brand-tag {
+        display: none !important;
+      }
+      .btn-header-demo {
+        padding: 0.35rem 0.6rem !important;
+        font-size: 0.725rem !important;
       }
     }
   </style>
@@ -481,7 +591,8 @@
           {% endif %}
 
           <button type="button" class="btn-header-demo" onclick="openInquiryModal()">
-            <span>Book Free Demo</span>
+            <span class="btn-demo-full">Book Free Demo</span>
+            <span class="btn-demo-mobile">Free Demo</span>
             <span class="demo-arrow">→</span>
           </button>
 
@@ -628,25 +739,29 @@
         <div>
           <h4 class="footer-col-title">
             <span class="title-dot"></span>
-            <span>Main Campus Desk</span>
+            <span>Campuses &amp; Contact Desk</span>
           </h4>
           <div class="footer-campus-card">
             <div class="footer-campus-item">
               <span class="icon">📍</span>
-              <span><strong>Address:</strong> Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur, Chhatrapati Sambhajinagar, Maharashtra 423701.</span>
+              <span><strong>Main Campus:</strong> Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur.</span>
+            </div>
+            <div class="footer-campus-item">
+              <span class="icon">🏢</span>
+              <span><strong>Branches:</strong> Vaijapur · Kopargaon · Yeola</span>
             </div>
             <div class="footer-campus-item">
               <span class="icon">📞</span>
-              <span><strong>Helpline:</strong> <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="footer-helpline-link">{{ institute_settings.phone|default:'+91 98765 43210' }}</a></span>
+              <span><strong>Helpline:</strong> <a href="tel:{{ institute_settings.phone|default:'+919881465883' }}" class="footer-helpline-link">{{ institute_settings.phone|default:'+91 98814 65883' }}</a></span>
             </div>
-            <div class="footer-campus-item">
-              <span class="icon">⏱️</span>
-              <span><strong>Hours:</strong> Mon – Sat: 7:30 AM – 8:00 PM<br>Sun: 8:00 AM – 1:00 PM</span>
+            <div style="display:flex;gap:0.5rem;margin-top:0.4rem;">
+              <a href="{% url 'public_contact_us' %}" class="btn-taskharbor-frosted" style="flex:1;justify-content:center;padding:0.6rem;font-size:0.8rem;text-align:center;text-decoration:none;">
+                <span>View Campus Maps ↗</span>
+              </a>
+              <button type="button" class="btn-modern-amber" style="flex:1;justify-content:center;padding:0.6rem;font-size:0.8rem;box-shadow:0 6px 18px rgba(245,158,11,0.35);" onclick="openInquiryModal()">
+                <span>Inquire Now →</span>
+              </button>
             </div>
-            <button type="button" class="btn-modern-amber" style="width:100%;justify-content:center;padding:0.75rem 1rem;font-size:0.9rem;box-shadow:0 8px 24px rgba(245,158,11,0.45);margin-top:0.25rem;" onclick="openInquiryModal()">
-              <span>Inquire for Admission</span>
-              <span>→</span>
-            </button>
           </div>
         </div>
       </div>
@@ -666,7 +781,7 @@
 
   <!-- 5. Floating WhatsApp Help Button (Green Pill matching Screenshots) -->
   <div class="floating-whatsapp-help">
-    <a href="https://wa.me/917776824564?text=Hello%20Sutawane%20Classes,%20I%20would%20like%20to%20inquire%20about%20admissions%20and%20batches." target="_blank" rel="noopener noreferrer" class="btn-help-whatsapp" title="Instant WhatsApp Support">
+    <a href="https://wa.me/919881465883?text=Hello%20Prof.%20Sutawane%20Sir,%20I%20would%20like%20to%20inquire%20about%20admissions%20for%20Sutawane%20Classes%20(Vaijapur,%20Kopargaon,%20Yeola)." target="_blank" rel="noopener noreferrer" class="btn-help-whatsapp" title="Instant WhatsApp Support">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
       <span>Help</span>
     </a>
@@ -711,10 +826,11 @@
             </select>
           </div>
           <div class="modern-form-group">
-            <label class="modern-form-label" for="inq_campus">Preferred Mode</label>
-            <select id="inq_campus" class="modern-select" name="campus">
-              <option value="Vaijapur Main Campus">Vaijapur Main Campus</option>
-              <option value="Online / Hybrid Mode">Online / Hybrid Mode</option>
+            <label class="modern-form-label" for="inq_campus">Preferred Campus Branch *</label>
+            <select id="inq_campus" class="modern-select" name="campus" required>
+              <option value="Vaijapur (Main Campus)">🏛️ Vaijapur (Main Campus)</option>
+              <option value="Kopargaon Campus">🏢 Kopargaon Campus</option>
+              <option value="Yeola Campus">🏢 Yeola Campus</option>
             </select>
           </div>
         </div>
@@ -726,7 +842,7 @@
 
         <button type="submit" class="btn-modern-amber" style="width:100%;justify-content:center;padding:0.95rem;margin-top:0.5rem;">
           <span class="btn-icon-circle">🚀</span>
-          <span>Submit Counseling Request via WhatsApp</span>
+          <span>Submit Counseling Request via WhatsApp (+91 98814 65883)</span>
           <span class="btn-arrow-circle">→</span>
         </button>
       </form>
@@ -828,7 +944,7 @@
                    (msg ? `*Note:* ${msg}\n\n` : `\n`) +
                    `Please share batch timings, syllabus schedule, and scholarship evaluation.`;
 
-      const targetPhone = "917776824564";
+      const targetPhone = "919881465883";
       const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
       window.open(waUrl, '_blank');
       closeInquiryModal();

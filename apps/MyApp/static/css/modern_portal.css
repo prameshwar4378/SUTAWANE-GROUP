@@ -4042,18 +4042,275 @@ body.modern-body {
 }
 
 @media (max-width: 640px) {
-  .taskharbor-headline { font-size: 2.35rem; }
-  .taskharbor-subtext { font-size: 1.05rem; }
-  .taskharbor-actions-row { flex-direction: column; width: 100%; }
+  /* 1. Global Container & Hero Resets */
+  .modern-container {
+    padding: 0 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .taskharbor-hero-section {
+    padding: 2.5rem 0 1.75rem;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .taskharbor-hero-halo {
+    width: 100vw;
+    height: 300px;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    filter: blur(45px);
+    opacity: 0.55;
+  }
+
+  .taskharbor-hero-wrap {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+  }
+
+  /* 2. Top Notification Pill on Mobile */
+  .hero-notification-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.85rem 0.35rem 0.4rem;
+    border-radius: 9999px;
+    max-width: 100%;
+    margin-bottom: 1.25rem;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 2px 10px rgba(79, 70, 229, 0.08);
+  }
+
+  .pill-badge-indigo {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    padding: 0.22rem 0.55rem;
+    border-radius: 9999px;
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+
+  .pill-text-content {
+    font-size: 0.775rem;
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 195px;
+  }
+
+  .pill-arrow-indicator {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  /* 3. Headline & Subtext on Mobile */
+  .taskharbor-headline {
+    font-size: clamp(1.9rem, 7.8vw, 2.35rem);
+    line-height: 1.16;
+    letter-spacing: -0.025em;
+    margin-bottom: 0.85rem;
+    padding: 0 0.15rem;
+  }
+
+  .taskharbor-subtext {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: #64748B;
+    margin-bottom: 1.5rem;
+    padding: 0 0.15rem;
+  }
+
+  /* 4. Action Buttons on Mobile */
+  .taskharbor-actions-row {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.65rem;
+    margin-bottom: 1.85rem;
+  }
+
   .btn-taskharbor-primary,
-  .btn-taskharbor-frosted { width: 100%; justify-content: center; }
-  .taskharbor-trust-strip { flex-direction: column; gap: 0.5rem; border-radius: 18px; }
-  .trust-bullet { display: none; }
-  .taskharbor-window-bar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-  .window-address-bar { width: 100%; justify-content: space-between; }
-  .window-card-vibrant { min-height: auto; }
-  .ranker-slide-card { width: 270px; }
-  .ranker-slider-panel { padding: 1.25rem 1rem; }
+  .btn-taskharbor-frosted {
+    width: 100%;
+    justify-content: center;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.95rem;
+    border-radius: 14px;
+    box-sizing: border-box;
+  }
+
+  /* 5. Minimal Trust Badges Strip: Balanced 2x2 Grid Pill */
+  .taskharbor-trust-strip {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem 0.75rem;
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
+    margin-bottom: 2.25rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  }
+
+  .trust-item {
+    font-size: 0.775rem;
+    font-weight: 700;
+    color: #334155;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    justify-content: flex-start;
+  }
+
+  .trust-bullet {
+    display: none;
+  }
+
+  /* 6. Academic Window Mockup on Mobile */
+  .taskharbor-window-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 16px;
+    box-sizing: border-box;
+  }
+
+  .taskharbor-window-frame {
+    border-radius: 16px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .taskharbor-window-bar {
+    padding: 0.65rem 0.85rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .window-traffic-lights {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .window-address-bar {
+    flex: 1;
+    max-width: calc(100% - 40px);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.7rem;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .address-url {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    display: inline-block;
+  }
+
+  .address-status {
+    display: none;
+  }
+
+  .window-bar-actions {
+    display: none;
+  }
+
+  .taskharbor-window-body {
+    padding: 0.85rem;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    min-height: auto;
+  }
+
+  .window-col-sidebar {
+    display: none;
+  }
+
+  .window-welcome-banner {
+    padding: 0.85rem 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .welcome-stat-pill {
+    align-self: flex-start;
+  }
+
+  .window-cards-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .window-card-vibrant {
+    padding: 1.15rem;
+    min-height: auto;
+  }
+
+  .card-vibrant-title {
+    font-size: 1.05rem;
+  }
+
+  .window-col-right {
+    width: 100%;
+  }
+
+  .window-right-widget {
+    padding: 1rem;
+  }
+
+  .ranker-slide-card {
+    width: 260px;
+  }
+
+  .ranker-slider-panel {
+    padding: 1.25rem 0.85rem;
+  }
+
+  /* Floating WhatsApp Help Button */
+  .floating-whatsapp-help {
+    bottom: 18px;
+    right: 18px;
+  }
+
+  .btn-help-whatsapp {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .pill-text-content {
+    max-width: 145px;
+  }
+  .taskharbor-trust-strip {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.75rem 0.65rem;
+  }
+  .trust-item {
+    font-size: 0.725rem;
+  }
 }
 
 /* ==========================================================================

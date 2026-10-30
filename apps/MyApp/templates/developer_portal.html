@@ -212,6 +212,301 @@
     </div>
   </div>
 
+  <!-- SECTION 3: WhatsApp Messaging Quota & Monetization Engine -->
+  <div class="p-6 rounded-xl border bg-card text-card-foreground shadow-2xs space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+          <i data-lucide="message-square-code" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-bold text-foreground">WhatsApp Messaging Quota &amp; Monetization Control</h2>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              ₹{{ whatsapp_quota.rate }} / MSG
+            </span>
+          </div>
+          <p class="text-[11px] text-muted-foreground">
+            Super-admin controls to manage client prepaid messaging credits, per-message rates (40 Paise standard), and automatic dispatch quota reduction.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        {% if whatsapp_quota.enforced %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Quota Enforcement: Active</span>
+          </span>
+        {% else %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>Monitoring Only (Enforcement Disabled)</span>
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 4 Live Quota Metric Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Balance Card -->
+      <div class="p-4 rounded-lg border bg-muted/20 space-y-2">
+        <div class="flex items-center justify-between text-muted-foreground">
+          <span class="text-xs font-medium">Available Quota Balance</span>
+          <i data-lucide="coins" class="w-4 h-4 text-emerald-600"></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold font-mono tracking-tight {% if whatsapp_quota.balance > 50 %}text-emerald-600{% elif whatsapp_quota.balance > 0 %}text-amber-600{% else %}text-rose-600{% endif %}">
+            {{ whatsapp_quota.balance|default:0 }}
+          </span>
+          <span class="text-xs text-muted-foreground font-semibold">credits</span>
+        </div>
+        <div class="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/50">
+          <span>Status</span>
+          {% if whatsapp_quota.balance > 50 %}
+            <span class="text-emerald-600 font-bold">🟢 Active &amp; Funded</span>
+          {% elif whatsapp_quota.balance > 0 %}
+            <span class="text-amber-600 font-bold">🟡 Low Balance</span>
+          {% else %}
+            <span class="text-rose-600 font-bold">🔴 Quota Exhausted</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Messages Sent Card -->
+      <div class="p-4 rounded-lg border bg-muted/20 space-y-2">
+        <div class="flex items-center justify-between text-muted-foreground">
+          <span class="text-xs font-medium">Messages Dispatched</span>
+          <i data-lucide="send" class="w-4 h-4 text-blue-600"></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold font-mono tracking-tight text-foreground">
+            {{ whatsapp_quota.sent_count|default:0 }}
+          </span>
+          <span class="text-xs text-muted-foreground font-semibold">sent</span>
+        </div>
+        <div class="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/50">
+          <span>Total Metered</span>
+          <span class="font-mono font-semibold text-foreground">{{ whatsapp_quota.sent_count|default:0 }}</span>
+        </div>
+      </div>
+
+      <!-- Per Message Rate Card -->
+      <div class="p-4 rounded-lg border bg-muted/20 space-y-2">
+        <div class="flex items-center justify-between text-muted-foreground">
+          <span class="text-xs font-medium">Billing Rate / Msg</span>
+          <i data-lucide="tag" class="w-4 h-4 text-purple-600"></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold font-mono tracking-tight text-purple-600">
+            ₹{{ whatsapp_quota.rate }}
+          </span>
+          <span class="text-xs text-muted-foreground font-semibold">(40 Paise)</span>
+        </div>
+        <div class="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/50">
+          <span>Client Billing Unit</span>
+          <span class="font-semibold text-purple-600">Per 1 SMS/Ping</span>
+        </div>
+      </div>
+
+      <!-- Billable Revenue Generated Card -->
+      <div class="p-4 rounded-lg border bg-muted/20 space-y-2">
+        <div class="flex items-center justify-between text-muted-foreground">
+          <span class="text-xs font-medium">Client Billed Value</span>
+          <i data-lucide="wallet" class="w-4 h-4 text-emerald-600"></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-2xl font-bold font-mono tracking-tight text-foreground">
+            ₹{{ whatsapp_quota.billed_amount|floatformat:2 }}
+          </span>
+        </div>
+        <div class="text-[11px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/50">
+          <span>Formula</span>
+          <span class="font-mono text-[10px] text-muted-foreground">{{ whatsapp_quota.sent_count }} msgs × ₹{{ whatsapp_quota.rate }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Management Actions Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2">
+      <!-- Left Panel: Direct Balance Set & Quick Top-Up Packs -->
+      <div class="p-4 rounded-lg border bg-muted/10 space-y-4">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h3 class="text-xs font-bold text-foreground flex items-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-primary"></i>
+            <span>Recharge &amp; Quota Allotment</span>
+          </h3>
+          <span class="text-[10px] text-muted-foreground font-mono">Current: {{ whatsapp_quota.balance }} msgs</span>
+        </div>
+
+        <!-- Direct Set Form -->
+        <form method="POST" action="{% url 'developer_portal' %}" class="space-y-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_whatsapp_quota">
+          <input type="hidden" name="sub_action" value="set_balance">
+          <input type="hidden" name="rate_per_message" value="{{ whatsapp_quota.rate }}">
+          <input type="hidden" name="is_enforced" value="{% if whatsapp_quota.enforced %}true{% else %}false{% endif %}">
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+              <span>Set Exact Message Balance</span>
+              <span class="text-[10px] text-muted-foreground">e.g. 500, 1000, 2000</span>
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="number"
+                name="set_credits"
+                value="{{ whatsapp_quota.balance }}"
+                min="0"
+                step="1"
+                required
+                class="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="500"
+              />
+              <button
+                type="submit"
+                class="px-3.5 h-8 text-xs font-bold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0 cursor-pointer"
+              >
+                Set Quota
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Quick Top-Up Packs Form -->
+        <form method="POST" action="{% url 'developer_portal' %}" class="space-y-2 pt-1 border-t">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_whatsapp_quota">
+          <input type="hidden" name="sub_action" value="add_credits">
+          <input type="hidden" name="rate_per_message" value="{{ whatsapp_quota.rate }}">
+          <input type="hidden" name="is_enforced" value="{% if whatsapp_quota.enforced %}true{% else %}false{% endif %}">
+
+          <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+            <span>Quick Top-Up Packs</span>
+            <span class="text-[10px] text-muted-foreground">Add to existing balance</span>
+          </label>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              type="submit"
+              name="add_credits"
+              value="100"
+              class="h-8 text-xs font-bold rounded-md border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer flex items-center justify-center gap-1"
+            >
+              <span>+100</span>
+              <span class="text-[10px] font-normal text-muted-foreground">msgs</span>
+            </button>
+            <button
+              type="submit"
+              name="add_credits"
+              value="500"
+              class="h-8 text-xs font-bold rounded-md border bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer flex items-center justify-center gap-1"
+            >
+              <span>+500</span>
+              <span class="text-[10px] font-normal text-emerald-600">msgs</span>
+            </button>
+            <button
+              type="submit"
+              name="add_credits"
+              value="1000"
+              class="h-8 text-xs font-bold rounded-md border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer flex items-center justify-center gap-1"
+            >
+              <span>+1,000</span>
+              <span class="text-[10px] font-normal text-blue-600">msgs</span>
+            </button>
+            <button
+              type="submit"
+              name="add_credits"
+              value="5000"
+              class="h-8 text-xs font-bold rounded-md border bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer flex items-center justify-center gap-1"
+            >
+              <span>+5,000</span>
+              <span class="text-[10px] font-normal text-purple-600">msgs</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right Panel: Rate Configuration & Quota Enforcement Policy -->
+      <div class="p-4 rounded-lg border bg-muted/10 space-y-4">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h3 class="text-xs font-bold text-foreground flex items-center gap-1.5">
+            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-primary"></i>
+            <span>Monetization &amp; Gate Enforcement Policy</span>
+          </h3>
+          <span class="text-[10px] text-muted-foreground">SaaS Revenue Settings</span>
+        </div>
+
+        <form method="POST" action="{% url 'developer_portal' %}" class="space-y-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_whatsapp_quota">
+
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Rate per message -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Charge / Msg (₹)</span>
+                <span class="text-[10px] text-muted-foreground">Default 0.40</span>
+              </label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs font-bold text-muted-foreground">₹</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.00"
+                  name="rate_per_message"
+                  value="{{ whatsapp_quota.rate }}"
+                  class="w-full h-8 text-xs rounded-md border border-input bg-background pl-6 pr-2.5 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            <!-- Enforcement Mode -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Enforcement Mode</span>
+                <span class="text-[10px] text-muted-foreground">Strict Lock</span>
+              </label>
+              <select
+                name="is_enforced"
+                class="w-full h-8 text-xs rounded-md border border-input bg-background px-2 font-semibold focus:outline-none"
+              >
+                <option value="true" {% if whatsapp_quota.enforced %}selected{% endif %}>
+                  🟢 Enforced (Block when 0)
+                </option>
+                <option value="false" {% if not whatsapp_quota.enforced %}selected{% endif %}>
+                  ⚪ Monitor Only (Don't Block)
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t">
+            <!-- Reset Sent Counter -->
+            <button
+              type="submit"
+              name="sub_action"
+              value="reset_sent_counter"
+              onclick="return confirm('Are you sure you want to reset the client total sent messages counter to 0?');"
+              class="h-8 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground border rounded-md hover:bg-muted transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+              <span>Reset Sent Counter</span>
+            </button>
+
+            <!-- Save Policy -->
+            <button
+              type="submit"
+              class="h-8 px-4 text-xs font-bold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Save Policy</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- =================================================================== -->
   <!-- TEMPORARY BENCHMARK & STRESS-TEST GENERATOR (SAFE TO REMOVE)        -->
   <!-- This entire card and its script can be deleted when testing is done. -->

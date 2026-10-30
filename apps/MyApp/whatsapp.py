@@ -359,6 +359,46 @@ import urllib.request
 import urllib.error
 
 
+def deduct_whatsapp_credit() -> int:
+    """
+    Atomically decrements whatsapp_credits_balance by 1 and increments whatsapp_messages_sent_count by 1.
+    Returns the remaining balance after deduction.
+    """
+    from .models import SystemSetting
+    from .context_processors import invalidate_global_context_cache
+    from django.db import transaction
+
+    try:
+        with transaction.atomic():
+            setting, _ = SystemSetting.objects.get_or_create(
+                key='whatsapp_credits_balance',
+                defaults={'value': '500'}
+            )
+            try:
+                curr_bal = int(setting.value or 0)
+            except (ValueError, TypeError):
+                curr_bal = 0
+            new_bal = max(0, curr_bal - 1)
+            setting.value = str(new_bal)
+            setting.save(update_fields=['value'])
+
+            sent_setting, _ = SystemSetting.objects.get_or_create(
+                key='whatsapp_messages_sent_count',
+                defaults={'value': '0'}
+            )
+            try:
+                curr_sent = int(sent_setting.value or 0)
+            except (ValueError, TypeError):
+                curr_sent = 0
+            sent_setting.value = str(curr_sent + 1)
+            sent_setting.save(update_fields=['value'])
+
+        invalidate_global_context_cache()
+        return new_bal
+    except Exception as exc:
+        return None
+
+
 def dispatch_whatsapp_message(
     recipient: str,
     message: str,
@@ -371,10 +411,11 @@ def dispatch_whatsapp_message(
     """
     Central dispatcher for sending WhatsApp messages via the configured provider
     (Local WhatsApp Bridge on http://localhost:3000/send, or Simulator).
+    Enforces prepaid message quota balance and deducts 1 credit per successfully sent message.
     Records audit entry in NotificationLog.
     Never crashes or interrupts main business transaction.
     """
-    from .models import NotificationLog
+    from .models import NotificationLog, SystemSetting
     from .context_processors import get_cached_settings_dict
 
     settings_map = get_cached_settings_dict()
@@ -386,6 +427,34 @@ def dispatch_whatsapp_message(
 
     if not is_enabled:
         return {'success': False, 'status': 'DISABLED', 'error': 'WhatsApp notifications are disabled in settings.'}
+
+    # Quota Balance Verification (Fresh from DB to prevent cache lag)
+    quota_enforced = settings_map.get('whatsapp_credits_enforced', 'true') != 'false'
+    bal_setting = SystemSetting.objects.filter(key='whatsapp_credits_balance').first()
+    try:
+        current_balance = int(bal_setting.value if bal_setting and bal_setting.value is not None else settings_map.get('whatsapp_credits_balance', 500))
+    except (ValueError, TypeError):
+        current_balance = 500
+
+    if quota_enforced and current_balance <= 0:
+        rate_display = settings_map.get('whatsapp_rate_per_message', '0.40')
+        log = NotificationLog.objects.create(
+            recipient_mobile=norm_phone or recipient or 'UNKNOWN',
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='FAILED',
+            response_payload=f'Dispatch blocked: WhatsApp Message Quota Exhausted (0 balance). Rate: ₹{rate_display}/msg. Please contact software administrator to recharge credits.',
+            entity_id=entity_id,
+            provider=provider,
+            sent_by=sent_by
+        )
+        return {
+            'success': False,
+            'status': 'QUOTA_EXHAUSTED',
+            'error': 'WhatsApp message quota exhausted (0 credits remaining). Please contact software provider to recharge credits.',
+            'log_id': log.id
+        }
 
     if not norm_phone or len(norm_phone) < 10:
         log = NotificationLog.objects.create(
@@ -413,7 +482,108 @@ def dispatch_whatsapp_message(
             provider=provider,
             sent_by=sent_by
         )
-        return {'success': True, 'status': 'SIMULATED', 'log_id': log.id}
+    # META_OFFICIAL: Official WhatsApp Cloud API (Graph API)
+    if provider == 'META_OFFICIAL':
+        meta_phone_id = (settings_map.get('whatsapp_meta_phone_id') or '').strip()
+        meta_token = (settings_map.get('whatsapp_meta_access_token') or '').strip()
+        meta_version = (settings_map.get('whatsapp_meta_api_version') or 'v21.0').strip() or 'v21.0'
+
+        if not meta_phone_id or not meta_token:
+            err_msg = 'Official WhatsApp Cloud API requires Phone Number ID and Permanent Access Token in Settings.'
+            log = NotificationLog.objects.create(
+                recipient_mobile=norm_phone,
+                recipient_name=recipient_name or 'Parent',
+                message_type=message_type,
+                message_text=message,
+                status='FAILED',
+                response_payload=err_msg,
+                entity_id=entity_id,
+                provider=provider,
+                sent_by=sent_by
+            )
+            return {'success': False, 'status': 'FAILED', 'error': err_msg, 'log_id': log.id}
+
+        meta_url = f"https://graph.facebook.com/{meta_version}/{meta_phone_id}/messages"
+        payload = json.dumps({
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": norm_phone,
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": message
+            }
+        }).encode('utf-8')
+
+        try:
+            req = urllib.request.Request(
+                meta_url,
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {meta_token}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=15) as response:
+                resp_body = response.read().decode('utf-8')
+                resp_data = json.loads(resp_body) if resp_body else {}
+
+            remaining_after = None
+            if quota_enforced:
+                remaining_after = deduct_whatsapp_credit()
+
+            log = NotificationLog.objects.create(
+                recipient_mobile=norm_phone,
+                recipient_name=recipient_name or 'Parent',
+                message_type=message_type,
+                message_text=message,
+                status='SENT',
+                response_payload=resp_body,
+                entity_id=entity_id,
+                provider=provider,
+                sent_by=sent_by
+            )
+            return {
+                'success': True,
+                'status': 'SENT',
+                'log_id': log.id,
+                'response': resp_data,
+                'remaining_credits': remaining_after
+            }
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode('utf-8') if e.fp else str(e)
+            try:
+                err_json = json.loads(err_body)
+                err_detail = err_json.get('error', {}).get('message', err_body)
+            except Exception:
+                err_detail = err_body
+            log = NotificationLog.objects.create(
+                recipient_mobile=norm_phone,
+                recipient_name=recipient_name or 'Parent',
+                message_type=message_type,
+                message_text=message,
+                status='FAILED',
+                response_payload=f"Meta Graph API HTTP {e.code}: {err_detail}",
+                entity_id=entity_id,
+                provider=provider,
+                sent_by=sent_by
+            )
+            return {'success': False, 'status': 'FAILED', 'error': f"Meta API Error: {err_detail}", 'log_id': log.id}
+        except Exception as ex:
+            log = NotificationLog.objects.create(
+                recipient_mobile=norm_phone,
+                recipient_name=recipient_name or 'Parent',
+                message_type=message_type,
+                message_text=message,
+                status='FAILED',
+                response_payload=f"Meta API Connection Error: {str(ex)}",
+                entity_id=entity_id,
+                provider=provider,
+                sent_by=sent_by
+            )
+            return {'success': False, 'status': 'FAILED', 'error': str(ex), 'log_id': log.id}
 
     # LOCAL_WHATSAPP Gateway (Node bridge at http://localhost:3000/send)
     try:
@@ -436,6 +606,11 @@ def dispatch_whatsapp_message(
             resp_body = response.read().decode('utf-8')
             resp_data = json.loads(resp_body) if resp_body else {}
 
+        # Successfully delivered: Deduct 1 message credit if quota enforced
+        remaining_after = None
+        if quota_enforced:
+            remaining_after = deduct_whatsapp_credit()
+
         log = NotificationLog.objects.create(
             recipient_mobile=norm_phone,
             recipient_name=recipient_name or 'Parent',
@@ -447,7 +622,13 @@ def dispatch_whatsapp_message(
             provider='LOCAL_WHATSAPP',
             sent_by=sent_by
         )
-        return {'success': True, 'status': 'SENT', 'log_id': log.id, 'response': resp_data}
+        return {
+            'success': True,
+            'status': 'SENT',
+            'log_id': log.id,
+            'response': resp_data,
+            'remaining_credits': remaining_after
+        }
 
     except urllib.error.HTTPError as err:
         try:

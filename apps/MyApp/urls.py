@@ -57,5 +57,7 @@ urlpatterns = [
     path('api/settings/', views.api_settings_view, name='api_settings'),
     path('api/settings/logo/', views.api_settings_logo_view, name='api_settings_logo'),
     path('api/settings/whatsapp-status/', views.api_whatsapp_status_view, name='api_whatsapp_status'),
+    path('api/settings/meta-verify/', views.api_verify_meta_credentials_view, name='api_verify_meta_credentials'),
+    path('api/whatsapp/webhook/', views.api_whatsapp_meta_webhook_view, name='api_whatsapp_meta_webhook'),
     path('developer-portal/', views.developer_portal_view, name='developer_portal'),
 ]

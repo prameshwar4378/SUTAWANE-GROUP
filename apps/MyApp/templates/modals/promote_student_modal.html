@@ -139,6 +139,18 @@
       </div>
       {% endif %}
 
+      {% if no_future_session %}
+      <div class="p-3 bg-blue-500/10 border border-blue-500/30 text-blue-800 dark:text-blue-300 rounded-lg flex items-start gap-2">
+        <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600"></i>
+        <div class="text-xs">
+          <p class="font-semibold">Notice: Student is currently in the latest academic session ({{ current_admission.session.name }}).</p>
+          <p class="text-[11px] mt-0.5">
+            To promote {{ student.full_name }} to the next upcoming session (e.g. 2028-29), please create that session in Academic Sessions first.
+          </p>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Target Standard and New Roll Number -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="space-y-1.5">

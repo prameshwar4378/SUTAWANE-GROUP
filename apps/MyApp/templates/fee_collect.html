@@ -813,6 +813,20 @@
                 </div>
               </div>
 
+              <!-- WhatsApp Auto-Receipt Notice Banner -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-900 dark:text-emerald-300 text-xs">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+                  <span class="font-medium text-emerald-800 dark:text-emerald-200">
+                    Official WhatsApp receipt will be automatically dispatched to:
+                    <strong class="font-mono text-emerald-900 dark:text-emerald-100">+91 {{ selected_student.parent_phone|default:selected_student.student_phone }}</strong>
+                  </span>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white shadow-2xs self-start sm:self-auto">
+                  Auto WhatsApp Active
+                </span>
+              </div>
+
               <!-- Submit Action Bar -->
               <div class="pt-5 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <a
