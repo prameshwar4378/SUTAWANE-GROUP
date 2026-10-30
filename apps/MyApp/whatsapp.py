@@ -425,8 +425,8 @@ def dispatch_whatsapp_message(
 
     norm_phone = format_whatsapp_number(recipient)
 
-    if not is_enabled:
-        return {'success': False, 'status': 'DISABLED', 'error': 'WhatsApp notifications are disabled in settings.'}
+    if not is_enabled and message_type != 'SYSTEM_TEST':
+        return {'success': False, 'status': 'DISABLED', 'error': 'WhatsApp notifications are disabled in settings. Enable "Service Active" to dispatch notifications.'}
 
     # Quota Balance Verification (Fresh from DB to prevent cache lag)
     quota_enforced = settings_map.get('whatsapp_credits_enforced', 'true') != 'false'
