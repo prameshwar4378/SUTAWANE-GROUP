@@ -63,9 +63,14 @@ sudo chown -R sutawane:sutawane "$SCRIPT_DIR"
 
 echo "=== [3/4] Enabling and Restarting systemd Service ==="
 SERVICE_FILE="/etc/systemd/system/sutawane-whatsapp.service"
-if [ ! -f "$SERVICE_FILE" ]; then
-    echo "Creating systemd service file at $SERVICE_FILE..."
-    sudo bash -c "cat <<EOF > $SERVICE_FILE
+NODE_PATH="$(which node || echo '/usr/bin/node')"
+CHROME_PATH="$(which google-chrome-stable || which google-chrome || which chromium-browser || which chromium || echo '/usr/bin/google-chrome-stable')"
+
+echo "Using Node: $NODE_PATH"
+echo "Using Chrome: $CHROME_PATH"
+
+echo "Updating systemd service file at $SERVICE_FILE..."
+sudo bash -c "cat <<EOF > $SERVICE_FILE
 [Unit]
 Description=Sutawane Classes WhatsApp Gateway Service
 After=network.target
@@ -76,14 +81,14 @@ Group=sutawane
 WorkingDirectory=$SCRIPT_DIR
 Environment=PORT=3000
 Environment=PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
-ExecStart=/usr/bin/node $SCRIPT_DIR/server.js
+Environment=PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH
+ExecStart=$NODE_PATH $SCRIPT_DIR/server.js
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF"
-fi
 
 sudo systemctl daemon-reload
 sudo systemctl enable sutawane-whatsapp

@@ -2178,7 +2178,7 @@
 
       let data = null;
 
-      // 1. First try high-speed server-side proxy (Zero CORS / Zero Private Network Access blocks)
+      // 1. High-speed server-side proxy (Zero CORS / Zero Private Network Access blocks)
       try {
         const proxyRes = await fetch('/api/settings/whatsapp-status/', {
           method: 'GET',
@@ -2186,24 +2186,11 @@
         });
         if (proxyRes.ok) {
           data = await proxyRes.json();
+        } else {
+          data = { status: 'OFFLINE', error: 'Status endpoint responded with status ' + proxyRes.status };
         }
-      } catch (e) {}
-
-      // 2. Direct fallback to port 3000 if proxy was unreachable
-      if (!data || data.status === 'OFFLINE') {
-        const directEndpoints = ['http://localhost:3000', 'http://127.0.0.1:3000'];
-        for (const ep of directEndpoints) {
-          try {
-            const res = await fetch(`${ep}/health`, {
-              method: 'GET',
-              headers: { 'Accept': 'application/json' }
-            });
-            if (res.ok) {
-              data = await res.json();
-              break;
-            }
-          } catch(e) {}
-        }
+      } catch (e) {
+        data = { status: 'OFFLINE', error: 'Network communication error with server' };
       }
 
       // Auto-correct any legacy port 8000 in the UI input to port 3000
