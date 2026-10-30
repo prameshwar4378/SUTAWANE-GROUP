@@ -1102,7 +1102,7 @@
                       <div id="bridgeQrPlaceholder" class="w-48 h-48 flex items-center justify-center text-muted-foreground text-xs">
                         <i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Generating QR...
                       </div>
-                      <a href="http://localhost:3000/qr" target="_blank" class="text-[11px] font-bold text-blue-600 hover:underline mt-2 flex items-center gap-1">
+                      <a href="/api/settings/whatsapp-qr/" target="_blank" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline mt-2 flex items-center gap-1">
                         <i data-lucide="external-link" class="w-3 h-3"></i> Open in New Window
                       </a>
                     </div>
@@ -1123,15 +1123,69 @@
 
                 <!-- 3. Offline State View (Hidden by default, shown if OFFLINE) -->
                 <div id="bridgeOfflineView" class="pt-4 space-y-3 hidden">
-                  <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border text-xs text-foreground space-y-2">
-                    <p class="font-bold text-foreground flex items-center gap-1.5">
-                      <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i> Bridge service is not currently running on this PC.
-                    </p>
-                    <p class="text-[11px] text-muted-foreground">To start the local WhatsApp service, double click the launcher script located in your project root:</p>
-                    <div class="bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] flex items-center justify-between">
-                      <code>start_whatsapp_bridge.bat</code>
-                      <span class="text-[10px] text-emerald-400">Windows 1-Click Launcher (Port 3000)</span>
+                  <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-amber-200 dark:border-amber-900/50 text-xs text-foreground space-y-3 shadow-xs">
+                    <div class="flex items-start gap-2.5">
+                      <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <i data-lucide="power-off" class="w-4 h-4"></i>
+                      </div>
+                      <div class="flex-1">
+                        <h5 class="font-bold text-foreground text-sm flex items-center gap-2">
+                          WhatsApp Bridge Service Offline
+                          <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 font-semibold">Port 3000 Inactive</span>
+                        </h5>
+                        <p class="text-[11px] text-muted-foreground pt-0.5">
+                          The WhatsApp Web gateway service is not currently running. Once started, you can link any WhatsApp number for 100% free automated messaging.
+                        </p>
+                      </div>
                     </div>
+
+                    <!-- Dynamic Error Alert if bridge reported an issue -->
+                    <div id="bridgeErrorAlert" class="hidden p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300 text-xs font-mono break-all">
+                      <span class="font-bold font-sans flex items-center gap-1 mb-1"><i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i> Bridge Diagnostic Status:</span>
+                      <span id="bridgeErrorText"></span>
+                    </div>
+
+                    <!-- Environment-Specific Launch Instructions -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                      <!-- Live Production Server (Ubuntu VPS) -->
+                      <div id="serverLauncherCard" class="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 space-y-2">
+                        <div class="flex items-center justify-between">
+                          <span class="font-bold text-blue-900 dark:text-blue-300 text-xs flex items-center gap-1.5">
+                            <i data-lucide="server" class="w-3.5 h-3.5"></i> Production Server (Linux VPS)
+                          </span>
+                          <span class="text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded-md font-bold">24/7 Background</span>
+                        </div>
+                        <p class="text-[11px] text-blue-800 dark:text-blue-200 leading-relaxed">
+                          Run via SSH on your Contabo Ubuntu server to start the gateway:
+                        </p>
+                        <div class="bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] flex items-center justify-between select-all">
+                          <code>sudo systemctl restart sutawane-whatsapp</code>
+                        </div>
+                        <p class="text-[10px] text-muted-foreground">
+                          Check logs: <code class="font-mono text-slate-700 dark:text-slate-300">sudo journalctl -u sutawane-whatsapp -f</code>
+                        </p>
+                      </div>
+
+                      <!-- Local Development PC (Windows) -->
+                      <div id="localLauncherCard" class="p-3.5 rounded-xl border border-border bg-muted/40 space-y-2">
+                        <div class="flex items-center justify-between">
+                          <span class="font-bold text-foreground text-xs flex items-center gap-1.5">
+                            <i data-lucide="laptop" class="w-3.5 h-3.5"></i> Local Development (Windows)
+                          </span>
+                          <span class="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-md font-bold">Local PC</span>
+                        </div>
+                        <p class="text-[11px] text-muted-foreground leading-relaxed">
+                          Double-click the 1-click launcher script in your project root:
+                        </p>
+                        <div class="bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] flex items-center justify-between select-all">
+                          <code>start_whatsapp_bridge.bat</code>
+                        </div>
+                        <p class="text-[10px] text-muted-foreground">
+                          Runs locally on <code class="font-mono text-slate-700 dark:text-slate-300">http://localhost:3000</code>
+                        </p>
+                      </div>
+                    </div>
+
                     <div class="flex items-center gap-2 pt-1">
                       <button 
                         type="button" 
@@ -1142,6 +1196,8 @@
                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                         <span>Check Connection Again</span>
                       </button>
+                    </div>
+                  </div>
                 </div>
 
               </div>
@@ -1713,20 +1769,43 @@
          ===================================================================== -->
     <div id="tab-logs" class="tab-panel space-y-6 hidden">
       
-      <!-- Top Title Banner -->
+      <!-- Top Title Banner with Auto-Refresh Controls -->
       <div class="bg-card rounded-xl border border-border/80 p-4 shadow-xs">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0">
-            <i data-lucide="history" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-1.5">
-              <h2 class="text-base font-bold text-foreground tracking-tight">Notification Audit Trail &amp; Dispatch Logs</h2>
-              <span class="text-muted-foreground/60 cursor-pointer" title="Chronological audit trail of all automated WhatsApp and SMS alerts sent to students and parents">
-                <i data-lucide="info" class="w-3.5 h-3.5"></i>
-              </span>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0">
+              <i data-lucide="history" class="w-5 h-5"></i>
             </div>
-            <p class="text-xs text-muted-foreground">Chronological audit trail of all automated WhatsApp and SMS alerts sent to student parents.</p>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-base font-bold text-foreground tracking-tight">Notification Audit Trail &amp; Dispatch Logs</h2>
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> LIVE SYNC
+                </span>
+              </div>
+              <p class="text-xs text-muted-foreground mt-0.5">Chronological audit trail of all automated WhatsApp and SMS alerts sent to students and parents.</p>
+            </div>
+          </div>
+
+          <!-- Live Auto-Refresh & Manual Sync Toolbar -->
+          <div class="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+            <label class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none bg-muted/40 hover:bg-muted/70 px-3 py-1.5 rounded-xl border border-border/80 transition-colors shadow-2xs">
+              <input type="checkbox" id="notifAutoRefreshToggle" checked class="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+              <span class="font-semibold text-[11px] text-foreground">Auto-Refresh (15s)</span>
+            </label>
+
+            <button 
+              type="button" 
+              id="btnRefreshNotificationLogs" 
+              onclick="fetchNotificationLogs(true)" 
+              class="h-8 px-3.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 active:scale-95 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              title="Refresh notification dispatch logs immediately"
+            >
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="notifRefreshSpinner"></i>
+              <span>Refresh Now</span>
+            </button>
+
+            <span class="text-[11px] text-muted-foreground font-mono" id="notifLogsLastSyncText">Updated just now</span>
           </div>
         </div>
       </div>
@@ -1742,7 +1821,7 @@
               <i data-lucide="send" class="w-3.5 h-3.5"></i>
             </div>
           </div>
-          <p class="text-2xl font-black text-foreground font-mono">{{ total_notifications }}</p>
+          <p class="text-2xl font-black text-foreground font-mono" id="notifKpiTotal">{{ total_notifications }}</p>
         </div>
 
         <!-- Successfully Sent -->
@@ -1753,7 +1832,7 @@
               <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
             </div>
           </div>
-          <p class="text-2xl font-black text-emerald-600 font-mono">{{ sent_notifications }}</p>
+          <p class="text-2xl font-black text-emerald-600 font-mono" id="notifKpiSent">{{ sent_notifications }}</p>
         </div>
 
         <!-- Simulated (Dev) -->
@@ -1764,7 +1843,7 @@
               <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
             </div>
           </div>
-          <p class="text-2xl font-black text-sky-600 font-mono">{{ simulated_notifications }}</p>
+          <p class="text-2xl font-black text-sky-600 font-mono" id="notifKpiSimulated">{{ simulated_notifications }}</p>
         </div>
 
         <!-- Delivery Failed -->
@@ -1775,29 +1854,36 @@
               <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
             </div>
           </div>
-          <p class="text-2xl font-black text-rose-600 font-mono">{{ failed_notifications }}</p>
+          <p class="text-2xl font-black text-rose-600 font-mono" id="notifKpiFailed">{{ failed_notifications }}</p>
         </div>
 
       </div>
 
-      <!-- Search & Filter Toolbar -->
+      <!-- Search & Filter Toolbar with Instant Live Response -->
       <div class="bg-card rounded-xl border border-border/80 p-3 shadow-xs">
-        <form method="GET" action="{% url 'settings_manage' %}" class="flex flex-wrap items-center gap-3">
+        <form id="notifFilterForm" onsubmit="event.preventDefault(); fetchNotificationLogs(true);" class="flex flex-wrap items-center gap-3">
           <input type="hidden" name="tab" value="logs">
 
           <div class="relative flex-1 min-w-[220px]">
             <i data-lucide="search" class="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
             <input 
               type="text" 
+              id="notifLogSearchInput"
               name="q" 
               value="{{ search_query }}"
-              placeholder="Search mobile, document ref, message content..."
+              placeholder="Search mobile, recipient name, ref ID, message..."
               class="w-full h-9 pl-8 pr-3 text-xs bg-background text-foreground border border-input rounded-lg placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-xs"
+              oninput="debounceNotifLogSearch()"
             >
           </div>
 
           <div class="w-44">
-            <select name="status" class="w-full h-9 px-3 text-xs bg-background text-foreground border border-input rounded-lg focus:outline-hidden focus:border-blue-500 transition-all cursor-pointer">
+            <select 
+              id="notifLogStatusSelect"
+              name="status" 
+              onchange="fetchNotificationLogs(true)"
+              class="w-full h-9 px-3 text-xs bg-background text-foreground border border-input rounded-lg focus:outline-hidden focus:border-blue-500 transition-all cursor-pointer"
+            >
               <option value="">All Statuses</option>
               <option value="SENT" {% if current_status == 'SENT' %}selected{% endif %}>Sent (Live Gateway)</option>
               <option value="SIMULATED" {% if current_status == 'SIMULATED' %}selected{% endif %}>Simulated (Dev)</option>
@@ -1806,7 +1892,12 @@
           </div>
 
           <div class="w-52">
-            <select name="type" class="w-full h-9 px-3 text-xs bg-background text-foreground border border-input rounded-lg focus:outline-hidden focus:border-blue-500 transition-all cursor-pointer">
+            <select 
+              id="notifLogTypeSelect"
+              name="type" 
+              onchange="fetchNotificationLogs(true)"
+              class="w-full h-9 px-3 text-xs bg-background text-foreground border border-input rounded-lg focus:outline-hidden focus:border-blue-500 transition-all cursor-pointer"
+            >
               <option value="">All Notification Types</option>
               <option value="PAYMENT_RECEIPT" {% if current_type == 'PAYMENT_RECEIPT' %}selected{% endif %}>Payment Receipt</option>
               <option value="FEE_REMINDER" {% if current_type == 'FEE_REMINDER' %}selected{% endif %}>Fee Reminder</option>
@@ -1816,15 +1907,14 @@
             </select>
           </div>
 
-          <button type="submit" class="h-9 px-4 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
-            <i data-lucide="filter" class="w-3.5 h-3.5"></i> Filter
+          <button 
+            type="button" 
+            onclick="clearNotifLogFilters()" 
+            id="notifClearFiltersBtn" 
+            class="h-9 px-3 text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+          >
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Clear
           </button>
-
-          {% if search_query or current_status or current_type %}
-            <a href="{% url 'settings_manage' %}?tab=logs" class="h-9 px-3 text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1">
-              <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Clear
-            </a>
-          {% endif %}
         </form>
       </div>
 
@@ -1846,7 +1936,7 @@
                 <th class="py-3 px-3.5 text-center">Action</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-border/60 bg-card">
+            <tbody id="notificationLogsTableBody" class="divide-y divide-border/60 bg-card">
               {% for log in audit_logs %}
                 <tr
                   class="hover:bg-muted/50 cursor-pointer transition-colors group"
@@ -2025,6 +2115,14 @@
       if (history.replaceState) {
         history.replaceState(null, null, '#tab=' + cleanTabName);
       }
+
+      // Automatically fetch fresh logs when switching to Notification Logs tab
+      if (cleanTabName === 'logs' && typeof window.fetchNotificationLogs === 'function') {
+        window.fetchNotificationLogs(false);
+      }
+      if (typeof checkNotifAutoPoll === 'function') {
+        checkNotifAutoPoll();
+      }
     }
 
     // Attach click listeners to tabs
@@ -2108,6 +2206,36 @@
         endpointInput.value = 'http://localhost:3000/send';
       }
 
+      // Error handling & diagnostic alert in offline view
+      const errorAlert = document.getElementById('bridgeErrorAlert');
+      const errorText = document.getElementById('bridgeErrorText');
+      if (data && data.error && data.status !== 'READY') {
+        if (errorAlert && errorText) {
+          errorText.textContent = data.error;
+          errorAlert.classList.remove('hidden');
+        }
+      } else {
+        if (errorAlert) errorAlert.classList.add('hidden');
+      }
+
+      // Highlight active environment (Production VPS vs Local PC)
+      const isServer = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const serverLauncher = document.getElementById('serverLauncherCard');
+      const localLauncher = document.getElementById('localLauncherCard');
+      if (isServer) {
+        if (serverLauncher) serverLauncher.classList.add('ring-2', 'ring-blue-500', 'shadow-xs');
+        if (localLauncher) {
+          localLauncher.classList.remove('ring-2', 'ring-blue-500', 'shadow-xs');
+          localLauncher.classList.add('opacity-75');
+        }
+      } else {
+        if (localLauncher) localLauncher.classList.add('ring-2', 'ring-blue-500', 'shadow-xs');
+        if (serverLauncher) {
+          serverLauncher.classList.remove('ring-2', 'ring-blue-500', 'shadow-xs');
+          serverLauncher.classList.add('opacity-75');
+        }
+      }
+
       if (data && data.status === 'READY') {
         // Status: CONNECTED & READY
         if (statusBadge) {
@@ -2150,7 +2278,7 @@
           if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
         } else {
           try {
-            const qrRes = await fetch('http://localhost:3000/qr?json=true');
+            const qrRes = await fetch('/api/settings/whatsapp-qr/?json=true');
             if (qrRes.ok) {
               const qrd = await qrRes.json();
               if (qrd.qrDataUrl && qrImg) {
@@ -2193,7 +2321,17 @@
         return;
       }
       try {
-        await fetch('http://localhost:3000/logout', { method: 'POST' });
+        const formData = new FormData();
+        formData.append('action', 'unlink');
+        const csrfToken = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        const proxyRes = await fetch('/api/settings/whatsapp-action/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrfToken },
+          body: formData
+        });
+        if (!proxyRes.ok) {
+          await fetch('http://localhost:3000/logout', { method: 'POST' });
+        }
         checkLocalBridgeStatus(true);
       } catch (err) {
         alert('Error unlinking device: ' + err.message);
@@ -2532,10 +2670,270 @@
       });
     };
 
+    // --- Notification Logs Live Auto-Refresh & Audit Engine ---
+    let notifLogsPollTimer = null;
+    let searchDebounceTimer = null;
+
+    function checkNotifAutoPoll() {
+      if (notifLogsPollTimer) {
+        clearInterval(notifLogsPollTimer);
+        notifLogsPollTimer = null;
+      }
+      const activeTabInput = document.querySelector('input[name="active_tab"]');
+      const isLogsTab = activeTabInput && activeTabInput.value === 'logs';
+      const autoToggle = document.getElementById('notifAutoRefreshToggle');
+      if (isLogsTab && autoToggle && autoToggle.checked) {
+        notifLogsPollTimer = setInterval(() => {
+          if (typeof window.fetchNotificationLogs === 'function') {
+            window.fetchNotificationLogs(false);
+          }
+        }, 15000);
+      }
+    }
+
+    const autoToggleEl = document.getElementById('notifAutoRefreshToggle');
+    if (autoToggleEl) {
+      autoToggleEl.addEventListener('change', checkNotifAutoPoll);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    window.debounceNotifLogSearch = function() {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        window.fetchNotificationLogs(true);
+      }, 250);
+    };
+
+    window.clearNotifLogFilters = function() {
+      const q = document.getElementById('notifLogSearchInput');
+      const st = document.getElementById('notifLogStatusSelect');
+      const ty = document.getElementById('notifLogTypeSelect');
+      if (q) q.value = '';
+      if (st) st.value = '';
+      if (ty) ty.value = '';
+      window.fetchNotificationLogs(true);
+    };
+
+    window.renderNotificationLogsTable = function(logs) {
+      const tbody = document.getElementById('notificationLogsTableBody');
+      if (!tbody) return;
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="10" class="py-12 text-center text-xs text-muted-foreground">
+              <div class="max-w-xs mx-auto space-y-2">
+                <div class="w-10 h-10 rounded-full bg-muted/60 text-muted-foreground flex items-center justify-center mx-auto">
+                  <i data-lucide="inbox" class="w-5 h-5"></i>
+                </div>
+                <p class="font-bold text-foreground">No dispatch records found</p>
+                <p class="text-[11px] text-muted-foreground">No notification logs match your current filter criteria.</p>
+                <button type="button" onclick="clearNotifLogFilters()" class="text-xs font-bold text-blue-600 hover:underline pt-1 inline-block cursor-pointer">
+                  Clear Filters
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      let html = '';
+      logs.forEach(log => {
+        let statusBadge = '';
+        if (log.status === 'SENT') {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> SENT
+            </span>
+          `;
+        } else if (log.status === 'SIMULATED') {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span> SIMULATED
+            </span>
+          `;
+        } else {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20" title="${escapeHtml(log.responsePayload || '')}">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> FAILED
+            </span>
+          `;
+        }
+
+        const safeJson = JSON.stringify(log).replace(/</g, '\\u003c');
+        const retryBtn = log.status === 'FAILED' ? `
+          <button
+            type="button"
+            onclick="event.stopPropagation(); resendNotificationLog('${log.id}')"
+            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-2xs cursor-pointer ml-1"
+            title="Retry sending this failed message"
+          >
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+            <span>Retry</span>
+          </button>
+        ` : '';
+
+        html += `
+          <tr
+            class="hover:bg-muted/50 cursor-pointer transition-colors group"
+            onclick="openNotificationLogModal('${log.id}')"
+            title="Click to view full message details"
+          >
+            <td class="py-2.5 px-3.5 text-center font-mono font-bold text-muted-foreground text-[11px] group-hover:text-primary transition-colors">
+              ${log.counter}
+            </td>
+            <td class="py-2.5 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
+              ${escapeHtml(log.dispatchedAt)}
+            </td>
+            <td class="py-2.5 px-3.5 font-mono font-bold text-foreground whitespace-nowrap">
+              <a
+                href="tel:+${escapeHtml(log.recipientMobile)}"
+                onclick="event.stopPropagation();"
+                class="hover:text-blue-600 flex items-center gap-1"
+                title="Direct call"
+              >
+                <i data-lucide="phone" class="w-3 h-3 text-muted-foreground"></i>
+                <span>+${escapeHtml(log.recipientMobile)}</span>
+              </a>
+            </td>
+            <td class="py-2.5 px-3.5 whitespace-nowrap">
+              <span class="text-xs font-semibold text-foreground">${escapeHtml(log.category)}</span>
+            </td>
+            <td class="py-2.5 px-3.5 font-mono text-xs text-foreground whitespace-nowrap">
+              ${escapeHtml(log.entityId)}
+            </td>
+            <td class="py-2.5 px-3.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+              ${escapeHtml(log.provider)}
+            </td>
+            <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
+              ${statusBadge}
+            </td>
+            <td class="py-2.5 px-4 text-xs text-muted-foreground max-w-xs truncate group-hover:text-foreground transition-colors" title="${escapeHtml(log.messageText)}">
+              ${escapeHtml(log.messageSnippet)}
+            </td>
+            <td class="py-2.5 px-3 text-right font-medium text-muted-foreground whitespace-nowrap">
+              ${escapeHtml(log.sentBy)}
+            </td>
+            <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onclick="event.stopPropagation(); openNotificationLogModal('${log.id}')"
+                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-muted hover:bg-primary hover:text-primary-foreground text-foreground border border-input transition-colors shadow-2xs cursor-pointer"
+                  title="View complete message details"
+                >
+                  <i data-lucide="eye" class="w-3 h-3"></i>
+                  <span>Details</span>
+                </button>
+                ${retryBtn}
+              </div>
+              <script type="application/json" id="notif-log-data-${log.id}">
+                ${safeJson}
+              <\/script>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      if (window.lucide) lucide.createIcons();
+    };
+
+    window.fetchNotificationLogs = async function(isManual = false) {
+      const spinner = document.getElementById('notifRefreshSpinner');
+      const lastSync = document.getElementById('notifLogsLastSyncText');
+      if (isManual && spinner) {
+        spinner.classList.add('animate-spin');
+      }
+
+      const q = document.getElementById('notifLogSearchInput')?.value || '';
+      const status = document.getElementById('notifLogStatusSelect')?.value || '';
+      const type = document.getElementById('notifLogTypeSelect')?.value || '';
+
+      const params = new URLSearchParams();
+      if (q.trim()) params.set('q', q.trim());
+      if (status) params.set('status', status);
+      if (type) params.set('type', type);
+
+      try {
+        const resp = await fetch('/api/settings/notification-logs/?' + params.toString(), {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success) {
+            // Update KPI cards
+            const totalEl = document.getElementById('notifKpiTotal');
+            const sentEl = document.getElementById('notifKpiSent');
+            const simEl = document.getElementById('notifKpiSimulated');
+            const failEl = document.getElementById('notifKpiFailed');
+            if (totalEl) totalEl.textContent = data.kpi.total;
+            if (sentEl) sentEl.textContent = data.kpi.sent;
+            if (simEl) simEl.textContent = data.kpi.simulated;
+            if (failEl) failEl.textContent = data.kpi.failed;
+
+            // Render table
+            window.renderNotificationLogsTable(data.logs);
+
+            // Update timestamp
+            if (lastSync) {
+              const d = new Date();
+              lastSync.textContent = `Synced at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch notification logs:', err);
+      } finally {
+        if (spinner) {
+          setTimeout(() => spinner.classList.remove('animate-spin'), 300);
+        }
+      }
+    };
+
+    window.resendNotificationLog = async function(logId) {
+      if (!confirm('Re-dispatch this notification to the parent number now?')) return;
+      try {
+        const formData = new FormData();
+        formData.append('log_id', logId);
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken);
+
+        const resp = await fetch('/api/settings/resend-notification/', {
+          method: 'POST',
+          body: formData,
+          headers: { 'Accept': 'application/json' }
+        });
+        const res = await resp.json();
+        alert(res.message || (res.success ? 'Notification dispatched!' : 'Dispatch failed.'));
+        window.fetchNotificationLogs(true);
+      } catch (e) {
+        alert('Error resending notification: ' + e.message);
+      }
+    };
+
     // Initialize Gateway Provider view on page load
     const initialProviderSelect = document.getElementById('whatsappProviderSelect');
     if (initialProviderSelect && typeof window.handleGatewayProviderChange === 'function') {
       window.handleGatewayProviderChange(initialProviderSelect.value);
+    }
+
+    if (initialTab === 'tab-logs' && typeof window.fetchNotificationLogs === 'function') {
+      window.fetchNotificationLogs(false);
+      if (typeof checkNotifAutoPoll === 'function') {
+        checkNotifAutoPoll();
+      }
     }
 
     document.addEventListener('keydown', function(e) {

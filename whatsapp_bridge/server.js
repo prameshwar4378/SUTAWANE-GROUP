@@ -37,22 +37,61 @@ let bridgeState = {
     error: null
 };
 
+// Auto-detect Linux Chromium / Chrome binaries
+function getChromiumExecutablePath() {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+        return process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    if (process.platform === 'linux') {
+        const candidatePaths = [
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome',
+            '/snap/bin/chromium',
+            '/usr/bin/brave-browser'
+        ];
+        for (const candidate of candidatePaths) {
+            try {
+                if (fs.existsSync(candidate)) {
+                    return candidate;
+                }
+            } catch (e) {}
+        }
+    }
+    return undefined;
+}
+
+const detectedChromium = getChromiumExecutablePath();
+if (detectedChromium) {
+    console.log(`[WhatsApp Bridge] Detected Chromium at: ${detectedChromium}`);
+}
+
+const puppeteerArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-accelerated-2d-canvas',
+    '--no-first-run',
+    '--no-zygote',
+    '--disable-gpu'
+];
+
+const puppeteerConfig = {
+    headless: true,
+    args: puppeteerArgs
+};
+
+if (detectedChromium) {
+    puppeteerConfig.executablePath = detectedChromium;
+}
+
 // Initialize WhatsApp Client with Local Session Storage
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: path.join(__dirname, '.wwebjs_auth')
     }),
-    puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--disable-gpu'
-        ]
-    }
+    puppeteer: puppeteerConfig
 });
 
 // Event: QR Code Received
@@ -129,6 +168,8 @@ app.get('/health', (req, res) => {
         isReady: bridgeState.status === 'READY',
         connectedPhone: bridgeState.connectedPhone,
         connectedName: bridgeState.connectedName,
+        platform: process.platform,
+        chromiumPath: detectedChromium || 'bundled',
         error: bridgeState.error,
         timestamp: new Date().toISOString()
     });
@@ -148,6 +189,21 @@ app.get('/status', (req, res) => {
 
 // 2. View QR Code (HTML or JSON)
 app.get('/qr', (req, res) => {
+    const wantsJson = req.query.json === 'true' || req.headers.accept?.includes('application/json');
+
+    if (wantsJson) {
+        return res.json({
+            success: true,
+            status: bridgeState.status,
+            isReady: bridgeState.status === 'READY',
+            connectedPhone: bridgeState.connectedPhone,
+            connectedName: bridgeState.connectedName,
+            qrString: bridgeState.qrString,
+            qrDataUrl: bridgeState.qrDataUrl,
+            error: bridgeState.error
+        });
+    }
+
     if (bridgeState.status === 'READY') {
         return res.send(`
             <!DOCTYPE html>
@@ -313,9 +369,33 @@ app.post(['/logout', '/unlink'], async (req, res) => {
         bridgeState.qrDataUrl = null;
         setTimeout(() => {
             console.log('[WhatsApp Bridge] Re-initializing client to generate fresh QR code...');
-            client.initialize().catch(err => console.error('Failed to reinitialize:', err));
+            client.initialize().catch(err => {
+                console.error('Failed to reinitialize:', err);
+                bridgeState.status = 'DISCONNECTED';
+                bridgeState.error = err.message || String(err);
+            });
         }, 1500);
         return res.json({ success: true, message: 'Logged out successfully. Re-initializing for new QR scan...' });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5. Restart Bridge
+app.post('/restart', async (req, res) => {
+    try {
+        bridgeState.status = 'INITIALIZING';
+        bridgeState.error = null;
+        bridgeState.qrDataUrl = null;
+        try { await client.destroy(); } catch (e) {}
+        setTimeout(() => {
+            client.initialize().catch(err => {
+                console.error('Failed to initialize WhatsApp Web client on restart:', err);
+                bridgeState.status = 'DISCONNECTED';
+                bridgeState.error = err.message || String(err);
+            });
+        }, 1000);
+        return res.json({ success: true, message: 'Bridge restart triggered' });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
@@ -331,6 +411,8 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`============================================================\n`);
 
     client.initialize().catch(err => {
-        console.error('Failed to initialize WhatsApp Web client:', err);
+        console.error('❌ Failed to initialize WhatsApp Web client:', err);
+        bridgeState.status = 'DISCONNECTED';
+        bridgeState.error = err.message || String(err);
     });
 });

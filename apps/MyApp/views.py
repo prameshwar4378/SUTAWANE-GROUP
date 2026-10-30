@@ -7069,6 +7069,89 @@ def api_whatsapp_status_view(request):
     })
 
 
+def api_whatsapp_qr_view(request):
+    """
+    GET /api/settings/whatsapp-qr/
+    Proxies live WhatsApp QR code view directly from the local bridge (Port 3000).
+    Allows opening the QR scanner page across public domains/IPs without CORS or port issues.
+    """
+    import urllib.request
+    import json
+    from django.http import HttpResponse
+
+    is_json = request.GET.get('json', '').lower() in ('true', '1')
+    target = '/qr?json=true' if is_json else '/qr'
+
+    endpoints = ['http://127.0.0.1:3000', 'http://localhost:3000']
+    for base in endpoints:
+        try:
+            req = urllib.request.Request(
+                f"{base}{target}",
+                headers={'Accept': 'application/json' if is_json else 'text/html,application/xhtml+xml,application/xml'}
+            )
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                content = resp.read()
+                if is_json:
+                    return JsonResponse(json.loads(content.decode('utf-8')))
+                return HttpResponse(content, content_type='text/html; charset=utf-8')
+        except urllib.error.HTTPError as http_err:
+            try:
+                body = http_err.read()
+                if is_json:
+                    return JsonResponse(json.loads(body.decode('utf-8')), status=http_err.code)
+                return HttpResponse(body, content_type='text/html; charset=utf-8', status=http_err.code)
+            except Exception:
+                pass
+        except Exception:
+            continue
+
+    if is_json:
+        return JsonResponse({'success': False, 'error': 'Bridge is offline on port 3000'}, status=503)
+    return HttpResponse(
+        '<div style="font-family:sans-serif;padding:24px;text-align:center;">'
+        '<h3>WhatsApp Bridge Offline</h3>'
+        '<p>Please start the WhatsApp service using <code>sudo systemctl restart sutawane-whatsapp</code> or double-click <code>start_whatsapp_bridge.bat</code>.</p>'
+        '</div>',
+        status=503,
+        content_type='text/html; charset=utf-8'
+    )
+
+
+def api_whatsapp_action_view(request):
+    """
+    POST /api/settings/whatsapp-action/
+    Proxies administrative actions (unlink/logout, restart) to local WhatsApp bridge (Port 3000).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    import urllib.request
+    import json
+
+    action = (request.POST.get('action') or request.GET.get('action') or 'logout').strip().lower()
+    target_path = '/logout' if action in ('unlink', 'logout') else '/restart'
+
+    endpoints = ['http://127.0.0.1:3000', 'http://localhost:3000']
+    for base in endpoints:
+        try:
+            req = urllib.request.Request(
+                f"{base}{target_path}",
+                data=b'{}',
+                headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                return JsonResponse(data)
+        except Exception as ex:
+            continue
+
+    return JsonResponse({
+        'success': False,
+        'error': 'Could not reach local WhatsApp bridge on port 3000.'
+    }, status=503)
+
+
 def api_verify_meta_credentials_view(request):
     """
     POST /api/settings/meta-verify/
@@ -7181,5 +7264,126 @@ def api_whatsapp_meta_webhook_view(request):
             return HttpResponse('EVENT_RECEIVED', content_type='text/plain', status=200)
 
     return HttpResponse('Method not allowed', status=405)
+
+
+def api_notification_logs_view(request):
+    """
+    GET /api/settings/notification-logs/
+    High-performance real-time JSON API endpoint returning live notification KPI counts
+    and paginated audit logs list. Enables instantaneous polling and live updating without page reloads.
+    """
+    notif_qs = NotificationLog.objects.all().order_by('-created_at')
+    total_count = notif_qs.count()
+    sent_count = notif_qs.filter(status='SENT').count()
+    simulated_count = notif_qs.filter(status='SIMULATED').count()
+    failed_count = notif_qs.filter(status='FAILED').count()
+
+    search_q = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    type_filter = request.GET.get('type', '').strip()
+
+    try:
+        limit = min(int(request.GET.get('limit', 100)), 300)
+    except (ValueError, TypeError):
+        limit = 100
+
+    filtered_logs = notif_qs
+    if search_q:
+        filtered_logs = filtered_logs.filter(
+            Q(recipient_mobile__icontains=search_q) |
+            Q(recipient_name__icontains=search_q) |
+            Q(entity_id__icontains=search_q) |
+            Q(message_text__icontains=search_q)
+        )
+    if status_filter:
+        filtered_logs = filtered_logs.filter(status=status_filter)
+    if type_filter:
+        filtered_logs = filtered_logs.filter(message_type=type_filter)
+
+    logs_list = []
+    for idx, log in enumerate(filtered_logs[:limit], 1):
+        logs_list.append({
+            'id': str(log.id),
+            'counter': idx,
+            'recipientMobile': log.recipient_mobile,
+            'recipientName': log.recipient_name or 'Parent',
+            'category': log.get_message_type_display(),
+            'categoryCode': log.message_type,
+            'entityId': log.entity_id or '-',
+            'provider': log.provider or 'LOCAL_WHATSAPP',
+            'status': log.status,
+            'dispatchedAt': timezone.localtime(log.created_at).strftime('%d %b %Y, %H:%M'),
+            'timestamp': log.created_at.isoformat(),
+            'sentBy': log.sent_by or 'System',
+            'messageText': log.message_text or '',
+            'messageSnippet': (log.message_text[:75] + '...') if len(log.message_text or '') > 75 else (log.message_text or ''),
+            'responsePayload': log.response_payload or '',
+        })
+
+    from .context_processors import get_cached_settings_dict
+    settings_map = get_cached_settings_dict()
+
+    return JsonResponse({
+        'success': True,
+        'kpi': {
+            'total': total_count,
+            'sent': sent_count,
+            'simulated': simulated_count,
+            'failed': failed_count,
+            'credits_balance': settings_map.get('whatsapp_credits_balance', 500),
+            'messages_sent': settings_map.get('whatsapp_messages_sent_count', 0),
+        },
+        'count': len(logs_list),
+        'total_filtered': filtered_logs.count(),
+        'logs': logs_list,
+        'timestamp': timezone.now().isoformat()
+    })
+
+
+def api_resend_notification_view(request):
+    """
+    POST /api/settings/resend-notification/
+    Re-dispatches a previously failed or recorded notification log via dispatch_whatsapp_message.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    log_id = request.POST.get('log_id') or request.GET.get('log_id')
+    if not log_id:
+        try:
+            body = json.loads(request.body.decode('utf-8')) if request.body else {}
+            log_id = body.get('log_id')
+        except Exception:
+            pass
+
+    if not log_id:
+        return JsonResponse({'success': False, 'error': 'Notification log ID is required.'}, status=400)
+
+    try:
+        log = NotificationLog.objects.get(id=log_id)
+    except NotificationLog.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Log record not found.'}, status=404)
+
+    sent_by_user = 'Admin (Retry)'
+    if request.user and request.user.is_authenticated:
+        sent_by_user = f"{request.user.username} (Retry)"
+
+    result = dispatch_whatsapp_message(
+        recipient=log.recipient_mobile,
+        message=log.message_text,
+        message_type=log.message_type,
+        recipient_name=log.recipient_name,
+        entity_id=log.entity_id or '',
+        sent_by=sent_by_user
+    )
+
+    return JsonResponse({
+        'success': result.get('success', False),
+        'status': result.get('status'),
+        'error': result.get('error'),
+        'new_log_id': result.get('log_id'),
+        'message': 'Notification re-dispatched successfully!' if result.get('success') else (result.get('error') or 'Re-dispatch failed.')
+    })
+
 
 
