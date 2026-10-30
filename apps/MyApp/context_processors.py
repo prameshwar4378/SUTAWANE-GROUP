@@ -43,6 +43,49 @@ def get_cached_settings_dict():
     return s_dict
 
 
+def get_branch_branding(branch=None):
+    """
+    Returns dedicated branding dict for a given branch with graceful fallback to central institute settings.
+    Used across headers, fee receipts, and WhatsApp dispatches.
+    """
+    settings = get_cached_settings_dict()
+    master_name = settings.get('institute_name', 'Sutawane Classes')
+    master_logo = settings.get('logo_url') or '/static/images/logo-master.png'
+    master_address = settings.get('address', '')
+    master_phone = settings.get('phone', '')
+    master_email = settings.get('email', '')
+    master_tagline = settings.get('tagline', '')
+    if branch:
+        b_class_name = getattr(branch, 'class_name', None) or master_name
+        b_logo = branch.logo_url or master_logo
+        b_address = branch.address or master_address
+        b_phone = branch.phone or master_phone
+        b_email = getattr(branch, 'email', None) or master_email
+        b_tagline = getattr(branch, 'tagline', None) or master_tagline
+        return {
+            'class_name': b_class_name,
+            'branch_name': branch.name,
+            'code': branch.code,
+            'address': b_address,
+            'phone': b_phone,
+            'email': b_email,
+            'tagline': b_tagline,
+            'logo_url': b_logo,
+            'is_branch_specific': bool(getattr(branch, 'class_name', None) or branch.logo_url),
+        }
+    return {
+        'class_name': master_name,
+        'branch_name': 'Central Campus',
+        'code': 'MAIN',
+        'address': master_address,
+        'phone': master_phone,
+        'email': master_email,
+        'tagline': master_tagline,
+        'logo_url': master_logo,
+        'is_branch_specific': False,
+    }
+
+
 def invalidate_global_context_cache():
     """Immediately clears caches for branches, sessions, and system settings."""
     invalidate_context_cache()
@@ -112,16 +155,13 @@ def global_context(request):
                 selected_session_id = 'ALL'
                 request.session['selected_session_id'] = 'ALL'
 
-    # 3. System Branding & Settings (In-Memory Cached)
+    # 3. System Branding & Settings (In-Memory Cached with Dedicated Branch Branding)
     settings_dict = get_cached_settings_dict()
-    institute_name = settings_dict.get('institute_name', 'Sutawane Classes')
+    branch_branding = get_branch_branding(selected_branch)
+    institute_name = branch_branding['class_name']
     
     # Branch Logo fallback
-    active_logo_url = None
-    if selected_branch and selected_branch.logo_url:
-        active_logo_url = selected_branch.logo_url
-    elif settings_dict.get('logo_url'):
-        active_logo_url = settings_dict.get('logo_url')
+    active_logo_url = branch_branding['logo_url']
 
     if active_logo_url and active_logo_url.startswith('/api/uploads/'):
         active_logo_url = active_logo_url.replace('/api/uploads/', '/media/')
@@ -157,6 +197,7 @@ def global_context(request):
         'selected_session_id': selected_session_id,
         'selected_session': selected_session,
         'institute_settings': settings_dict,
+        'active_branch_branding': branch_branding,
         'institute_name': institute_name,
         'active_logo_url': active_logo_url,
         'current_user': current_user,

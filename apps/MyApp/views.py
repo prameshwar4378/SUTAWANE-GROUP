@@ -32,7 +32,7 @@ from .auth_utils import (
     get_user_permissions, has_permission, invalidate_permissions_cache,
     DEFAULT_BRANCH_MANAGER_PERMISSIONS
 )
-from .context_processors import invalidate_global_context_cache, get_cached_settings_dict
+from .context_processors import invalidate_global_context_cache, get_cached_settings_dict, get_branch_branding
 from .whatsapp import (
     format_whatsapp_number, generate_whatsapp_url,
     build_receipt_whatsapp_message, build_fee_reminder_whatsapp_message,
@@ -1705,18 +1705,17 @@ def students_list_view(request):
             target_phone = student.parent_phone or student.student_phone
             whatsapp_dispatched = False
             if auto_admission and target_phone:
-                inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
-                helpline = inst_settings.get('whatsapp_sender_phone') or (branch.phone if branch else '+91 98814 65883')
+                b_brand = get_branch_branding(branch)
                 adm_msg = build_admission_whatsapp_message(
-                    institute_name=inst_name,
+                    institute_name=b_brand['class_name'],
                     student_name=student.full_name,
                     student_code=student.student_code or '',
                     roll_number=admission.roll_number or '',
                     standard=admission.standard or '',
                     session_name=session.name if session else '',
-                    branch_name=branch.name if branch else '',
+                    branch_name=b_brand['branch_name'],
                     total_fees=float(total_fees),
-                    helpline=helpline
+                    helpline=b_brand['phone'] or inst_settings.get('whatsapp_sender_phone', '+91 98814 65883')
                 )
                 disp_res = dispatch_whatsapp_message(
                     recipient=target_phone,
@@ -2415,11 +2414,11 @@ def student_detail_view(request, student_id):
             adm_payments = list(p.admission.payments.all()) if p.admission else None
             remaining_balance = get_payment_point_in_time_balance(p, admission_payments=adm_payments)
 
-            branch_name = p.branch.name if p.branch else (p.admission.branch.name if p.admission and p.admission.branch else '')
-            branch_phone = p.branch.phone if p.branch and p.branch.phone else (p.admission.branch.phone if p.admission and p.admission.branch and p.admission.branch.phone else inst_settings.get('phone', ''))
+            target_branch = p.branch or (p.admission.branch if p.admission else None)
+            b_brand = get_branch_branding(target_branch)
 
             msg = build_receipt_whatsapp_message(
-                institute_name=inst_name,
+                institute_name=b_brand['class_name'],
                 student_name=student.full_name,
                 student_code=student.student_code or '',
                 roll_number=p.admission.roll_number if p.admission else '',
@@ -2430,8 +2429,8 @@ def student_detail_view(request, student_id):
                 payment_mode=p.get_payment_mode_display() if hasattr(p, 'get_payment_mode_display') else p.payment_mode,
                 reference_number=p.reference_number or '',
                 remaining_balance=remaining_balance,
-                branch_name=branch_name,
-                helpline=branch_phone,
+                branch_name=b_brand['branch_name'],
+                helpline=b_brand['phone'],
             )
             p.whatsapp_url = generate_whatsapp_url(target_phone, msg)
         else:
@@ -3413,11 +3412,10 @@ def fee_collect_view(request):
                 target_phone = student.parent_phone or student.student_phone
                 whatsapp_dispatched = False
                 if auto_whatsapp and target_phone:
-                    inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
-                    helpline = inst_settings.get('whatsapp_sender_phone') or (target_branch.phone if target_branch else '+91 98814 65883')
+                    b_brand = get_branch_branding(target_branch)
                     remaining_prev = max(MONEY_ZERO, prev_due.outstanding_amount - prev_due.collected_amount)
                     rcpt_msg = build_receipt_whatsapp_message(
-                        institute_name=inst_name,
+                        institute_name=b_brand['class_name'],
                         student_name=student.full_name,
                         student_code=student.student_code or '',
                         roll_number=active_adm.roll_number if active_adm else '',
@@ -3428,8 +3426,8 @@ def fee_collect_view(request):
                         payment_mode=payment_mode,
                         reference_number=reference_number or '',
                         remaining_balance=float(remaining_prev),
-                        branch_name=target_branch.name if target_branch else '',
-                        helpline=helpline
+                        branch_name=b_brand['branch_name'],
+                        helpline=b_brand['phone'] or inst_settings.get('whatsapp_sender_phone', '+91 98814 65883')
                     )
                     disp_res = dispatch_whatsapp_message(
                         recipient=target_phone,
@@ -3551,11 +3549,9 @@ def fee_collect_view(request):
             target_phone = student.parent_phone or student.student_phone
             whatsapp_dispatched = False
             if auto_whatsapp and target_phone:
-                inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
-                helpline = inst_settings.get('whatsapp_sender_phone') or (target_adm.branch.phone if target_adm and target_adm.branch else '+91 98814 65883')
-                branch_name = target_adm.branch.name if target_adm and target_adm.branch else ''
+                b_brand = get_branch_branding(target_adm.branch if target_adm else None)
                 rcpt_msg = build_receipt_whatsapp_message(
-                    institute_name=inst_name,
+                    institute_name=b_brand['class_name'],
                     student_name=student.full_name,
                     student_code=student.student_code or '',
                     roll_number=target_adm.roll_number if target_adm else '',
@@ -3566,8 +3562,8 @@ def fee_collect_view(request):
                     payment_mode=payment_mode,
                     reference_number=reference_number or '',
                     remaining_balance=float(remaining_after),
-                    branch_name=branch_name,
-                    helpline=helpline
+                    branch_name=b_brand['branch_name'],
+                    helpline=b_brand['phone'] or inst_settings.get('whatsapp_sender_phone', '+91 98814 65883')
                 )
                 disp_res = dispatch_whatsapp_message(
                     recipient=target_phone,
@@ -4037,11 +4033,9 @@ def collect_fee_modal_view(request, student_id):
         whatsapp_url = None
         target_phone = student.parent_phone or student.student_phone
         if target_phone:
-            inst_name = inst_settings.get('institute_name', 'Sutawane Classes')
-            helpline = inst_settings.get('whatsapp_sender_phone') or (target_adm.branch.phone if target_adm and target_adm.branch else '+91 98814 65883')
-            branch_name = target_adm.branch.name if target_adm and target_adm.branch else ''
+            b_brand = get_branch_branding(target_adm.branch if target_adm else None)
             rcpt_msg = build_receipt_whatsapp_message(
-                institute_name=inst_name,
+                institute_name=b_brand['class_name'],
                 student_name=student.full_name,
                 student_code=student.student_code or '',
                 roll_number=target_adm.roll_number if target_adm else '',
@@ -4052,8 +4046,8 @@ def collect_fee_modal_view(request, student_id):
                 payment_mode=payment_mode,
                 reference_number=reference_number or '',
                 remaining_balance=float(remaining_after),
-                branch_name=branch_name,
-                helpline=helpline
+                branch_name=b_brand['branch_name'],
+                helpline=b_brand['phone'] or inst_settings.get('whatsapp_sender_phone', '+91 98814 65883')
             )
             whatsapp_url = generate_whatsapp_url(target_phone, rcpt_msg)
             if auto_whatsapp:
@@ -4185,9 +4179,10 @@ def payment_receipt_modal_view(request, payment_id):
     # Pre-generate WhatsApp message & deep link
     whatsapp_url = None
     target_phone = payment.student.parent_phone or payment.student.student_phone
+    b_brand = get_branch_branding(payment.branch)
     if target_phone:
         msg = build_receipt_whatsapp_message(
-            institute_name="Sutawane Classes",
+            institute_name=b_brand['class_name'],
             student_name=payment.student.full_name,
             student_code=payment.student.student_code,
             roll_number=payment.admission.roll_number if payment.admission else '',
@@ -4198,8 +4193,8 @@ def payment_receipt_modal_view(request, payment_id):
             payment_mode=payment.payment_mode,
             reference_number=payment.reference_number or '',
             remaining_balance=remaining_balance,
-            branch_name=payment.branch.name if payment.branch else '',
-            helpline=payment.branch.phone if payment.branch else '',
+            branch_name=b_brand['branch_name'],
+            helpline=b_brand['phone'],
         )
         whatsapp_url = generate_whatsapp_url(target_phone, msg)
 
@@ -4209,6 +4204,7 @@ def payment_receipt_modal_view(request, payment_id):
         'remaining_balance': remaining_balance,
         'amount_in_words': amount_in_words,
         'whatsapp_url': whatsapp_url,
+        'branch_branding': b_brand,
         'institute_settings': get_institute_settings_dict(),
     }
     return render(request, 'modals/fee_receipt_modal.html', context)
@@ -4237,9 +4233,10 @@ def payment_receipt_print_view(request, payment_id):
 
     whatsapp_url = None
     target_phone = payment.student.parent_phone or payment.student.student_phone
+    b_brand = get_branch_branding(payment.branch)
     if target_phone:
         msg = build_receipt_whatsapp_message(
-            institute_name="Sutawane Classes",
+            institute_name=b_brand['class_name'],
             student_name=payment.student.full_name,
             student_code=payment.student.student_code,
             roll_number=payment.admission.roll_number if payment.admission else '',
@@ -4250,8 +4247,8 @@ def payment_receipt_print_view(request, payment_id):
             payment_mode=payment.payment_mode,
             reference_number=payment.reference_number or '',
             remaining_balance=remaining_balance,
-            branch_name=payment.branch.name if payment.branch else '',
-            helpline=payment.branch.phone if payment.branch else '',
+            branch_name=b_brand['branch_name'],
+            helpline=b_brand['phone'],
         )
         whatsapp_url = generate_whatsapp_url(target_phone, msg)
 
@@ -4263,6 +4260,7 @@ def payment_receipt_print_view(request, payment_id):
         'current_mode': current_mode,
         'autoprint': autoprint,
         'whatsapp_url': whatsapp_url,
+        'branch_branding': b_brand,
         'institute_settings': get_institute_settings_dict(),
     }
     return render(request, 'receipt_print.html', context)
@@ -4679,8 +4677,10 @@ def fees_dues_view(request):
     # Lazy on-demand WhatsApp link generation ONLY for visible rows on the current page (fast rendering)
     for d in paginated_dues:
         if d.get('parent_phone') and d['parent_phone'] != '—' and not d.get('whatsapp_url'):
+            branch_obj = Branch.objects.filter(id=d.get('branch_id')).first() if d.get('branch_id') else None
+            b_brand = get_branch_branding(branch_obj)
             msg = build_fee_reminder_whatsapp_message(
-                institute_name="Sutawane Classes",
+                institute_name=b_brand['class_name'],
                 student_name=d['student_name'],
                 student_code=d['student_code'],
                 roll_number=d['roll_number'],
@@ -4689,9 +4689,9 @@ def fees_dues_view(request):
                 previous_dues_pending=d['previous_dues_pending'],
                 overall_pending_amount=d['overall_pending_amount'],
                 next_due_date=d['due_date'].strftime('%d %B %Y') if d['due_date'] else None,
-                branch_name=d['branch_name'] if d['branch_name'] != '—' else '',
+                branch_name=b_brand['branch_name'] if b_brand['branch_name'] != 'Central Campus' else (d['branch_name'] if d['branch_name'] != '—' else ''),
                 session_name=d['session_name'] if d['session_name'] != '—' else '',
-                helpline=d.get('branch_phone') or '',
+                helpline=b_brand['phone'] or d.get('branch_phone') or '',
             )
             d['whatsapp_url'] = generate_whatsapp_url(d['parent_phone'], msg)
 
@@ -6233,9 +6233,12 @@ def branches_list_view(request):
         action = request.POST.get('action')
         if action == 'create':
             name = request.POST.get('name', '').strip()
+            class_name = request.POST.get('class_name', '').strip() or None
             code = request.POST.get('code', '').strip().upper()
             contact_person = request.POST.get('contact_person', '').strip()
             phone = request.POST.get('phone', '').strip()
+            email = request.POST.get('email', '').strip() or None
+            tagline = request.POST.get('tagline', '').strip() or None
             address = request.POST.get('address', '').strip()
 
             if Branch.objects.filter(code=code).exists():
@@ -6259,9 +6262,12 @@ def branches_list_view(request):
 
             branch = Branch.objects.create(
                 name=name,
+                class_name=class_name,
                 code=code,
                 contact_person=contact_person or None,
                 phone=phone or None,
+                email=email,
+                tagline=tagline,
                 address=address or None,
                 logo_url=logo_url,
                 is_active=True,
@@ -6274,10 +6280,16 @@ def branches_list_view(request):
             branch_id = request.POST.get('branch_id')
             branch = get_object_or_404(Branch, id=branch_id)
             branch.name = request.POST.get('name', '').strip()
+            branch.class_name = request.POST.get('class_name', '').strip() or None
             branch.code = request.POST.get('code', '').strip().upper()
             branch.contact_person = request.POST.get('contact_person', '').strip() or None
             branch.phone = request.POST.get('phone', '').strip() or None
+            branch.email = request.POST.get('email', '').strip() or None
+            branch.tagline = request.POST.get('tagline', '').strip() or None
             branch.address = request.POST.get('address', '').strip() or None
+
+            if request.POST.get('remove_logo') == '1':
+                branch.logo_url = None
 
             if request.FILES.get('logo'):
                 logo_file = request.FILES['logo']

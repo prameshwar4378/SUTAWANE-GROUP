@@ -181,9 +181,12 @@ class RolePermission(models.Model):
 class Branch(models.Model):
     id = models.CharField(primary_key=True, max_length=36, default=generate_uuid, editable=False)
     name = models.CharField(unique=True, max_length=150)
+    class_name = models.CharField(max_length=200, null=True, blank=True, db_column='className')
     code = models.CharField(unique=True, max_length=50)
     address = models.TextField(null=True, blank=True)
     phone = models.CharField(max_length=50, null=True, blank=True)
+    email = models.CharField(max_length=150, null=True, blank=True)
+    tagline = models.CharField(max_length=255, null=True, blank=True)
     contact_person = models.CharField(max_length=150, null=True, blank=True, db_column='contactPerson')
     logo_url = models.CharField(max_length=500, null=True, blank=True, db_column='logoUrl')
     is_active = models.BooleanField(default=True, db_column='isActive')
@@ -198,6 +201,9 @@ class Branch(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+    def get_display_name(self):
+        return self.class_name or self.name
 
 
 class AcademicSession(models.Model):
