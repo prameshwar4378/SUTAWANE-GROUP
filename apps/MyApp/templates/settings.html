@@ -2507,6 +2507,8 @@
     // --- Local WhatsApp Bridge Status Poller & Device Management ---
     let bridgePollTimer = null;
     let isBridgeChecking = false;
+    let notifLogsPollTimer = null;
+    let searchDebounceTimer = null;
 
     window.checkLocalBridgeStatus = async function(isManual = false) {
       if (isBridgeChecking && !isManual) return;
@@ -2739,11 +2741,13 @@
       }
 
       // Automatically fetch fresh logs when switching to Notification Logs tab
-      if (cleanTabName === 'logs' && typeof window.fetchNotificationLogs === 'function') {
-        window.fetchNotificationLogs(false);
-      }
-      if (typeof checkNotifAutoPoll === 'function') {
-        checkNotifAutoPoll();
+      if (cleanTabName === 'logs') {
+        if (typeof window.fetchNotificationLogs === 'function') {
+          window.fetchNotificationLogs(false);
+        }
+        if (typeof checkNotifAutoPoll === 'function') {
+          checkNotifAutoPoll();
+        }
       }
 
       // Automatically check WhatsApp bridge status when switching to WhatsApp tab
@@ -3171,9 +3175,6 @@
     };
 
     // --- Notification Logs Live Auto-Refresh & Audit Engine ---
-    let notifLogsPollTimer = null;
-    let searchDebounceTimer = null;
-
     function checkNotifAutoPoll() {
       if (notifLogsPollTimer) {
         clearInterval(notifLogsPollTimer);
