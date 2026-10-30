@@ -6981,10 +6981,11 @@ def settings_manage_view(request):
     is_admin = bool(current_user and (current_user.is_class_owner or current_user.is_developer))
     settings_dict = get_institute_settings_dict()
     settings_map = settings_dict
+    active_tab = request.GET.get('tab', 'profile')
 
     if request.method == 'POST':
         action = request.POST.get('action', 'save_profile')
-        active_tab = request.POST.get('active_tab', 'profile')
+        active_tab = request.POST.get('active_tab', active_tab)
 
         # -------------------------------------------------------------
         # TAB 6 ACTIONS: ROLES & USER MANAGEMENT (Class Owner & Dev Only)
@@ -7317,6 +7318,7 @@ def settings_manage_view(request):
     class_owners_count = users_list.filter(role='CLASS_OWNER').count()
     branch_managers_count = users_list.filter(role='BRANCH_MANAGER').count()
     developers_count = users_list.filter(role='DEVELOPER').count()
+    today_display = timezone.localtime().strftime('%A, %d %B %Y')
 
     context = {
         'settings': settings_dict,
