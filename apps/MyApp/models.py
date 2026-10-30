@@ -443,6 +443,28 @@ class PreviousSessionDue(models.Model):
     def __str__(self):
         return f"Previous Due: {self.student.full_name} - Outstanding: ₹{self.outstanding_amount}"
 
+    @property
+    def pending_amount(self):
+        return max(Decimal('0.00'), (self.outstanding_amount or Decimal('0.00')) - (self.collected_amount or Decimal('0.00')))
+
+    @property
+    def is_cleared(self):
+        return self.pending_amount <= Decimal('0.00')
+
+    @property
+    def status(self):
+        if self.is_cleared:
+            return 'PAID'
+        if (self.collected_amount or Decimal('0.00')) > Decimal('0.00'):
+            return 'PARTIAL'
+        return 'PENDING'
+
+    @property
+    def clearance_pct(self):
+        if not self.outstanding_amount or self.outstanding_amount <= Decimal('0.00'):
+            return 100.0
+        return round(float((self.collected_amount or Decimal('0.00')) / self.outstanding_amount * 100), 1)
+
 
 class Payment(models.Model):
     PAYMENT_MODE_CHOICES = (

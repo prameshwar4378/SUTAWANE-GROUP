@@ -1051,20 +1051,35 @@ def dashboard_view(request):
 
         # 5. Session Cumulative Macro Metrics
         active_students_count = admissions_qs.count()
-        total_expected_fees = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+        plan_expected_fees = FeePlan.objects.filter(admission__in=admissions_qs).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
         # Fee-plan collection metrics must strictly correspond to active admissions in scope
         current_fee_payments_qs = payments_qs.filter(admission__in=admissions_qs)
-        total_collected_fees = current_fee_payments_qs.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+        plan_collected_fees = current_fee_payments_qs.aggregate(tot=Sum('total_amount'))['tot'] or MONEY_ZERO
+
+        # Historical / Carried-forward dues within active scope
+        prev_dues_scope = PreviousSessionDue.objects.filter(student__admissions__in=admissions_qs).distinct()
+        if not is_all_sessions and active_session:
+            prev_dues_scope = prev_dues_scope.filter(current_session_id=active_session.id)
+        if not is_all_branches:
+            prev_dues_scope = prev_dues_scope.filter(student__admissions__branch_id=selected_branch_id).distinct()
+        prev_dues_agg = prev_dues_scope.aggregate(tot_out=Sum('outstanding_amount'), tot_col=Sum('collected_amount'))
+        prev_outstanding = prev_dues_agg['tot_out'] or MONEY_ZERO
+        prev_collected = prev_dues_agg['tot_col'] or MONEY_ZERO
+        prev_pending = max(MONEY_ZERO, prev_outstanding - prev_collected)
+
+        total_expected_fees = plan_expected_fees + prev_outstanding
+        total_collected_fees = plan_collected_fees + prev_collected
 
         # Calculate true pending fees across active student accounts (never netting one student's surplus against another's debt)
         paid_per_adm = dict(
             current_fee_payments_qs.values('admission_id').annotate(tot=Sum('total_amount')).values_list('admission_id', 'tot')
         )
-        total_pending_fees = sum(
+        plan_pending_fees = sum(
             (max(MONEY_ZERO, fp.net_payable - paid_per_adm.get(fp.admission_id, MONEY_ZERO))
              for fp in FeePlan.objects.filter(admission__in=admissions_qs)),
             MONEY_ZERO
         )
+        total_pending_fees = plan_pending_fees + prev_pending
 
         # 6. Installments Due Today & Overdue Dues
         due_today_count = 0
@@ -1225,7 +1240,16 @@ def dashboard_view(request):
                 b_adms = StudentAdmission.objects.filter(branch=b, is_active=True)
                 if not is_all_sessions and active_session:
                     b_adms = b_adms.filter(session=active_session)
-                b_expected = FeePlan.objects.filter(admission__in=b_adms).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+                b_plan_expected = FeePlan.objects.filter(admission__in=b_adms).aggregate(tot=Sum('net_payable'))['tot'] or MONEY_ZERO
+                b_prev_dues = PreviousSessionDue.objects.filter(student__admissions__in=b_adms).distinct()
+                if not is_all_sessions and active_session:
+                    b_prev_dues = b_prev_dues.filter(current_session_id=active_session.id)
+                b_prev_agg = b_prev_dues.aggregate(tot_out=Sum('outstanding_amount'), tot_col=Sum('collected_amount'))
+                b_prev_out = b_prev_agg['tot_out'] or MONEY_ZERO
+                b_prev_col = b_prev_agg['tot_col'] or MONEY_ZERO
+                b_prev_pend = max(MONEY_ZERO, b_prev_out - b_prev_col)
+
+                b_expected = b_plan_expected + b_prev_out
 
                 b_payments = Payment.objects.filter(branch=b, is_reversed=False)
                 if not is_all_sessions and active_session:
@@ -1236,11 +1260,12 @@ def dashboard_view(request):
                 b_paid_map = dict(
                     b_payments.filter(admission__in=b_adms).values('admission_id').annotate(tot=Sum('total_amount')).values_list('admission_id', 'tot')
                 )
-                b_pending_dues = sum(
+                b_plan_pending = sum(
                     (max(MONEY_ZERO, fp.net_payable - b_paid_map.get(fp.admission_id, MONEY_ZERO))
                      for fp in FeePlan.objects.filter(admission__in=b_adms)),
                     MONEY_ZERO
                 )
+                b_pending_dues = b_plan_pending + b_prev_pend
 
                 b_expenses_q = Expense.objects.filter(branch=b)
                 if not is_all_sessions and active_session and active_session.start_date and active_session.end_date:
@@ -1279,6 +1304,8 @@ def dashboard_view(request):
                 'total_expected_fees': total_expected_fees,
                 'total_collected_fees': total_collected_fees,
                 'total_pending_fees': total_pending_fees,
+                'session_plan_pending': plan_pending_fees,
+                'previous_dues_pending': prev_pending,
             },
             'dues': {
                 'due_today_count': due_today_count,
@@ -3321,6 +3348,9 @@ def fee_collect_view(request):
                     pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
                     pd.save()
 
+            invalidate_financial_cache()
+            invalidate_student_cache(payment.student_id)
+
             messages.success(request, f"Receipt #{payment.receipt_number} voided and reversed successfully. Ledgers updated.")
             return redirect(f"{request.path}?tab=history")
 
@@ -3666,18 +3696,23 @@ def fee_collect_view(request):
             paid_f = sum((p.total_amount for p in target_admission.payments.all() if not p.is_reversed), MONEY_ZERO) if target_admission else MONEY_ZERO
             pend_f = max(MONEY_ZERO, tot_f - paid_f)
 
-            # Pure session-based calculation: each session strictly manages its own fees
-            other_sessions_pending = sum((adm.adm_pending for adm in all_admissions if target_admission and adm.id != target_admission.id), MONEY_ZERO)
-            lifetime_total_fees = sum((adm.adm_total for adm in all_admissions), MONEY_ZERO)
-            lifetime_paid_fees = sum((adm.adm_paid for adm in all_admissions), MONEY_ZERO)
-            lifetime_pending_fees = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO)
+            all_prev_dues = selected_student.previous_dues.all()
+            all_prev_total = sum((d.outstanding_amount for d in all_prev_dues), MONEY_ZERO)
+            all_prev_collected = sum((d.collected_amount for d in all_prev_dues), MONEY_ZERO)
+            all_prev_pending = sum((d.pending_amount for d in all_prev_dues), MONEY_ZERO)
+
+            # Consolidated multi-session & historical financial metrics
+            lifetime_total_fees = sum((adm.adm_total for adm in all_admissions), MONEY_ZERO) + all_prev_total
+            lifetime_paid_fees = sum((adm.adm_paid for adm in all_admissions), MONEY_ZERO) + all_prev_collected
+            lifetime_pending_fees = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO) + all_prev_pending
+            other_sessions_pending = max(MONEY_ZERO, lifetime_pending_fees - pend_f)
 
             fee_summary = {
                 'total_fees': tot_f,
                 'paid_fees': paid_f,
                 'pending_fees': pend_f,
                 'other_sessions_pending': other_sessions_pending,
-                'previous_dues_pending': other_sessions_pending,  # alias for backward-compatibility
+                'previous_dues_pending': all_prev_pending,
                 'overall_pending': lifetime_pending_fees,
                 'lifetime_total_fees': lifetime_total_fees,
                 'lifetime_paid_fees': lifetime_paid_fees,
@@ -3933,8 +3968,10 @@ def collect_fee_modal_view(request, student_id):
         already_paid = sum((p.total_amount for p in target_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if target_adm else MONEY_ZERO
         pending_due = max(MONEY_ZERO, tot_f - already_paid)
 
-        other_sessions_pending = sum((adm.adm_pending for adm in all_admissions if target_adm and adm.id != target_adm.id), MONEY_ZERO)
-        overall_pending = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO)
+        all_prev_dues = student.previous_dues.all()
+        all_prev_pending = sum((d.pending_amount for d in all_prev_dues), MONEY_ZERO)
+        overall_pending = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO) + all_prev_pending
+        other_sessions_pending = max(MONEY_ZERO, overall_pending - pending_due)
 
         amount_str = request.POST.get('amount', '').strip()
         payment_mode = request.POST.get('payment_mode', 'UPI')
@@ -4098,8 +4135,10 @@ def collect_fee_modal_view(request, student_id):
     paid_f = sum((p.total_amount for p in target_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if target_adm else MONEY_ZERO
     pend_f = max(MONEY_ZERO, tot_f - paid_f)
 
-    other_sessions_pending = sum((adm.adm_pending for adm in all_admissions if target_adm and adm.id != target_adm.id), MONEY_ZERO)
-    overall_pending = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO)
+    all_prev_dues = student.previous_dues.all()
+    all_prev_pending = sum((d.pending_amount for d in all_prev_dues), MONEY_ZERO)
+    overall_pending = sum((adm.adm_pending for adm in all_admissions), MONEY_ZERO) + all_prev_pending
+    other_sessions_pending = max(MONEY_ZERO, overall_pending - pend_f)
 
     amount_to_pay = initial_amount
     if not amount_to_pay or amount_to_pay == '0':
@@ -5413,16 +5452,27 @@ def financial_reports_view(request):
                 active_admissions = [a for a in admissions if a.is_active]
                 archived_admissions = [a for a in admissions if not a.is_active]
     
-                total_fees_agreed = sum(
+                plan_fees_agreed = sum(
                     (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None 
                      else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)
                      for a in active_admissions),
                     MONEY_ZERO
                 )
     
+                prev_dues_qs = PreviousSessionDue.objects.filter(student__admissions__in=active_admissions).distinct()
+                if target_session:
+                    prev_dues_qs = prev_dues_qs.filter(current_session=target_session)
+                if selected_branch_id != 'ALL':
+                    prev_dues_qs = prev_dues_qs.filter(student__admissions__branch_id=selected_branch_id).distinct()
+                prev_dues_agg = prev_dues_qs.aggregate(tot_out=Sum('outstanding_amount'), tot_col=Sum('collected_amount'))
+                prev_dues_total = prev_dues_agg['tot_out'] or MONEY_ZERO
+                prev_dues_collected = prev_dues_agg['tot_col'] or MONEY_ZERO
+                prev_dues_pending = max(MONEY_ZERO, prev_dues_total - prev_dues_collected)
+
+                total_fees_agreed = plan_fees_agreed + prev_dues_total
+
                 pay_qs = Payment.objects.filter(
                     is_reversed=False,
-                    admission__isnull=False,
                 ).select_related('branch', 'admission', 'student')
                 if target_session:
                     pay_qs = pay_qs.filter(
@@ -5438,11 +5488,12 @@ def financial_reports_view(request):
                 paid_per_adm = dict(
                     pay_qs.filter(admission_id__in=active_adm_ids).values('admission_id').annotate(tot=Sum('total_amount')).values_list('admission_id', 'tot')
                 )
-                total_pending_dues = sum(
+                plan_pending_dues = sum(
                     (max(MONEY_ZERO, (a.fee_plan.net_payable if (hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None) else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)) - paid_per_adm.get(a.id, MONEY_ZERO))
                      for a in active_admissions),
                     MONEY_ZERO
                 )
+                total_pending_dues = plan_pending_dues + prev_dues_pending
                 collection_efficiency = round((float(total_collections) / float(total_fees_agreed) * 100), 1) if total_fees_agreed and float(total_fees_agreed) > 0 else 0.0
     
                 exp_qs = Expense.objects.all().select_related('category', 'branch')
@@ -5465,20 +5516,27 @@ def financial_reports_view(request):
                 audit_branches = [b for b in branches if b.id == selected_branch_id] if selected_branch_id != 'ALL' else branches
                 for b in audit_branches:
                     b_adms = [a for a in active_admissions if a.branch_id == b.id]
-                    b_fees = sum(
+                    b_plan_fees = sum(
                         (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None
                          else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)
                          for a in b_adms),
                         MONEY_ZERO
                     )
+                    b_prev_dues = [d for d in prev_dues_qs if d.student_id in {a.student_id for a in b_adms}]
+                    b_prev_out = sum((d.outstanding_amount for d in b_prev_dues), MONEY_ZERO)
+                    b_prev_col = sum((d.collected_amount for d in b_prev_dues), MONEY_ZERO)
+                    b_prev_pend = max(MONEY_ZERO, b_prev_out - b_prev_col)
+                    b_fees = b_plan_fees + b_prev_out
+
                     b_pays = [p for p in payments if p.branch_id == b.id]
                     b_col = sum((p.total_amount for p in b_pays), MONEY_ZERO)
                     b_exp = sum((e.amount for e in session_expenses if e.branch_id == b.id), MONEY_ZERO)
-                    b_dues = sum(
+                    b_plan_dues = sum(
                         (max(MONEY_ZERO, (a.fee_plan.net_payable if (hasattr(a, 'fee_plan') and a.fee_plan and a.fee_plan.net_payable is not None) else (a.fee_plan.total_fees if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO)) - paid_per_adm.get(a.id, MONEY_ZERO))
                          for a in b_adms),
                         MONEY_ZERO
                     )
+                    b_dues = b_plan_dues + b_prev_pend
                     b_net = b_col - b_exp
                     b_rate = round((float(b_col) / float(b_fees) * 100), 1) if b_fees and float(b_fees) > 0 else 0.0
     

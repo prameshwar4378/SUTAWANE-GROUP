@@ -11,6 +11,8 @@ signal encounter an issue.
 """
 
 import logging
+from decimal import Decimal
+from django.db.models import Sum
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
@@ -119,6 +121,25 @@ def on_fee_structure_changed(sender, instance, **kwargs):
         invalidate_financial_cache()
     except Exception as exc:
         logger.warning("Error in Fee structure cache invalidation signal: %s", exc)
+
+
+@receiver([post_save, post_delete], sender=FeeDiscount)
+def sync_fee_plan_on_discount_change(sender, instance, **kwargs):
+    """
+    Auto-healing synchronization: guarantees that whenever a FeeDiscount is added,
+    modified, or deleted, FeePlan.total_discount and FeePlan.net_payable are mathematically refreshed.
+    """
+    try:
+        if instance.fee_plan_id:
+            fp = instance.fee_plan
+            tot_disc = fp.discounts.aggregate(tot=Sum('amount'))['tot'] or Decimal('0.00')
+            net = max(Decimal('0.00'), (fp.total_fees or Decimal('0.00')) - tot_disc)
+            if fp.total_discount != tot_disc or fp.net_payable != net:
+                fp.total_discount = tot_disc
+                fp.net_payable = net
+                fp.save(update_fields=['total_discount', 'net_payable', 'updated_at'])
+    except Exception as exc:
+        logger.warning("Error auto-syncing FeePlan discount totals in signal: %s", exc)
 
 
 # -----------------------------------------------------------------------------
