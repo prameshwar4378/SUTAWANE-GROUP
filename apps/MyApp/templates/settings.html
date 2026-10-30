@@ -2074,8 +2074,8 @@
     <div id="tab-roles" class="tab-panel space-y-8 hidden">
 
       <!-- Roles Header Banner -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border/70">
-        <div class="flex items-start gap-3.5">
+      <div class="flex items-center justify-between gap-4 pb-6 border-b border-border/70">
+        <div class="flex items-start sm:items-center gap-3.5">
           <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 shadow-2xs">
             <i data-lucide="shield-check" class="w-5 h-5"></i>
           </div>
@@ -2085,16 +2085,6 @@
               Manage system staff, assign operational branches, and configure granular functional permissions.
             </p>
           </div>
-        </div>
-        <div class="flex items-center gap-2.5">
-          <button
-            type="button"
-            onclick="openAddUserModal()"
-            class="h-9 inline-flex items-center gap-2 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-          >
-            <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-            <span>Add New User</span>
-          </button>
         </div>
       </div>
 
@@ -2120,12 +2110,32 @@
 
       <!-- SUBSECTION A: User Accounts & Assigned Branches -->
       <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <i data-lucide="users" class="w-4 h-4 text-primary"></i>
-            <h3 class="text-sm font-bold text-foreground">Active Staff &amp; Manager Accounts</h3>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+              <i data-lucide="users" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-foreground">Active Staff &amp; Manager Accounts</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border/70">
+                  {{ users_list|length }} registered
+                </span>
+              </div>
+              <p class="text-[11px] text-muted-foreground">Manage user logins, roles, and branch assignments</p>
+            </div>
           </div>
-          <span class="text-xs text-muted-foreground">{{ users_list|length }} user account{{ users_list|length|pluralize }} registered</span>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              id="btnAddNewUser"
+              onclick="window.openAddUserModal && window.openAddUserModal()"
+              class="h-9 inline-flex items-center gap-2 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-sm shadow-amber-600/20 cursor-pointer"
+            >
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+              <span>Add New User</span>
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto rounded-xl border border-border/80">
@@ -2496,6 +2506,120 @@
      TAB SWITCHING & INTERACTIVITY JAVASCRIPT
      ========================================================================= -->
 <script>
+  // --- Roles & User Management Modal Functions (Global & Immediate) ---
+  window.openAddUserModal = function() {
+    const modal = document.getElementById('modalAddUser');
+    if (modal) {
+      modal.classList.remove('hidden');
+      if (typeof window.toggleAddUserBranch === 'function') {
+        window.toggleAddUserBranch('BRANCH_MANAGER');
+      }
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
+    }
+  };
+
+  window.closeAddUserModal = function() {
+    const modal = document.getElementById('modalAddUser');
+    if (modal) modal.classList.add('hidden');
+  };
+
+  window.toggleAddUserBranch = function(role) {
+    const grp = document.getElementById('addUserBranchGroup');
+    const sel = document.getElementById('addUserBranchSelect');
+    if (grp) {
+      if (role === 'BRANCH_MANAGER') {
+        grp.classList.remove('hidden');
+        if (sel) sel.required = true;
+      } else {
+        grp.classList.add('hidden');
+        if (sel) {
+          sel.required = false;
+          sel.value = '';
+        }
+      }
+    }
+  };
+
+  window.openEditUserModal = function(id, name, username, role, branchId, isActive) {
+    const modal = document.getElementById('modalEditUser');
+    if (!modal) return;
+    const idInput = document.getElementById('editUserId');
+    const nameInput = document.getElementById('editUserName');
+    const usernameInput = document.getElementById('editUserUsername');
+    const subtitle = document.getElementById('editUserSubtitle');
+    
+    if (idInput) idInput.value = id;
+    if (nameInput) nameInput.value = name;
+    if (usernameInput) usernameInput.value = '@' + username;
+    if (subtitle) subtitle.textContent = `@${username} (${role.replace('_', ' ')})`;
+    
+    const roleSelect = document.getElementById('editUserRoleSelect');
+    if (roleSelect) {
+      roleSelect.value = role;
+      if (typeof window.toggleEditUserBranch === 'function') {
+        window.toggleEditUserBranch(role);
+      }
+    }
+    const branchSelect = document.getElementById('editUserBranchSelect');
+    if (branchSelect) branchSelect.value = branchId || '';
+    
+    const activeCheck = document.getElementById('editUserIsActive');
+    if (activeCheck) activeCheck.checked = !!isActive;
+
+    modal.classList.remove('hidden');
+    if (window.lucide && lucide.createIcons) lucide.createIcons();
+  };
+
+  window.closeEditUserModal = function() {
+    const modal = document.getElementById('modalEditUser');
+    if (modal) modal.classList.add('hidden');
+  };
+
+  window.toggleEditUserBranch = function(role) {
+    const grp = document.getElementById('editUserBranchGroup');
+    if (grp) {
+      if (role === 'BRANCH_MANAGER') {
+        grp.classList.remove('hidden');
+      } else {
+        grp.classList.add('hidden');
+      }
+    }
+  };
+
+  window.openResetPasswordModal = function(id, username, name) {
+    const modal = document.getElementById('modalResetPassword');
+    if (!modal) return;
+    const idInput = document.getElementById('resetPasswordUserId');
+    const subtitle = document.getElementById('resetPasswordSubtitle');
+    const targetUser = document.getElementById('resetPasswordTargetUser');
+    if (idInput) idInput.value = id;
+    if (subtitle) subtitle.textContent = `Account: @${username}`;
+    if (targetUser) targetUser.textContent = `Resetting password for ${name} (@${username})`;
+    modal.classList.remove('hidden');
+    if (window.lucide && lucide.createIcons) lucide.createIcons();
+  };
+
+  window.closeResetPasswordModal = function() {
+    const modal = document.getElementById('modalResetPassword');
+    if (modal) modal.classList.add('hidden');
+  };
+
+  window.openDeleteUserModal = function(id, username, name) {
+    const modal = document.getElementById('modalDeleteUser');
+    if (!modal) return;
+    const idInput = document.getElementById('deleteUserId');
+    const displaySpan = document.getElementById('deleteUserDisplayName');
+    if (idInput) idInput.value = id;
+    if (displaySpan) displaySpan.textContent = `${name} (@${username})`;
+    modal.classList.remove('hidden');
+    if (window.lucide && lucide.createIcons) lucide.createIcons();
+  };
+
+  window.closeDeleteUserModal = function() {
+    const modal = document.getElementById('modalDeleteUser');
+    if (modal) modal.classList.add('hidden');
+  };
+
   document.addEventListener('DOMContentLoaded', function() {
     if (window.lucide && lucide.createIcons) {
       lucide.createIcons();
@@ -3436,116 +3560,6 @@
         checkNotifAutoPoll();
       }
     }
-
-    // --- Roles & User Management Modal Functions ---
-    window.openAddUserModal = function() {
-      const modal = document.getElementById('modalAddUser');
-      if (modal) {
-        modal.classList.remove('hidden');
-        window.toggleAddUserBranch('BRANCH_MANAGER');
-        if (window.lucide && lucide.createIcons) lucide.createIcons();
-      }
-    };
-
-    window.closeAddUserModal = function() {
-      const modal = document.getElementById('modalAddUser');
-      if (modal) modal.classList.add('hidden');
-    };
-
-    window.toggleAddUserBranch = function(role) {
-      const grp = document.getElementById('addUserBranchGroup');
-      const sel = document.getElementById('addUserBranchSelect');
-      if (grp) {
-        if (role === 'BRANCH_MANAGER') {
-          grp.classList.remove('hidden');
-          if (sel) sel.required = true;
-        } else {
-          grp.classList.add('hidden');
-          if (sel) {
-            sel.required = false;
-            sel.value = '';
-          }
-        }
-      }
-    };
-
-    window.openEditUserModal = function(id, name, username, role, branchId, isActive) {
-      const modal = document.getElementById('modalEditUser');
-      if (!modal) return;
-      const idInput = document.getElementById('editUserId');
-      const nameInput = document.getElementById('editUserName');
-      const usernameInput = document.getElementById('editUserUsername');
-      const subtitle = document.getElementById('editUserSubtitle');
-      
-      if (idInput) idInput.value = id;
-      if (nameInput) nameInput.value = name;
-      if (usernameInput) usernameInput.value = '@' + username;
-      if (subtitle) subtitle.textContent = `@${username} (${role.replace('_', ' ')})`;
-      
-      const roleSelect = document.getElementById('editUserRoleSelect');
-      if (roleSelect) {
-        roleSelect.value = role;
-        window.toggleEditUserBranch(role);
-      }
-      const branchSelect = document.getElementById('editUserBranchSelect');
-      if (branchSelect) branchSelect.value = branchId || '';
-      
-      const activeCheck = document.getElementById('editUserIsActive');
-      if (activeCheck) activeCheck.checked = !!isActive;
-
-      modal.classList.remove('hidden');
-      if (window.lucide && lucide.createIcons) lucide.createIcons();
-    };
-
-    window.closeEditUserModal = function() {
-      const modal = document.getElementById('modalEditUser');
-      if (modal) modal.classList.add('hidden');
-    };
-
-    window.toggleEditUserBranch = function(role) {
-      const grp = document.getElementById('editUserBranchGroup');
-      if (grp) {
-        if (role === 'BRANCH_MANAGER') {
-          grp.classList.remove('hidden');
-        } else {
-          grp.classList.add('hidden');
-        }
-      }
-    };
-
-    window.openResetPasswordModal = function(id, username, name) {
-      const modal = document.getElementById('modalResetPassword');
-      if (!modal) return;
-      const idInput = document.getElementById('resetPasswordUserId');
-      const subtitle = document.getElementById('resetPasswordSubtitle');
-      const targetUser = document.getElementById('resetPasswordTargetUser');
-      if (idInput) idInput.value = id;
-      if (subtitle) subtitle.textContent = `Account: @${username}`;
-      if (targetUser) targetUser.textContent = `Resetting password for ${name} (@${username})`;
-      modal.classList.remove('hidden');
-      if (window.lucide && lucide.createIcons) lucide.createIcons();
-    };
-
-    window.closeResetPasswordModal = function() {
-      const modal = document.getElementById('modalResetPassword');
-      if (modal) modal.classList.add('hidden');
-    };
-
-    window.openDeleteUserModal = function(id, username, name) {
-      const modal = document.getElementById('modalDeleteUser');
-      if (!modal) return;
-      const idInput = document.getElementById('deleteUserId');
-      const displaySpan = document.getElementById('deleteUserDisplayName');
-      if (idInput) idInput.value = id;
-      if (displaySpan) displaySpan.textContent = `${name} (@${username})`;
-      modal.classList.remove('hidden');
-      if (window.lucide && lucide.createIcons) lucide.createIcons();
-    };
-
-    window.closeDeleteUserModal = function() {
-      const modal = document.getElementById('modalDeleteUser');
-      if (modal) modal.classList.add('hidden');
-    };
 
     // AJAX Form Handling for Roles Permissions Matrix
     const rolesPermissionsForm = document.getElementById('rolesPermissionsForm');
