@@ -170,6 +170,7 @@ app.get('/health', (req, res) => {
         connectedName: bridgeState.connectedName,
         platform: process.platform,
         chromiumPath: detectedChromium || 'bundled',
+        qrDataUrl: bridgeState.qrDataUrl || null,
         error: bridgeState.error,
         timestamp: new Date().toISOString()
     });
@@ -183,6 +184,7 @@ app.get('/status', (req, res) => {
         connectedPhone: bridgeState.connectedPhone,
         connectedName: bridgeState.connectedName,
         qrAvailable: Boolean(bridgeState.qrDataUrl),
+        qrDataUrl: bridgeState.qrDataUrl || null,
         timestamp: new Date().toISOString()
     });
 });

@@ -1065,6 +1065,14 @@
                   </div>
                 </div>
 
+                <!-- 0. Bridge Connecting Loader (Visible while status is queried) -->
+                <div id="bridgeLoadingView" class="pt-4">
+                  <div class="flex items-center justify-center p-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-center gap-3">
+                    <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-emerald-600"></i>
+                    <span class="text-xs font-semibold text-muted-foreground">Connecting to WhatsApp Gateway engine...</span>
+                  </div>
+                </div>
+
                 <!-- 1. Connected Device Sub-Card (Full Width & Responsive Wrapping, hidden until status is confirmed) -->
                 <div id="bridgeConnectedView" class="pt-4 space-y-3 hidden">
                   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs">
@@ -1098,13 +1106,19 @@
                 <div id="bridgeQrView" class="pt-4 hidden">
                   <div class="grid grid-cols-1 sm:grid-cols-12 gap-5 items-center bg-white dark:bg-slate-900 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 shadow-2xs">
                     <div class="sm:col-span-5 text-center flex flex-col items-center justify-center p-2 bg-muted/40 rounded-xl border border-border">
-                      <img id="bridgeQrImg" src="" alt="Scan WhatsApp QR" class="w-48 h-48 rounded-lg shadow-xs hidden" />
-                      <div id="bridgeQrPlaceholder" class="w-48 h-48 flex items-center justify-center text-muted-foreground text-xs">
+                      <img id="bridgeQrImg" src="/api/settings/whatsapp-qr/?format=img" alt="Scan WhatsApp QR" class="w-48 h-48 rounded-lg shadow-xs" />
+                      <div id="bridgeQrPlaceholder" class="w-48 h-48 flex items-center justify-center text-muted-foreground text-xs hidden">
                         <i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Generating QR...
                       </div>
-                      <a href="/api/settings/whatsapp-qr/" target="_blank" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline mt-2 flex items-center gap-1">
-                        <i data-lucide="external-link" class="w-3 h-3"></i> Open in New Window
-                      </a>
+                      <div class="flex items-center gap-3 mt-2">
+                        <button type="button" onclick="window.checkLocalBridgeStatus(true)" class="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer">
+                          <i data-lucide="refresh-cw" class="w-3 h-3"></i> Refresh QR
+                        </button>
+                        <span class="text-muted-foreground text-xs">•</span>
+                        <a href="/api/settings/whatsapp-qr/" target="_blank" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                          <i data-lucide="external-link" class="w-3 h-3"></i> Open in New Window
+                        </a>
+                      </div>
                     </div>
                     <div class="sm:col-span-7 space-y-2.5 text-xs text-foreground">
                       <h5 class="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -1190,7 +1204,7 @@
                       <button 
                         type="button" 
                         id="checkConnectionAgainBtn" 
-                        onclick="checkLocalBridgeStatus(true)" 
+                        onclick="window.checkLocalBridgeStatus(true)" 
                         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
                       >
                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
@@ -2064,10 +2078,199 @@
      ========================================================================= -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    lucide.createIcons();
+    if (window.lucide && lucide.createIcons) {
+      lucide.createIcons();
+    }
 
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabPanels = document.querySelectorAll('.tab-panel');
+
+    // --- Local WhatsApp Bridge Status Poller & Device Management ---
+    let bridgePollTimer = null;
+    let isBridgeChecking = false;
+
+    window.checkLocalBridgeStatus = async function(isManual = false) {
+      if (isBridgeChecking && !isManual) return;
+      isBridgeChecking = true;
+
+      const btn = document.getElementById('checkConnectionAgainBtn');
+      if (isManual && btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Checking Port 3000...</span>';
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
+      }
+
+      const loadingView = document.getElementById('bridgeLoadingView');
+      const statusBadge = document.getElementById('bridgeStatusBadge');
+      const connectedView = document.getElementById('bridgeConnectedView');
+      const qrView = document.getElementById('bridgeQrView');
+      const offlineView = document.getElementById('bridgeOfflineView');
+      const connectedName = document.getElementById('bridgeConnectedName');
+      const connectedPhone = document.getElementById('bridgeConnectedPhone');
+      const qrImg = document.getElementById('bridgeQrImg');
+      const qrPlaceholder = document.getElementById('bridgeQrPlaceholder');
+      const bridgeCard = document.getElementById('localBridgeCard');
+      const endpointInput = document.getElementById('whatsappEndpointInput');
+
+      let data = null;
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const proxyRes = await fetch('/api/settings/whatsapp-status/', {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (proxyRes.ok) {
+          data = await proxyRes.json();
+        } else {
+          data = { status: 'OFFLINE', error: 'Status endpoint returned status ' + proxyRes.status };
+        }
+      } catch (e) {
+        data = { status: 'OFFLINE', error: 'Bridge communication error or service offline' };
+      } finally {
+        isBridgeChecking = false;
+      }
+
+      // Hide the initial loading placeholder once a response is received
+      if (loadingView) loadingView.classList.add('hidden');
+
+      // Auto-correct any legacy port 8000 in the UI input to port 3000
+      if (endpointInput && endpointInput.value.includes(':8000')) {
+        endpointInput.value = 'http://localhost:3000/send';
+      }
+
+      // Error handling & diagnostic alert in offline view
+      const errorAlert = document.getElementById('bridgeErrorAlert');
+      const errorText = document.getElementById('bridgeErrorText');
+      if (data && data.error && data.status !== 'READY') {
+        if (errorAlert && errorText) {
+          errorText.textContent = data.error;
+          errorAlert.classList.remove('hidden');
+        }
+      } else {
+        if (errorAlert) errorAlert.classList.add('hidden');
+      }
+
+      // Highlight active environment (Production VPS vs Local PC)
+      const isServer = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const serverLauncher = document.getElementById('serverLauncherCard');
+      const localLauncher = document.getElementById('localLauncherCard');
+      if (isServer) {
+        if (serverLauncher) serverLauncher.classList.add('ring-2', 'ring-blue-500', 'shadow-xs');
+        if (localLauncher) {
+          localLauncher.classList.remove('ring-2', 'ring-blue-500', 'shadow-xs');
+          localLauncher.classList.add('opacity-75');
+        }
+      } else {
+        if (localLauncher) localLauncher.classList.add('ring-2', 'ring-blue-500', 'shadow-xs');
+        if (serverLauncher) {
+          serverLauncher.classList.remove('ring-2', 'ring-blue-500', 'shadow-xs');
+          serverLauncher.classList.add('opacity-75');
+        }
+      }
+
+      if (data && data.status === 'READY') {
+        clearTimeout(bridgePollTimer);
+        // Status: CONNECTED & READY
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> CONNECTED &amp; READY
+            </span>
+          `;
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-emerald-50/50 dark:from-emerald-950/20 dark:via-slate-900/40 dark:to-emerald-950/20 border-emerald-300 dark:border-emerald-800/60 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.remove('hidden');
+        if (qrView) qrView.classList.add('hidden');
+        if (offlineView) offlineView.classList.add('hidden');
+
+        if (connectedName) connectedName.textContent = data.connectedName || 'Linked Account';
+        if (connectedPhone) connectedPhone.textContent = data.connectedPhone ? `(+${data.connectedPhone})` : '';
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
+
+      } else if (data && data.status === 'QR_READY') {
+        // Status: SCAN QR TO LINK
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs">
+              <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> SCAN QR TO LINK
+            </span>
+          `;
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-amber-50/80 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.add('hidden');
+        if (qrView) qrView.classList.remove('hidden');
+        if (offlineView) offlineView.classList.add('hidden');
+
+        if (qrImg) {
+          qrImg.src = data.qrDataUrl || ('/api/settings/whatsapp-qr/?format=img&t=' + Date.now());
+          qrImg.classList.remove('hidden');
+        }
+        if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
+
+        // Auto-poll every 4 seconds to detect phone scan automatically
+        clearTimeout(bridgePollTimer);
+        bridgePollTimer = setTimeout(() => window.checkLocalBridgeStatus(false), 4000);
+
+      } else if (data && (data.status === 'INITIALIZING' || data.status === 'AUTHENTICATING')) {
+        // Status: INITIALIZING / PREPARING QR
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-2xs">
+              <span class="w-2 h-2 rounded-full bg-blue-500 animate-spin"></span> STARTING ENGINE (Preparing QR...)
+            </span>
+          `;
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-blue-50/80 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800/60 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.add('hidden');
+        if (qrView) qrView.classList.remove('hidden');
+        if (offlineView) offlineView.classList.add('hidden');
+        if (qrPlaceholder) {
+          qrPlaceholder.classList.remove('hidden');
+          qrPlaceholder.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Initializing WhatsApp Web engine &amp; generating QR code...';
+          if (window.lucide && lucide.createIcons) lucide.createIcons();
+        }
+        if (qrImg) qrImg.classList.add('hidden');
+
+        // Auto-poll in 3 seconds to catch the QR code as soon as it renders
+        clearTimeout(bridgePollTimer);
+        bridgePollTimer = setTimeout(() => window.checkLocalBridgeStatus(false), 3000);
+
+      } else {
+        clearTimeout(bridgePollTimer);
+        // Status: OFFLINE
+        if (statusBadge) {
+          statusBadge.innerHTML = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+              <i data-lucide="power-off" class="w-3 h-3"></i> BRIDGE OFFLINE
+            </span>
+          `;
+          if (window.lucide && lucide.createIcons) lucide.createIcons();
+        }
+        if (bridgeCard) {
+          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 shadow-2xs';
+        }
+        if (connectedView) connectedView.classList.add('hidden');
+        if (qrView) qrView.classList.add('hidden');
+        if (offlineView) offlineView.classList.remove('hidden');
+      }
+
+      if (isManual && btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Check Connection Again</span>';
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
+      }
+    };
 
     function setActiveTab(targetId) {
       if (!targetId) targetId = 'tab-profile';
@@ -2125,8 +2328,8 @@
       }
 
       // Automatically check WhatsApp bridge status when switching to WhatsApp tab
-      if (cleanTabName === 'whatsapp' && typeof checkLocalBridgeStatus === 'function') {
-        checkLocalBridgeStatus(false);
+      if (cleanTabName === 'whatsapp' && typeof window.checkLocalBridgeStatus === 'function') {
+        window.checkLocalBridgeStatus(false);
       }
     }
 
@@ -2141,204 +2344,22 @@
     // Check URL parameters or hash on load
     const urlParams = new URLSearchParams(window.location.search);
     const queryTab = urlParams.get('tab');
-    const hash = window.location.hash;
+    const hash = window.location.hash || '';
     let initialTab = 'tab-profile';
 
     if (queryTab) {
-      initialTab = 'tab-' + queryTab;
-    } else if (hash && hash.includes('tab=')) {
-      initialTab = 'tab-' + hash.split('tab=')[1];
+      initialTab = 'tab-' + queryTab.replace('tab-', '');
+    } else if (hash.includes('tab=')) {
+      initialTab = 'tab-' + hash.split('tab=')[1].replace('tab-', '');
+    } else if (hash.includes('whatsapp')) {
+      initialTab = 'tab-whatsapp';
+    } else if (hash.includes('logs')) {
+      initialTab = 'tab-logs';
     } else if ("{{ active_tab }}") {
       initialTab = 'tab-{{ active_tab }}';
     }
 
     setActiveTab(initialTab);
-
-    // --- Local WhatsApp Bridge Status Poller & Device Management ---
-    let bridgePollTimer = null;
-
-    async function checkLocalBridgeStatus(isManual = false) {
-      const btn = document.getElementById('checkConnectionAgainBtn');
-      if (isManual && btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Checking Port 3000...</span>';
-        lucide.createIcons();
-      }
-
-      const statusBadge = document.getElementById('bridgeStatusBadge');
-      const connectedView = document.getElementById('bridgeConnectedView');
-      const qrView = document.getElementById('bridgeQrView');
-      const offlineView = document.getElementById('bridgeOfflineView');
-      const connectedName = document.getElementById('bridgeConnectedName');
-      const connectedPhone = document.getElementById('bridgeConnectedPhone');
-      const qrImg = document.getElementById('bridgeQrImg');
-      const qrPlaceholder = document.getElementById('bridgeQrPlaceholder');
-      const bridgeCard = document.getElementById('localBridgeCard');
-      const endpointInput = document.getElementById('whatsappEndpointInput');
-
-      let data = null;
-
-      // 1. High-speed server-side proxy (Zero CORS / Zero Private Network Access blocks)
-      try {
-        const proxyRes = await fetch('/api/settings/whatsapp-status/', {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' }
-        });
-        if (proxyRes.ok) {
-          data = await proxyRes.json();
-        } else {
-          data = { status: 'OFFLINE', error: 'Status endpoint responded with status ' + proxyRes.status };
-        }
-      } catch (e) {
-        data = { status: 'OFFLINE', error: 'Network communication error with server' };
-      }
-
-      // Auto-correct any legacy port 8000 in the UI input to port 3000
-      if (endpointInput && endpointInput.value.includes(':8000')) {
-        endpointInput.value = 'http://localhost:3000/send';
-      }
-
-      // Error handling & diagnostic alert in offline view
-      const errorAlert = document.getElementById('bridgeErrorAlert');
-      const errorText = document.getElementById('bridgeErrorText');
-      if (data && data.error && data.status !== 'READY') {
-        if (errorAlert && errorText) {
-          errorText.textContent = data.error;
-          errorAlert.classList.remove('hidden');
-        }
-      } else {
-        if (errorAlert) errorAlert.classList.add('hidden');
-      }
-
-      // Highlight active environment (Production VPS vs Local PC)
-      const isServer = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const serverLauncher = document.getElementById('serverLauncherCard');
-      const localLauncher = document.getElementById('localLauncherCard');
-      if (isServer) {
-        if (serverLauncher) serverLauncher.classList.add('ring-2', 'ring-blue-500', 'shadow-xs');
-        if (localLauncher) {
-          localLauncher.classList.remove('ring-2', 'ring-blue-500', 'shadow-xs');
-          localLauncher.classList.add('opacity-75');
-        }
-      } else {
-        if (localLauncher) localLauncher.classList.add('ring-2', 'ring-blue-500', 'shadow-xs');
-        if (serverLauncher) {
-          serverLauncher.classList.remove('ring-2', 'ring-blue-500', 'shadow-xs');
-          serverLauncher.classList.add('opacity-75');
-        }
-      }
-
-      if (data && data.status === 'READY') {
-        clearTimeout(bridgePollTimer);
-        // Status: CONNECTED & READY
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> CONNECTED &amp; READY
-            </span>
-          `;
-        }
-        if (bridgeCard) {
-          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-emerald-50/50 dark:from-emerald-950/20 dark:via-slate-900/40 dark:to-emerald-950/20 border-emerald-300 dark:border-emerald-800/60 shadow-2xs';
-        }
-        if (connectedView) connectedView.classList.remove('hidden');
-        if (qrView) qrView.classList.add('hidden');
-        if (offlineView) offlineView.classList.add('hidden');
-
-        if (connectedName) connectedName.textContent = data.connectedName || 'Linked Account';
-        if (connectedPhone) connectedPhone.textContent = data.connectedPhone ? `(+${data.connectedPhone})` : '';
-        lucide.createIcons();
-
-      } else if (data && data.status === 'QR_READY') {
-        // Status: SCAN QR TO LINK
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs">
-              <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> SCAN QR TO LINK
-            </span>
-          `;
-        }
-        if (bridgeCard) {
-          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-amber-50/80 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60 shadow-2xs';
-        }
-        if (connectedView) connectedView.classList.add('hidden');
-        if (qrView) qrView.classList.remove('hidden');
-        if (offlineView) offlineView.classList.add('hidden');
-
-        if (data.qrDataUrl && qrImg) {
-          qrImg.src = data.qrDataUrl;
-          qrImg.classList.remove('hidden');
-          if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
-        } else {
-          try {
-            const qrRes = await fetch('/api/settings/whatsapp-qr/?json=true');
-            if (qrRes.ok) {
-              const qrd = await qrRes.json();
-              if (qrd.qrDataUrl && qrImg) {
-                qrImg.src = qrd.qrDataUrl;
-                qrImg.classList.remove('hidden');
-                if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
-              }
-            }
-          } catch(e) {}
-        }
-        lucide.createIcons();
-
-        // Auto-poll every 4 seconds to detect phone scan automatically
-        clearTimeout(bridgePollTimer);
-        bridgePollTimer = setTimeout(() => checkLocalBridgeStatus(false), 4000);
-
-      } else if (data && (data.status === 'INITIALIZING' || data.status === 'AUTHENTICATING')) {
-        // Status: INITIALIZING / PREPARING QR
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-2xs">
-              <span class="w-2 h-2 rounded-full bg-blue-500 animate-spin"></span> STARTING ENGINE (Preparing QR...)
-            </span>
-          `;
-        }
-        if (bridgeCard) {
-          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-blue-50/80 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800/60 shadow-2xs';
-        }
-        if (connectedView) connectedView.classList.add('hidden');
-        if (qrView) qrView.classList.remove('hidden');
-        if (offlineView) offlineView.classList.add('hidden');
-        if (qrPlaceholder) {
-          qrPlaceholder.classList.remove('hidden');
-          qrPlaceholder.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Initializing WhatsApp Web engine &amp; generating QR code...';
-          lucide.createIcons();
-        }
-        if (qrImg) qrImg.classList.add('hidden');
-
-        // Auto-poll in 3 seconds to catch the QR code as soon as it renders
-        clearTimeout(bridgePollTimer);
-        bridgePollTimer = setTimeout(() => checkLocalBridgeStatus(false), 3000);
-
-      } else {
-        clearTimeout(bridgePollTimer);
-        // Status: OFFLINE
-        if (statusBadge) {
-          statusBadge.innerHTML = `
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
-              <i data-lucide="power-off" class="w-3 h-3"></i> BRIDGE OFFLINE
-            </span>
-          `;
-          lucide.createIcons();
-        }
-        if (bridgeCard) {
-          bridgeCard.className = 'w-full rounded-2xl border p-5 transition-all bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 shadow-2xs';
-        }
-        if (connectedView) connectedView.classList.add('hidden');
-        if (qrView) qrView.classList.add('hidden');
-        if (offlineView) offlineView.classList.remove('hidden');
-      }
-
-      if (isManual && btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Check Connection Again</span>';
-        lucide.createIcons();
-      }
-    }
 
     window.unlinkBridgeDevice = async function() {
       if (!confirm('Are you sure you want to unlink this WhatsApp device and connect a new number?')) {
@@ -2348,7 +2369,7 @@
       if (unlinkBtn) {
         unlinkBtn.disabled = true;
         unlinkBtn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Unlinking &amp; Resetting...</span>';
-        lucide.createIcons();
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
       }
 
       const statusBadge = document.getElementById('bridgeStatusBadge');
@@ -2369,7 +2390,7 @@
       if (qrPlaceholder) {
         qrPlaceholder.classList.remove('hidden');
         qrPlaceholder.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin mr-2"></i> Unlinking session &amp; generating brand-new QR code...';
-        lucide.createIcons();
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
       }
       if (qrImg) qrImg.classList.add('hidden');
 
@@ -2387,13 +2408,13 @@
       }
 
       setTimeout(() => {
-        checkLocalBridgeStatus(false);
+        window.checkLocalBridgeStatus(false);
       }, 1500);
     };
 
     // Auto-check on load if initial tab is whatsapp
-    if (initialTab.includes('whatsapp')) {
-      checkLocalBridgeStatus(false);
+    if (initialTab.includes('whatsapp') && typeof window.checkLocalBridgeStatus === 'function') {
+      window.checkLocalBridgeStatus(false);
     }
 
     // --- Gateway Provider Switching Logic ---
@@ -2413,8 +2434,8 @@
         if (metaOfficialCard) metaOfficialCard.classList.add('hidden');
         if (localEndpointContainer) localEndpointContainer.classList.remove('hidden');
         if (helper) helper.textContent = 'Send automated receipts and fee reminder alerts directly to parent numbers (Standard Rate: 40 Paise / Message).';
-        if (typeof checkLocalBridgeStatus === 'function') {
-          checkLocalBridgeStatus();
+        if (typeof window.checkLocalBridgeStatus === 'function') {
+          window.checkLocalBridgeStatus();
         }
       } else if (provider === 'MANUAL_DEEPLINK') {
         if (localBridgeCard) localBridgeCard.classList.add('hidden');

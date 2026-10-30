@@ -7029,26 +7029,27 @@ def api_whatsapp_status_view(request):
     GET /api/settings/whatsapp-status/
     High-performance internal proxy for checking local WhatsApp bridge status (Port 3000).
     Eliminates browser Private Network Access (PNA), Mixed-Content, or cross-port blocks.
-    Returns status: READY | QR_READY | OFFLINE with live account metadata.
+    Returns status: READY | QR_READY | OFFLINE with live account metadata and QR Data URL.
     """
     import urllib.request
     import json
 
     endpoints = [
-        'http://localhost:3000',
-        'http://127.0.0.1:3000'
+        'http://127.0.0.1:3000',
+        'http://localhost:3000'
     ]
 
     for base in endpoints:
         try:
             req = urllib.request.Request(f"{base}/health", headers={'Accept': 'application/json'})
-            with urllib.request.urlopen(req, timeout=2.0) as resp:
+            with urllib.request.urlopen(req, timeout=1.8) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode('utf-8'))
-                    if data.get('status') == 'QR_READY':
+                    # If health didn't include qrDataUrl yet and status is QR_READY, grab it from /qr
+                    if data.get('status') == 'QR_READY' and not data.get('qrDataUrl'):
                         try:
                             qr_req = urllib.request.Request(f"{base}/qr?json=true", headers={'Accept': 'application/json'})
-                            with urllib.request.urlopen(qr_req, timeout=2.0) as qr_resp:
+                            with urllib.request.urlopen(qr_req, timeout=1.5) as qr_resp:
                                 if qr_resp.status == 200:
                                     qr_data = json.loads(qr_resp.read().decode('utf-8'))
                                     data['qrDataUrl'] = qr_data.get('qrDataUrl')
@@ -7056,44 +7057,69 @@ def api_whatsapp_status_view(request):
                             pass
                     data['endpoint'] = f"{base}/send"
                     data['serverProxy'] = True
-                    return JsonResponse(data)
+                    response = JsonResponse(data)
+                    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                    return response
         except Exception:
             continue
 
-    return JsonResponse({
+    response = JsonResponse({
         'success': False,
         'status': 'OFFLINE',
         'isReady': False,
         'error': 'Local WhatsApp Bridge is not running on port 3000.',
         'endpoint': 'http://localhost:3000/send'
     })
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 
 def api_whatsapp_qr_view(request):
     """
     GET /api/settings/whatsapp-qr/
-    Proxies live WhatsApp QR code view directly from the local bridge (Port 3000).
-    Allows opening the QR scanner page across public domains/IPs without CORS or port issues.
+    Proxies live WhatsApp QR code directly from the local bridge (Port 3000).
+    Supports:
+      - format=img -> returns raw image/png stream for native <img> tag rendering
+      - json=true -> returns JSON with qrDataUrl
+      - default -> returns styled full-page scanner HTML
     """
     import urllib.request
     import json
+    import base64
     from django.http import HttpResponse
 
+    is_img = request.GET.get('format', '').lower() == 'img'
     is_json = request.GET.get('json', '').lower() in ('true', '1')
-    target = '/qr?json=true' if is_json else '/qr'
+    target = '/qr?json=true' if (is_json or is_img) else '/qr'
 
     endpoints = ['http://127.0.0.1:3000', 'http://localhost:3000']
     for base in endpoints:
         try:
             req = urllib.request.Request(
                 f"{base}{target}",
-                headers={'Accept': 'application/json' if is_json else 'text/html,application/xhtml+xml,application/xml'}
+                headers={'Accept': 'application/json' if (is_json or is_img) else 'text/html,application/xhtml+xml,application/xml'}
             )
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
+            with urllib.request.urlopen(req, timeout=2.5) as resp:
                 content = resp.read()
+                if is_img:
+                    data = json.loads(content.decode('utf-8'))
+                    qr_data_url = data.get('qrDataUrl') or ''
+                    if 'base64,' in qr_data_url:
+                        b64_str = qr_data_url.split('base64,')[1]
+                        img_bytes = base64.b64decode(b64_str)
+                        http_resp = HttpResponse(img_bytes, content_type='image/png')
+                        http_resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                        return http_resp
+                    return HttpResponse(b'', status=204)
+
                 if is_json:
-                    return JsonResponse(json.loads(content.decode('utf-8')))
-                return HttpResponse(content, content_type='text/html; charset=utf-8')
+                    resp_json = JsonResponse(json.loads(content.decode('utf-8')))
+                    resp_json['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                    return resp_json
+
+                http_resp = HttpResponse(content, content_type='text/html; charset=utf-8')
+                http_resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                return http_resp
         except urllib.error.HTTPError as http_err:
             try:
                 body = http_err.read()
@@ -7105,10 +7131,12 @@ def api_whatsapp_qr_view(request):
         except Exception:
             continue
 
+    if is_img:
+        return HttpResponse(b'', status=503)
     if is_json:
         return JsonResponse({'success': False, 'error': 'Bridge is offline on port 3000'}, status=503)
     return HttpResponse(
-        '<div style="font-family:sans-serif;padding:24px;text-align:center;">'
+        '<div style="font-family:sans-serif;padding:32px;text-align:center;">'
         '<h3>WhatsApp Bridge Offline</h3>'
         '<p>Please start the WhatsApp service using <code>sudo systemctl restart sutawane-whatsapp</code> or double-click <code>start_whatsapp_bridge.bat</code>.</p>'
         '</div>',

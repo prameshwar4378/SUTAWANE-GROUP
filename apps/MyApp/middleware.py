@@ -9,6 +9,7 @@ EXEMPT_PREFIXES = (
     '/static/',
     '/media/',
     '/api/developer/',
+    '/api/settings/whatsapp-',
 )
 
 PUBLIC_PATHS = {
