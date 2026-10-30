@@ -840,7 +840,7 @@
                 <tr>
                   <th class="py-3 px-4">Coaching Branch</th>
                   <th class="py-3 px-4">Academic Session</th>
-                  <th class="py-3 px-4">Financial Year</th>
+                  <th class="py-3 px-4">Prefix / FY</th>
                   <th class="py-3 px-4 text-center">Last Receipt No.</th>
                   <th class="py-3 px-4">Sample Generated Sequence</th>
                 </tr>
@@ -856,14 +856,14 @@
                       {{ counter.session.name }}
                     </td>
                     <td class="py-3 px-4 font-mono text-muted-foreground">
-                      {{ counter.financial_year|default:"2026-2027" }}
+                      {{ counter.prefix }}
                     </td>
                     <td class="py-3 px-4 text-center font-mono font-bold text-primary">
-                      #{{ counter.last_receipt_number }}
+                      #{{ counter.last_number }}
                     </td>
                     <td class="py-3 px-4 font-mono text-xs text-slate-700 dark:text-slate-300">
                       <span class="px-2 py-1 rounded bg-muted/60 border border-border/80">
-                        {{ settings.receipt_prefix }}/{{ counter.session.name }}/{{ counter.branch.code }}/REC-{% widthratio counter.last_receipt_number 1 1 as rec_num %}{{ counter.last_receipt_number|stringformat:"04d" }}
+                        {{ counter.prefix }}{{ counter.last_number }}
                       </span>
                     </td>
                   </tr>
@@ -2820,6 +2820,7 @@
     function setActiveTab(targetId) {
       if (!targetId) targetId = 'tab-profile';
       if (!targetId.startsWith('tab-')) targetId = 'tab-' + targetId;
+      if (targetId === 'tab-banks') targetId = 'tab-bank';
 
       const targetPanel = document.getElementById(targetId);
       if (!targetPanel) targetId = 'tab-profile';
@@ -3211,17 +3212,23 @@
     };
 
     // --- Notification Log Modal Detail Logic ---
-    window.openNotificationLogModal = function(logId) {
-      const scriptEl = document.getElementById('notif-log-data-' + logId);
-      if (!scriptEl) return;
+    window.cachedNotificationLogs = window.cachedNotificationLogs || {};
 
-      let data;
-      try {
-        data = JSON.parse(scriptEl.textContent);
-      } catch (err) {
-        console.error('Failed to parse log JSON:', err);
-        return;
+    window.openNotificationLogModal = function(logId) {
+      let data = window.cachedNotificationLogs[logId] || null;
+      if (!data) {
+        const scriptEl = document.getElementById('notif-log-data-' + logId);
+        if (scriptEl) {
+          try {
+            data = JSON.parse(scriptEl.textContent);
+            window.cachedNotificationLogs[logId] = data;
+          } catch (err) {
+            console.error('Failed to parse log JSON:', err);
+            return;
+          }
+        }
       }
+      if (!data) return;
 
       const modal = document.getElementById('notificationDetailModal');
       if (!modal) return;
@@ -3373,8 +3380,10 @@
         return;
       }
 
+      window.cachedNotificationLogs = window.cachedNotificationLogs || {};
       let html = '';
       logs.forEach(log => {
+        window.cachedNotificationLogs[log.id] = log;
         let statusBadge = '';
         if (log.status === 'SENT') {
           statusBadge = `

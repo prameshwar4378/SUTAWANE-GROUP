@@ -482,6 +482,32 @@ def dispatch_whatsapp_message(
             provider=provider,
             sent_by=sent_by
         )
+        return {
+            'success': True,
+            'status': 'SIMULATED',
+            'log_id': log.id,
+            'response': {'simulated': True, 'message': 'Message simulated successfully.'}
+        }
+
+    if provider == 'MANUAL_DEEPLINK':
+        log = NotificationLog.objects.create(
+            recipient_mobile=norm_phone,
+            recipient_name=recipient_name or 'Parent',
+            message_type=message_type,
+            message_text=message,
+            status='SIMULATED',
+            response_payload='Prepared for manual dispatch via WhatsApp Web/DeepLink.',
+            entity_id=entity_id,
+            provider=provider,
+            sent_by=sent_by
+        )
+        return {
+            'success': True,
+            'status': 'MANUAL_DEEPLINK',
+            'log_id': log.id,
+            'response': {'manual': True, 'message': 'Prepared for manual dispatch.'}
+        }
+
     # META_OFFICIAL: Official WhatsApp Cloud API (Graph API)
     if provider == 'META_OFFICIAL':
         meta_phone_id = (settings_map.get('whatsapp_meta_phone_id') or '').strip()

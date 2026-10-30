@@ -6982,10 +6982,14 @@ def settings_manage_view(request):
     settings_dict = get_institute_settings_dict()
     settings_map = settings_dict
     active_tab = request.GET.get('tab', 'profile')
+    if active_tab == 'banks':
+        active_tab = 'bank'
 
     if request.method == 'POST':
         action = request.POST.get('action', 'save_profile')
         active_tab = request.POST.get('active_tab', active_tab)
+        if active_tab == 'banks':
+            active_tab = 'bank'
 
         # -------------------------------------------------------------
         # TAB 6 ACTIONS: ROLES & USER MANAGEMENT (Class Owner & Dev Only)
@@ -7040,10 +7044,24 @@ def settings_manage_view(request):
                 new_password = request.POST.get('password', '').strip()
                 new_role = request.POST.get('role', 'BRANCH_MANAGER').strip()
                 new_branch_id = request.POST.get('branch_id', '').strip() or None
-                new_is_active = request.POST.get('is_active', 'true') != 'false'
+                new_is_active = request.POST.get('is_active') in ('true', '1', 'on') if 'is_active' in request.POST else True
 
                 if not new_name or not new_username or not new_password:
                     err_msg = "Please provide Name, Username, and Password for the new user."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                if len(new_password) < 6:
+                    err_msg = "Initial Password must be at least 6 characters long."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                if new_role == 'BRANCH_MANAGER' and not new_branch_id:
+                    err_msg = "Please select an assigned operational branch for the Branch Manager."
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
                         return JsonResponse({'success': False, 'error': err_msg}, status=400)
                     messages.error(request, err_msg)
@@ -7057,7 +7075,7 @@ def settings_manage_view(request):
                     return redirect('/settings/?tab=roles')
 
                 assigned_branch = None
-                if new_branch_id:
+                if new_role == 'BRANCH_MANAGER' and new_branch_id:
                     assigned_branch = Branch.objects.filter(id=new_branch_id, is_active=True).first()
 
                 pw_hash, pw_salt = hash_password(new_password)
@@ -7081,18 +7099,53 @@ def settings_manage_view(request):
                 target_user_id = request.POST.get('user_id', '').strip()
                 target_user = get_object_or_404(User, id=target_user_id)
 
+                if target_user.is_developer and not (current_user and current_user.is_developer):
+                    err_msg = "Only developers can modify a Developer account."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=403)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                new_role = request.POST.get('role', target_user.role).strip()
+                # Protect against demoting the sole active Class Owner
+                if target_user.is_class_owner and new_role != 'CLASS_OWNER':
+                    if User.objects.filter(role='CLASS_OWNER', is_active=True).count() <= 1:
+                        err_msg = "Cannot change role: At least one active Class Owner is required to administer the institute."
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                        messages.error(request, err_msg)
+                        return redirect('/settings/?tab=roles')
+
+                desired_active = request.POST.get('is_active') in ('true', '1', 'on')
+                # Protect current logged in user from self-deactivation
+                if str(target_user.id) == str(current_user.id) and not desired_active:
+                    err_msg = "You cannot deactivate your own logged-in user account."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
                 target_user.name = request.POST.get('name', target_user.name).strip()
-                target_user.role = request.POST.get('role', target_user.role).strip()
-                target_user.is_active = request.POST.get('is_active', 'true') != 'false'
+                target_user.role = new_role
+                target_user.is_active = desired_active
 
-                target_branch_id = request.POST.get('branch_id', '').strip()
-                if target_branch_id:
-                    target_user.branch = Branch.objects.filter(id=target_branch_id).first()
-                else:
+                if target_user.role == 'CLASS_OWNER' or target_user.is_developer:
                     target_user.branch = None
+                else:
+                    target_branch_id = request.POST.get('branch_id', '').strip()
+                    if target_branch_id:
+                        target_user.branch = Branch.objects.filter(id=target_branch_id).first()
+                    else:
+                        target_user.branch = None
 
-                new_password = request.POST.get('password', '').strip()
+                new_password = (request.POST.get('new_password') or request.POST.get('password') or '').strip()
                 if new_password:
+                    if len(new_password) < 6:
+                        err_msg = "New password must be at least 6 characters long."
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                        messages.error(request, err_msg)
+                        return redirect('/settings/?tab=roles')
                     pw_hash, pw_salt = hash_password(new_password)
                     target_user.password = pw_hash
                     target_user.salt = pw_salt
@@ -7111,8 +7164,8 @@ def settings_manage_view(request):
                 target_user = get_object_or_404(User, id=target_user_id)
                 new_password = request.POST.get('new_password', '').strip()
 
-                if not new_password:
-                    err_msg = "Please enter a valid new password."
+                if not new_password or len(new_password) < 6:
+                    err_msg = "Please enter a valid new password (minimum 6 characters)."
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
                         return JsonResponse({'success': False, 'error': err_msg}, status=400)
                     messages.error(request, err_msg)
@@ -7142,6 +7195,14 @@ def settings_manage_view(request):
 
                 if target_user.is_developer:
                     err_msg = "Developer account cannot be deleted from the settings portal."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                # Protect sole active Class Owner
+                if target_user.is_class_owner and User.objects.filter(role='CLASS_OWNER', is_active=True).count() <= 1:
+                    err_msg = "Cannot delete the sole active Class Owner account. Please promote or designate another Class Owner first."
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
                         return JsonResponse({'success': False, 'error': err_msg}, status=400)
                     messages.error(request, err_msg)
@@ -7231,7 +7292,7 @@ def settings_manage_view(request):
 
         else:
             # Handle checkboxes specifically when saving WhatsApp tab
-            if active_tab == 'whatsapp':
+            if active_tab == 'whatsapp' or action == 'save_whatsapp':
                 whatsapp_checkboxes = ['whatsapp_enabled', 'whatsapp_receipt_auto', 'whatsapp_reminder_auto', 'whatsapp_admission_auto']
                 for cb in whatsapp_checkboxes:
                     val = 'true' if request.POST.get(cb) in ('true', 'on', '1') else 'false'
@@ -7421,11 +7482,23 @@ def api_whatsapp_status_view(request):
     """
     import urllib.request
     import json
+    from urllib.parse import urlparse
 
-    endpoints = [
-        'http://127.0.0.1:3000',
-        'http://localhost:3000'
-    ]
+    settings_map = get_cached_settings_dict()
+    configured_ep = (settings_map.get('whatsapp_endpoint') or '').strip()
+
+    endpoints = []
+    if configured_ep:
+        try:
+            parsed = urlparse(configured_ep)
+            if parsed.scheme and parsed.netloc:
+                endpoints.append(f"{parsed.scheme}://{parsed.netloc}")
+        except Exception:
+            pass
+
+    for ep in ['http://127.0.0.1:3000', 'http://localhost:3000']:
+        if ep not in endpoints:
+            endpoints.append(ep)
 
     for base in endpoints:
         try:
@@ -7780,8 +7853,19 @@ def api_resend_notification_view(request):
     except NotificationLog.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Log record not found.'}, status=404)
 
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if current_user and current_user.is_branch_manager and not (has_permission(current_user, 'can_send_fee_reminders') or has_permission(current_user, 'can_access_settings')):
+        return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to resend notifications.'}, status=403)
+
     sent_by_user = 'Admin (Retry)'
-    if request.user and request.user.is_authenticated:
+    if current_user and getattr(current_user, 'name', None):
+        sent_by_user = f"{current_user.name} (Retry)"
+    elif request.user and request.user.is_authenticated:
         sent_by_user = f"{request.user.username} (Retry)"
 
     result = dispatch_whatsapp_message(
