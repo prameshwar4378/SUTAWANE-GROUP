@@ -164,6 +164,7 @@
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Dashboard</span>
     </a>
 
+    {% if is_developer or is_class_owner or user_permissions.can_view_students %}
     <a
       href="{% url 'students_list' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'students' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -172,7 +173,9 @@
       <i data-lucide="users" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Students</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_manage_courses %}
     <a
       href="{% url 'courses_list' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'courses' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -181,7 +184,9 @@
       <i data-lucide="book-open" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Classes & Courses</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_collect_fees %}
     <a
       href="{% url 'fee_collect' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'fee_collect' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -190,7 +195,9 @@
       <i data-lucide="credit-card" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Collect Fees</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_view_dues %}
     <a
       href="{% url 'fees_dues' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'fees_dues' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -199,7 +206,9 @@
       <i data-lucide="clock-alert" class="w-4 h-4 flex-shrink-0 text-amber-500"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Pending Dues</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_view_expenses %}
     <a
       href="{% url 'expenses_list' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'expenses' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -208,7 +217,9 @@
       <i data-lucide="receipt" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Expenses</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_view_reports %}
     <a
       href="{% url 'financial_reports' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'reports' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -217,7 +228,9 @@
       <i data-lucide="bar-chart-3" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Financial Reports</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner %}
     <a
       href="{% url 'branches_list' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'branches' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -226,7 +239,9 @@
       <i data-lucide="building-2" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Branches</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_manage_sessions %}
     <a
       href="{% url 'sessions_list' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'sessions' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -235,7 +250,9 @@
       <i data-lucide="calendar-days" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Academic Sessions</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_access_backup %}
     <a
       href="{% url 'backup_manage' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'backup' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -244,7 +261,9 @@
       <i data-lucide="database" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Backup & Restore</span>
     </a>
+    {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_access_settings %}
     <a
       href="{% url 'settings_manage' %}"
       class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'settings' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
@@ -253,6 +272,7 @@
       <i data-lucide="settings" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Settings</span>
     </a>
+    {% endif %}
   </nav>
 
   <!-- Fixed Bottom Footer with User Profile & Toggle Action -->
@@ -272,6 +292,10 @@
               {% if is_developer %}
                 <span class="text-[9px] py-0 px-1 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
                   Developer
+                </span>
+              {% elif is_branch_manager %}
+                <span class="text-[9px] py-0 px-1 rounded bg-purple-50 text-purple-700 border border-purple-200 font-semibold" title="Assigned: {{ current_user.branch.name|default:'Branch' }}">
+                  Branch Manager
                 </span>
               {% else %}
                 <span class="text-[9px] py-0 px-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">

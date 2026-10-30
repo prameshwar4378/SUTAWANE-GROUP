@@ -1,6 +1,7 @@
 import os
 from django.conf import settings as django_settings
 from .models import Branch, AcademicSession, SystemSetting, User
+from .auth_utils import get_user_permissions
 from .cache_utils import (
     safe_cache_get,
     safe_cache_set,
@@ -54,15 +55,34 @@ def global_context(request):
     Provides session-persistent branch, session, institute branding, and user state
     using memory caching to eliminate duplicate database and disk operations.
     """
+    # 0. User Session & Permissions Context
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+        if not current_user:
+            current_user = User.objects.filter(role='CLASS_OWNER', is_active=True).first()
+
+    is_developer = current_user.role == 'DEVELOPER' if current_user else False
+    is_class_owner = current_user.role == 'CLASS_OWNER' if current_user else False
+    is_branch_manager = current_user.role == 'BRANCH_MANAGER' if current_user else False
+    user_permissions = get_user_permissions(current_user)
+
     # 1. Active Branches & Selected Branch (In-Memory Cached)
     branches = get_cached_branches()
     selected_branch_id = request.session.get('selected_branch_id', 'ALL')
-    
-    selected_branch = None
-    if selected_branch_id and selected_branch_id != 'ALL':
-        selected_branch = next((b for b in branches if str(b.id) == str(selected_branch_id)), None)
-        if not selected_branch:
-            selected_branch_id = 'ALL'
+
+    # Strict branch restriction for Branch Managers
+    if is_branch_manager and current_user.branch_id and user_permissions.get('restricted_to_assigned_branch', True):
+        selected_branch_id = str(current_user.branch_id)
+        selected_branch = current_user.branch
+    else:
+        selected_branch = None
+        if selected_branch_id and selected_branch_id != 'ALL':
+            selected_branch = next((b for b in branches if str(b.id) == str(selected_branch_id)), None)
+            if not selected_branch:
+                selected_branch_id = 'ALL'
 
     # 2. Active Academic Sessions & Selected Session (In-Memory Cached)
     sessions = get_cached_sessions()
@@ -120,21 +140,10 @@ def global_context(request):
     elif not active_logo_url:
         active_logo_url = '/static/images/logo-master.png'
 
-    # 4. User Session Context (Reuse request.current_user if middleware already resolved it)
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
-        if not current_user:
-            current_user = User.objects.filter(role='CLASS_OWNER', is_active=True).first()
-
-    is_developer = current_user.role == 'DEVELOPER' if current_user else False
-
-    # 5. UI Preferences
+    # 4. UI Preferences
     is_sidebar_collapsed = bool(request.session.get('is_sidebar_collapsed', False))
 
-    # 6. WhatsApp Configuration & Visibility Controls
+    # 5. WhatsApp Configuration & Visibility Controls
     whatsapp_enabled = settings_dict.get('whatsapp_enabled', 'true') != 'false'
     whatsapp_mode = settings_dict.get('whatsapp_mode', 'both')  # 'automatic' | 'manual' | 'both' | 'off'
     whatsapp_show_manual_buttons = whatsapp_enabled and (whatsapp_mode in ('manual', 'both'))
@@ -152,6 +161,10 @@ def global_context(request):
         'active_logo_url': active_logo_url,
         'current_user': current_user,
         'is_developer': is_developer,
+        'is_class_owner': is_class_owner,
+        'is_branch_manager': is_branch_manager,
+        'assigned_branch': current_user.branch if (current_user and is_branch_manager) else None,
+        'user_permissions': user_permissions,
         'is_sidebar_collapsed': is_sidebar_collapsed,
         'whatsapp_enabled': whatsapp_enabled,
         'whatsapp_mode': whatsapp_mode,

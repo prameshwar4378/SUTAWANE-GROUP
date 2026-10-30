@@ -3,8 +3,7 @@ import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
 from django.core.mail import send_mail, EmailMultiAlternatives
-from django.conf import settings
-from .models import SystemSetting, User
+from .models import SystemSetting, User, RolePermission
 
 AUTHORIZED_DEVELOPER_EMAIL = 'prameshwar4378@gmail.com'
 
@@ -255,3 +254,168 @@ def verify_developer_otp(email: str, entered_code: str) -> tuple[bool, str]:
     _save_otp_entry(clean_email, entry)
     remaining = 5 - entry['attempts']
     return False, f"Invalid OTP code. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
+
+
+# -------------------------------------------------------------
+# Role-Based Access Control (RBAC) & Permission Evaluator
+# -------------------------------------------------------------
+
+DEFAULT_BRANCH_MANAGER_PERMISSIONS = {
+    'can_view_students': True,
+    'can_add_students': True,
+    'can_edit_students': True,
+    'can_delete_students': False,
+    'can_promote_students': False,
+    'can_collect_fees': True,
+    'can_void_receipts': False,
+    'can_view_dues': True,
+    'can_send_fee_reminders': True,
+    'can_view_expenses': True,
+    'can_add_expenses': True,
+    'can_delete_expenses': False,
+    'can_view_reports': True,
+    'can_view_daily_reports': True,
+    'can_export_reports': True,
+    'can_manage_courses': False,
+    'can_manage_sessions': False,
+    'restricted_to_assigned_branch': True,
+    'can_access_backup': False,
+    'can_access_settings': False,
+}
+
+ALL_PERMISSIONS_GRANTED = {
+    'can_view_students': True,
+    'can_add_students': True,
+    'can_edit_students': True,
+    'can_delete_students': True,
+    'can_promote_students': True,
+    'can_collect_fees': True,
+    'can_void_receipts': True,
+    'can_view_dues': True,
+    'can_send_fee_reminders': True,
+    'can_view_expenses': True,
+    'can_add_expenses': True,
+    'can_delete_expenses': True,
+    'can_view_reports': True,
+    'can_view_daily_reports': True,
+    'can_export_reports': True,
+    'can_manage_courses': True,
+    'can_manage_sessions': True,
+    'restricted_to_assigned_branch': False,
+    'can_access_backup': True,
+    'can_access_settings': True,
+    'can_manage_roles': True,
+}
+
+
+def invalidate_permissions_cache(user_id=None):
+    """Invalidates the in-memory permissions cache."""
+    from .cache_utils import safe_cache_delete, invalidate_namespace
+    if user_id:
+        safe_cache_delete(f"user_perms_{user_id}")
+    safe_cache_delete("default_bm_permissions")
+    invalidate_namespace('permissions')
+
+
+def get_default_branch_manager_permissions() -> RolePermission:
+    """Gets or creates the default RolePermission record for BRANCH_MANAGER."""
+    perm, created = RolePermission.objects.get_or_create(
+        role='BRANCH_MANAGER',
+        user__isnull=True,
+        defaults=DEFAULT_BRANCH_MANAGER_PERMISSIONS,
+    )
+    return perm
+
+
+def get_user_permissions(user) -> dict:
+    """
+    Returns a dictionary of all permissions for the specified user.
+    - DEVELOPER: 100% unrestricted access.
+    - CLASS_OWNER: Full administrative access.
+    - BRANCH_MANAGER: Scoped by RolePermission matrix configured by Class Owner.
+    """
+    if not user:
+        return {k: False for k in ALL_PERMISSIONS_GRANTED}
+
+    # Developers and Class Owners have full unrestricted permissions
+    if user.is_developer or user.is_class_owner:
+        return ALL_PERMISSIONS_GRANTED.copy()
+
+    # Branch Manager
+    from .cache_utils import safe_cache_get, safe_cache_set
+    cache_key = f"user_perms_{user.id}"
+    cached = safe_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    # Check for per-user custom permission override
+    perm_obj = getattr(user, 'custom_permissions', None)
+    if not perm_obj:
+        try:
+            perm_obj = RolePermission.objects.filter(user=user).first()
+        except Exception:
+            perm_obj = None
+
+    # Fall back to role-wide default for BRANCH_MANAGER
+    if not perm_obj:
+        try:
+            perm_obj = RolePermission.objects.filter(role='BRANCH_MANAGER', user__isnull=True).first()
+            if not perm_obj:
+                perm_obj = get_default_branch_manager_permissions()
+        except Exception:
+            perm_obj = None
+
+    if perm_obj:
+        res = {
+            'can_view_students': bool(perm_obj.can_view_students),
+            'can_add_students': bool(perm_obj.can_add_students),
+            'can_edit_students': bool(perm_obj.can_edit_students),
+            'can_delete_students': bool(perm_obj.can_delete_students),
+            'can_promote_students': bool(perm_obj.can_promote_students),
+            'can_collect_fees': bool(perm_obj.can_collect_fees),
+            'can_void_receipts': bool(perm_obj.can_void_receipts),
+            'can_view_dues': bool(perm_obj.can_view_dues),
+            'can_send_fee_reminders': bool(perm_obj.can_send_fee_reminders),
+            'can_view_expenses': bool(perm_obj.can_view_expenses),
+            'can_add_expenses': bool(perm_obj.can_add_expenses),
+            'can_delete_expenses': bool(perm_obj.can_delete_expenses),
+            'can_view_reports': bool(perm_obj.can_view_reports),
+            'can_view_daily_reports': bool(perm_obj.can_view_daily_reports),
+            'can_export_reports': bool(perm_obj.can_export_reports),
+            'can_manage_courses': bool(perm_obj.can_manage_courses),
+            'can_manage_sessions': bool(perm_obj.can_manage_sessions),
+            'restricted_to_assigned_branch': bool(perm_obj.restricted_to_assigned_branch),
+            'can_access_backup': bool(perm_obj.can_access_backup),
+            'can_access_settings': bool(perm_obj.can_access_settings),
+            'can_manage_roles': False,  # Branch manager cannot manage roles
+        }
+    else:
+        res = DEFAULT_BRANCH_MANAGER_PERMISSIONS.copy()
+
+    safe_cache_set(cache_key, res, 300)
+    return res
+
+
+def has_permission(user, permission_name: str) -> bool:
+    """
+    Checks if a user is granted a specific permission.
+    """
+    if not user:
+        return False
+    if user.is_developer:
+        # Developer is never restricted to an assigned branch
+        if permission_name == 'restricted_to_assigned_branch':
+            return False
+        return True
+    if user.is_class_owner:
+        # Developer portal is strictly developer only
+        if permission_name == 'developer_portal':
+            return False
+        # Class Owner oversees all branches and is never restricted to a single branch
+        if permission_name == 'restricted_to_assigned_branch':
+            return False
+        return True
+
+    perms = get_user_permissions(user)
+    return bool(perms.get(permission_name, False))
+

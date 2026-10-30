@@ -77,13 +77,14 @@ class NotificationLog(models.Model):
 
 
 # -------------------------------------------------------------
-# Authentication & User Accounts (CLASS_OWNER & DEVELOPER)
+# Authentication & User Accounts (DEVELOPER, CLASS_OWNER, BRANCH_MANAGER)
 # -------------------------------------------------------------
 
 class User(models.Model):
     ROLE_CHOICES = (
-        ('CLASS_OWNER', 'Class Owner (Admin)'),
         ('DEVELOPER', 'Software Developer'),
+        ('CLASS_OWNER', 'Class Owner (Admin)'),
+        ('BRANCH_MANAGER', 'Branch Manager'),
     )
 
     id = models.CharField(primary_key=True, max_length=36, default=generate_uuid, editable=False)
@@ -92,6 +93,7 @@ class User(models.Model):
     salt = models.CharField(max_length=255)
     name = models.CharField(max_length=150)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='CLASS_OWNER')
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, blank=True, related_name='managers', db_column='branchId', help_text='Assigned operational branch for Branch Manager')
     is_active = models.BooleanField(default=True, db_column='isActive')
     created_at = models.DateTimeField(default=timezone.now, db_column='createdAt')
     updated_at = models.DateTimeField(auto_now=True, db_column='updatedAt')
@@ -104,7 +106,8 @@ class User(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.username}) [{self.role}]"
+        branch_str = f" @ {self.branch.name}" if self.branch else ""
+        return f"{self.name} ({self.username}) [{self.role}{branch_str}]"
 
     @property
     def is_developer(self):
@@ -113,6 +116,62 @@ class User(models.Model):
     @property
     def is_class_owner(self):
         return self.role == 'CLASS_OWNER'
+
+    @property
+    def is_branch_manager(self):
+        return self.role == 'BRANCH_MANAGER'
+
+
+class RolePermission(models.Model):
+    """
+    Role & User specific permissions configuration.
+    Can store default permissions for BRANCH_MANAGER, or per-user overrides.
+    """
+    id = models.CharField(primary_key=True, max_length=36, default=generate_uuid, editable=False)
+    role = models.CharField(max_length=50, choices=User.ROLE_CHOICES, default='BRANCH_MANAGER', db_index=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name='custom_permissions')
+
+    # Students Directory & Admissions
+    can_view_students = models.BooleanField(default=True)
+    can_add_students = models.BooleanField(default=True)
+    can_edit_students = models.BooleanField(default=True)
+    can_delete_students = models.BooleanField(default=False)
+    can_promote_students = models.BooleanField(default=False)
+
+    # Fees, Receipts & Dues
+    can_collect_fees = models.BooleanField(default=True)
+    can_void_receipts = models.BooleanField(default=False)
+    can_view_dues = models.BooleanField(default=True)
+    can_send_fee_reminders = models.BooleanField(default=True)
+
+    # Expenses Management
+    can_view_expenses = models.BooleanField(default=True)
+    can_add_expenses = models.BooleanField(default=True)
+    can_delete_expenses = models.BooleanField(default=False)
+
+    # Reports & Analytics
+    can_view_reports = models.BooleanField(default=True)
+    can_view_daily_reports = models.BooleanField(default=True)
+    can_export_reports = models.BooleanField(default=True)
+
+    # Classes, Courses & Sessions
+    can_manage_courses = models.BooleanField(default=False)
+    can_manage_sessions = models.BooleanField(default=False)
+
+    # Security & Data Isolation
+    restricted_to_assigned_branch = models.BooleanField(default=True)
+    can_access_backup = models.BooleanField(default=False)
+    can_access_settings = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(default=timezone.now, db_column='createdAt')
+    updated_at = models.DateTimeField(auto_now=True, db_column='updatedAt')
+
+    class Meta:
+        db_table = 'RolePermission'
+
+    def __str__(self):
+        target = f"User: {self.user.username}" if self.user else f"Default for {self.role}"
+        return f"Permissions ({target})"
 
 
 # -------------------------------------------------------------

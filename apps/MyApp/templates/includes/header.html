@@ -69,7 +69,12 @@
       title="Active Branch Filter"
     >
       <i data-lucide="building-2" class="w-4 h-4 text-primary flex-shrink-0"></i>
-      <span class="text-xs font-medium text-muted-foreground hidden xl:inline flex-shrink-0">Branch:</span>
+      {% if is_branch_manager and current_user.branch and user_permissions.restricted_to_assigned_branch %}
+        <div class="flex items-center gap-1.5 font-semibold text-xs text-foreground truncate px-1" title="Locked to Assigned Branch: {{ current_user.branch.name }}">
+          <i data-lucide="lock" class="w-3 h-3 text-amber-500 flex-shrink-0"></i>
+          <span class="truncate">{{ current_user.branch.name }}</span>
+        </div>
+      {% else %}
       <select
         onchange="location.href='{% url 'switch_branch' 'PLACEHOLDER' %}'.replace('PLACEHOLDER', this.value)"
         class="h-full bg-transparent font-medium text-xs focus:outline-none cursor-pointer truncate py-0 leading-none border-0"
@@ -81,6 +86,7 @@
           </option>
         {% endfor %}
       </select>
+      {% endif %}
     </div>
 
     <!-- Academic Session Selector -->

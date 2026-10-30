@@ -22,12 +22,15 @@ from .models import (
     Branch, AcademicSession, Student, StudentAdmission,
     FeePlan, Installment, Payment, Expense, ExpenseCategory, ExpenseAttachment,
     Course, User, SystemSetting, HealthLog, NotificationLog,
-    PaymentAllocation, FeeDiscount, PreviousSessionDue, ReceiptCounter
+    PaymentAllocation, FeeDiscount, PreviousSessionDue, ReceiptCounter,
+    RolePermission
 )
 from .auth_utils import (
     hash_password, verify_password, get_license_status,
     generate_and_send_developer_otp, verify_developer_otp,
-    AUTHORIZED_DEVELOPER_EMAIL, invalidate_license_cache
+    AUTHORIZED_DEVELOPER_EMAIL, invalidate_license_cache,
+    get_user_permissions, has_permission, invalidate_permissions_cache,
+    DEFAULT_BRANCH_MANAGER_PERMISSIONS
 )
 from .context_processors import invalidate_global_context_cache, get_cached_settings_dict
 from .whatsapp import (
@@ -278,6 +281,8 @@ def login_view(request):
             request.session['user_id'] = str(user.id)
             request.session['user_role'] = user.role
             request.session['user_name'] = user.name
+            if user.is_branch_manager and user.branch_id:
+                request.session['selected_branch_id'] = str(user.branch_id)
             messages.success(request, f"Welcome back, {user.name}!")
             return redirect(next_url)
 
@@ -927,16 +932,27 @@ def get_active_scope(request):
        - active_branch: Branch instance or None
        - active_session: AcademicSession instance or None
     """
-    # 1. Branch Resolution
-    branch_id = request.GET.get('branch_id')
-    if branch_id is None:
-        branch_id = request.session.get('selected_branch_id', 'ALL')
+    # 0. Check User Role & Assigned Branch Restriction
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
 
-    active_branch = None
-    if branch_id and branch_id != 'ALL':
-        active_branch = Branch.objects.filter(id=branch_id, is_active=True).first()
-        if not active_branch:
-            branch_id = 'ALL'
+    # 1. Branch Resolution
+    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+        branch_id = str(current_user.branch_id)
+        active_branch = current_user.branch
+    else:
+        branch_id = request.GET.get('branch_id')
+        if branch_id is None:
+            branch_id = request.session.get('selected_branch_id', 'ALL')
+
+        active_branch = None
+        if branch_id and branch_id != 'ALL':
+            active_branch = Branch.objects.filter(id=branch_id, is_active=True).first()
+            if not active_branch:
+                branch_id = 'ALL'
 
     # 2. Session Resolution
     session_id = request.GET.get('session_id')
@@ -1344,6 +1360,17 @@ def dashboard_view(request):
 
 
 def switch_branch_view(request, branch_id):
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+        messages.warning(request, f"Branch switching is restricted. You are assigned to {current_user.branch.name}.")
+        referer = request.META.get('HTTP_REFERER', '/')
+        return redirect(clean_referer_url(referer, strip_params=['branch_id', 'page']))
+
     request.session['selected_branch_id'] = str(branch_id)
     referer = request.META.get('HTTP_REFERER', '/')
     return redirect(clean_referer_url(referer, strip_params=['branch_id', 'page']))
@@ -1536,11 +1563,24 @@ def students_list_view(request):
     """
     Student Directory, Search, Advanced Filtering, and Admission Workflow matching StudentsPage.tsx.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_view_students'):
+        messages.error(request, "Access Denied: You do not have permission to view students.")
+        return redirect('dashboard')
+
     if request.method == 'POST':
         action = request.POST.get('action')
 
         # 1. New Student Admission
         if action == 'create':
+            if not has_permission(current_user, 'can_add_students'):
+                messages.error(request, "Access Denied: You do not have permission to register new students.")
+                return redirect('students_list')
             full_name = request.POST.get('full_name', '').strip()
             roll_number = request.POST.get('roll_number', '').strip()
             standard = request.POST.get('standard', '').strip()
@@ -1711,6 +1751,9 @@ def students_list_view(request):
 
         # 3. Permanent Cascade Delete
         elif action == 'delete':
+            if not has_permission(current_user, 'can_delete_students'):
+                messages.error(request, "Access Denied: You do not have permission to delete student records.")
+                return redirect('students_list')
             student_id = request.POST.get('student_id')
             student = get_object_or_404(Student, id=student_id)
             name = student.full_name
@@ -2079,8 +2122,29 @@ def student_detail_view(request, student_id):
     """
     student = get_object_or_404(Student, id=student_id)
 
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_view_students'):
+        messages.error(request, "Access Denied: You do not have permission to view students.")
+        return redirect('dashboard')
+
+    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+        if not student.admissions.filter(branch_id=current_user.branch_id).exists():
+            messages.error(request, "Access Denied: You are not authorized to view student records outside your assigned branch.")
+            return redirect('students_list')
+
     if request.method == 'POST':
         action = request.POST.get('action')
+
+        # Check edit permission for modification actions
+        if action in ('update_profile', 'upload_photo', 'delete_photo', 'update_due_date', 'toggle_archive'):
+            if not has_permission(current_user, 'can_edit_students'):
+                messages.error(request, "Access Denied: You do not have permission to edit student details.")
+                return redirect('student_detail', student_id=student.id)
 
         # 1. Update Bio & Admission Details
         if action == 'update_profile':
@@ -2220,6 +2284,9 @@ def student_detail_view(request, student_id):
 
         # 6. Delete Student
         elif action == 'delete':
+            if not has_permission(current_user, 'can_delete_students'):
+                messages.error(request, "Access Denied: You do not have permission to delete student records.")
+                return redirect('student_detail', student_id=student.id)
             with transaction.atomic():
                 for adm in student.admissions.all():
                     if hasattr(adm, 'fee_plan'):
@@ -2607,6 +2674,16 @@ def promote_student_view(request, student_id):
     """
     student = get_object_or_404(Student, id=student_id)
 
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_promote_students'):
+        messages.error(request, "Access Denied: You do not have permission to promote students.")
+        return redirect('student_detail', student_id=student.id)
+
     if request.method != 'POST':
         return redirect('student_detail', student_id=student.id)
 
@@ -2786,6 +2863,16 @@ def batch_promote_view(request):
     Executes batch promotion for selected students.
     Matches React POST /students/batch-promote.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_promote_students'):
+        messages.error(request, "Access Denied: You do not have permission to batch promote students.")
+        return redirect('students_list')
+
     if request.method != 'POST':
         return redirect('students_list')
 
@@ -2899,6 +2986,16 @@ def courses_list_view(request):
     """
     Standard Classes & Courses Management matching CoursesPage.tsx.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_manage_courses'):
+        messages.error(request, "Access Denied: You do not have permission to manage classes and courses.")
+        return redirect('dashboard')
+
     if request.method == 'POST':
         action = request.POST.get('action')
 
@@ -3181,11 +3278,24 @@ def fee_collect_view(request):
     - Tab 2: Payment Receipts History (with 4 KPI cards, filters, and printable receipt modals)
     - Reversal / Voiding of receipts with reasons and ledger rollbacks
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_collect_fees'):
+        messages.error(request, "Access Denied: You do not have permission to access Fee Collection.")
+        return redirect('dashboard')
+
     if request.method == 'POST':
         action = request.POST.get('action')
 
         # 1. Reverse Payment
         if action == 'reverse_payment':
+            if not has_permission(current_user, 'can_void_receipts'):
+                messages.error(request, "Access Denied: You do not have permission to void or reverse receipts.")
+                return redirect(f"{request.path}?tab=history")
             payment_id = request.POST.get('payment_id')
             reversal_reason = request.POST.get('reversal_reason', '').strip()
 
@@ -4163,6 +4273,18 @@ def payment_receipt_void_view(request, payment_id):
     Cancels/voids an official fee receipt with audit trail.
     Restores student pending dues.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_void_receipts'):
+        if request.headers.get('Accept') == 'application/json':
+            return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to void receipts.'}, status=403)
+        messages.error(request, "Access Denied: You do not have permission to void receipts.")
+        return redirect('fee_collect')
+
     payment = get_object_or_404(Payment.objects.select_related('student', 'previous_due'), id=payment_id)
     if payment.is_reversed:
         messages.warning(request, f"Receipt #{payment.receipt_number} has already been reversed.")
@@ -4200,6 +4322,16 @@ def fees_dues_view(request):
     Matches React DuesPage.tsx with 4 KPI cards, universal search, 5-tab quick filters,
     sorting, date presets, WhatsApp reminders, Excel/PDF exports, and due date updating.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_view_dues'):
+        messages.error(request, "Access Denied: You do not have permission to view pending dues.")
+        return redirect('dashboard')
+
     # 1. Handle POST Actions (e.g. Quick Due Date Extension)
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -4629,11 +4761,24 @@ def expenses_list_view(request):
     multi-token search, filter pipeline, file attachment upload & viewing,
     Excel/PDF exports, and full CRUD modals with zero page-reloads via HTMX.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_view_expenses'):
+        messages.error(request, "Access Denied: You do not have permission to access Expenses.")
+        return redirect('dashboard')
+
     # 1. Handle POST Actions (Create, Update, Delete Expense Voucher, Create Category)
     if request.method == 'POST':
         action = request.POST.get('action')
 
         if action == 'create':
+            if not has_permission(current_user, 'can_add_expenses'):
+                messages.error(request, "Access Denied: You do not have permission to record new expenses.")
+                return redirect('expenses_list')
             description = request.POST.get('description', '').strip()
             amount_str = request.POST.get('amount', '0').strip()
             try:
@@ -4784,6 +4929,9 @@ def expenses_list_view(request):
             return redirect('expenses_list')
 
         elif action == 'delete':
+            if not has_permission(current_user, 'can_delete_expenses'):
+                messages.error(request, "Access Denied: You do not have permission to delete expense entries.")
+                return redirect('expenses_list')
             expense_id = request.POST.get('expense_id')
             expense = get_object_or_404(Expense, id=expense_id)
             desc = expense.description
@@ -5183,6 +5331,16 @@ def financial_reports_view(request):
     3. EXPENSE_CATEGORIES: Center expenditure taxonomy & budget breakdown
     4. STATEMENT_DIRECTORY: Quick links to all 16 financial statements and reports
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_view_reports'):
+        messages.error(request, "Access Denied: You do not have permission to view Financial Reports.")
+        return redirect('dashboard')
+
     branches = Branch.objects.filter(is_active=True).order_by('name')
     sessions = AcademicSession.objects.filter(isActive=True).order_by('-start_date')
 
@@ -6061,6 +6219,16 @@ def api_expense_categories_view(request):
 
 
 def branches_list_view(request):
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not (current_user and (current_user.is_class_owner or current_user.is_developer)):
+        messages.error(request, "Access Denied: Only Class Owners and Developers can configure branches.")
+        return redirect('dashboard')
+
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'create':
@@ -6189,6 +6357,16 @@ def check_academic_session_overlap(start_d, end_d, exclude_session_id=None):
 
 
 def sessions_list_view(request):
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_manage_sessions'):
+        messages.error(request, "Access Denied: You do not have permission to manage academic sessions.")
+        return redirect('dashboard')
+
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'create':
@@ -6446,6 +6624,16 @@ def backup_manage_view(request):
     external backup file upload & restore, local snapshot restore,
     direct download, and snapshot deletion with pre-restore safety snapshots.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_access_backup'):
+        messages.error(request, "Access Denied: You do not have permission to access Backup & Restore.")
+        return redirect('dashboard')
+
     paths = get_storage_paths()
 
     # Handle Downloads via ?download=<filename>
@@ -6777,14 +6965,195 @@ def remove_master_logo():
 def settings_manage_view(request):
     """
     Central Institute Settings & Master Branding View matching React SettingsPage.tsx.
-    Manages central coaching branding, logo, receipt templates, and organization profile.
+    Manages central coaching branding, logo, receipt templates, organization profile,
+    and user roles & permissions for Class Owners and Developers.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if current_user and current_user.is_branch_manager and not has_permission(current_user, 'can_access_settings'):
+        messages.error(request, "Access Denied: You do not have permission to access Settings.")
+        return redirect('dashboard')
+
+    is_admin = bool(current_user and (current_user.is_class_owner or current_user.is_developer))
     settings_dict = get_institute_settings_dict()
     settings_map = settings_dict
 
     if request.method == 'POST':
         action = request.POST.get('action', 'save_profile')
         active_tab = request.POST.get('active_tab', 'profile')
+
+        # -------------------------------------------------------------
+        # TAB 6 ACTIONS: ROLES & USER MANAGEMENT (Class Owner & Dev Only)
+        # -------------------------------------------------------------
+        if action in ('save_roles_permissions', 'create_user', 'update_user', 'reset_user_password', 'delete_user'):
+            if not is_admin:
+                err_msg = "Access Denied: Only Class Owner or Developer can manage roles and permissions."
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                    return JsonResponse({'success': False, 'error': err_msg}, status=403)
+                messages.error(request, err_msg)
+                return redirect('/settings/?tab=profile')
+
+            # 1. Save Granular Permissions for Branch Managers
+            if action == 'save_roles_permissions':
+                perm_fields = {
+                    'can_view_students': request.POST.get('can_view_students') in ('true', '1', 'on'),
+                    'can_add_students': request.POST.get('can_add_students') in ('true', '1', 'on'),
+                    'can_edit_students': request.POST.get('can_edit_students') in ('true', '1', 'on'),
+                    'can_delete_students': request.POST.get('can_delete_students') in ('true', '1', 'on'),
+                    'can_promote_students': request.POST.get('can_promote_students') in ('true', '1', 'on'),
+                    'can_collect_fees': request.POST.get('can_collect_fees') in ('true', '1', 'on'),
+                    'can_void_receipts': request.POST.get('can_void_receipts') in ('true', '1', 'on'),
+                    'can_view_dues': request.POST.get('can_view_dues') in ('true', '1', 'on'),
+                    'can_send_fee_reminders': request.POST.get('can_send_fee_reminders') in ('true', '1', 'on'),
+                    'can_view_expenses': request.POST.get('can_view_expenses') in ('true', '1', 'on'),
+                    'can_add_expenses': request.POST.get('can_add_expenses') in ('true', '1', 'on'),
+                    'can_delete_expenses': request.POST.get('can_delete_expenses') in ('true', '1', 'on'),
+                    'can_view_reports': request.POST.get('can_view_reports') in ('true', '1', 'on'),
+                    'can_view_daily_reports': request.POST.get('can_view_daily_reports') in ('true', '1', 'on'),
+                    'can_export_reports': request.POST.get('can_export_reports') in ('true', '1', 'on'),
+                    'can_manage_courses': request.POST.get('can_manage_courses') in ('true', '1', 'on'),
+                    'can_manage_sessions': request.POST.get('can_manage_sessions') in ('true', '1', 'on'),
+                    'restricted_to_assigned_branch': request.POST.get('restricted_to_assigned_branch') in ('true', '1', 'on'),
+                    'can_access_backup': request.POST.get('can_access_backup') in ('true', '1', 'on'),
+                    'can_access_settings': request.POST.get('can_access_settings') in ('true', '1', 'on'),
+                }
+                RolePermission.objects.update_or_create(
+                    role='BRANCH_MANAGER',
+                    user__isnull=True,
+                    defaults=perm_fields
+                )
+                invalidate_permissions_cache()
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                    return JsonResponse({'success': True, 'message': 'Branch Manager permissions updated successfully!'})
+                messages.success(request, "Branch Manager permissions updated successfully!")
+                return redirect('/settings/?tab=roles')
+
+            # 2. Create User (Branch Manager or Class Owner)
+            elif action == 'create_user':
+                new_name = request.POST.get('name', '').strip()
+                new_username = request.POST.get('username', '').strip().lower()
+                new_password = request.POST.get('password', '').strip()
+                new_role = request.POST.get('role', 'BRANCH_MANAGER').strip()
+                new_branch_id = request.POST.get('branch_id', '').strip() or None
+                new_is_active = request.POST.get('is_active', 'true') != 'false'
+
+                if not new_name or not new_username or not new_password:
+                    err_msg = "Please provide Name, Username, and Password for the new user."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                if User.objects.filter(username=new_username).exists():
+                    err_msg = f"Username '@{new_username}' is already in use. Please pick another username."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                assigned_branch = None
+                if new_branch_id:
+                    assigned_branch = Branch.objects.filter(id=new_branch_id, is_active=True).first()
+
+                pw_hash, pw_salt = hash_password(new_password)
+                new_user = User.objects.create(
+                    name=new_name,
+                    username=new_username,
+                    password=pw_hash,
+                    salt=pw_salt,
+                    role=new_role,
+                    branch=assigned_branch,
+                    is_active=new_is_active,
+                )
+
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                    return JsonResponse({'success': True, 'message': f"User account @{new_user.username} created successfully!"})
+                messages.success(request, f"User account @{new_user.username} created successfully!")
+                return redirect('/settings/?tab=roles')
+
+            # 3. Update Existing User
+            elif action == 'update_user':
+                target_user_id = request.POST.get('user_id', '').strip()
+                target_user = get_object_or_404(User, id=target_user_id)
+
+                target_user.name = request.POST.get('name', target_user.name).strip()
+                target_user.role = request.POST.get('role', target_user.role).strip()
+                target_user.is_active = request.POST.get('is_active', 'true') != 'false'
+
+                target_branch_id = request.POST.get('branch_id', '').strip()
+                if target_branch_id:
+                    target_user.branch = Branch.objects.filter(id=target_branch_id).first()
+                else:
+                    target_user.branch = None
+
+                new_password = request.POST.get('password', '').strip()
+                if new_password:
+                    pw_hash, pw_salt = hash_password(new_password)
+                    target_user.password = pw_hash
+                    target_user.salt = pw_salt
+
+                target_user.save()
+                invalidate_permissions_cache(target_user.id)
+
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                    return JsonResponse({'success': True, 'message': f"User @{target_user.username} updated successfully!"})
+                messages.success(request, f"User @{target_user.username} updated successfully!")
+                return redirect('/settings/?tab=roles')
+
+            # 4. Reset User Password
+            elif action == 'reset_user_password':
+                target_user_id = request.POST.get('user_id', '').strip()
+                target_user = get_object_or_404(User, id=target_user_id)
+                new_password = request.POST.get('new_password', '').strip()
+
+                if not new_password:
+                    err_msg = "Please enter a valid new password."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                pw_hash, pw_salt = hash_password(new_password)
+                target_user.password = pw_hash
+                target_user.salt = pw_salt
+                target_user.save()
+
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                    return JsonResponse({'success': True, 'message': f"Password for @{target_user.username} reset successfully!"})
+                messages.success(request, f"Password for @{target_user.username} reset successfully!")
+                return redirect('/settings/?tab=roles')
+
+            # 5. Delete User Account
+            elif action == 'delete_user':
+                target_user_id = request.POST.get('user_id', '').strip()
+                target_user = get_object_or_404(User, id=target_user_id)
+
+                if str(target_user.id) == str(current_user.id):
+                    err_msg = "You cannot delete your own logged-in user account."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                if target_user.is_developer:
+                    err_msg = "Developer account cannot be deleted from the settings portal."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
+                username_deleted = target_user.username
+                target_user.delete()
+                invalidate_permissions_cache(target_user_id)
+
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                    return JsonResponse({'success': True, 'message': f"User account @{username_deleted} has been deleted."})
+                messages.success(request, f"User account @{username_deleted} has been deleted.")
+                return redirect('/settings/?tab=roles')
 
         if action == 'upload_logo':
             if not request.FILES.get('logo'):
@@ -6935,9 +7304,19 @@ def settings_manage_view(request):
     recent_dispatches = notif_qs[:5]
     audit_logs = filtered_logs[:100]
 
-    now = timezone.localtime()
-    today_display = now.strftime('%d %b %Y')
-    active_tab = request.GET.get('tab', 'profile')
+    # Roles & Users Management Data (Tab 6)
+    users_list = User.objects.select_related('branch').order_by('role', 'name')
+    bm_permissions, _ = RolePermission.objects.get_or_create(
+        role='BRANCH_MANAGER',
+        user__isnull=True,
+        defaults=DEFAULT_BRANCH_MANAGER_PERMISSIONS,
+    )
+    active_branches = list(Branch.objects.filter(is_active=True).order_by('name'))
+
+    total_users_count = users_list.count()
+    class_owners_count = users_list.filter(role='CLASS_OWNER').count()
+    branch_managers_count = users_list.filter(role='BRANCH_MANAGER').count()
+    developers_count = users_list.filter(role='DEVELOPER').count()
 
     context = {
         'settings': settings_dict,
@@ -6954,6 +7333,13 @@ def settings_manage_view(request):
         'current_type': type_filter,
         'today_display': today_display,
         'active_tab': active_tab,
+        'users_list': users_list,
+        'bm_permissions': bm_permissions,
+        'active_branches': active_branches,
+        'total_users_count': total_users_count,
+        'class_owners_count': class_owners_count,
+        'branch_managers_count': branch_managers_count,
+        'developers_count': developers_count,
     }
     return render(request, 'settings.html', context)
 
