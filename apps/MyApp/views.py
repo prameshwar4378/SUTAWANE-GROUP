@@ -560,10 +560,10 @@ def execute_stress_generation(total_count, mode='both'):
 
     elif mode == 'payments':
         import random
-        # Generate payments for existing students
-        existing_students = list(Student.objects.values_list('id', flat=True)[:5000])
+        # Generate payments for existing dummy test students (NEVER real client students)
+        existing_students = list(Student.objects.filter(student_code__startswith='STRESS-').values_list('id', flat=True)[:5000])
         if not existing_students:
-            return 0, 0, "No students found to link payments to. Please generate students first."
+            return 0, 0, "No benchmark test students found. Please generate benchmark students first before generating test payments."
 
         created_so_far = 0
         now = timezone.now()
@@ -2400,8 +2400,14 @@ def student_detail_view(request, student_id):
                 'is_cleared': is_cleared,
             })
 
-    # All student payment receipts
-    all_payments = list(student.payments.select_related(
+    # All student payment receipts (excluding reversed and benchmark test records)
+    all_payments = list(student.payments.filter(
+        is_reversed=False
+    ).exclude(
+        receipt_number__startswith='STRESS-'
+    ).exclude(
+        notes__icontains='Capability testing dummy'
+    ).select_related(
         'branch', 'session', 'admission', 'admission__fee_plan', 'previous_due'
     ).prefetch_related('allocations__installment', 'admission__payments').order_by('-payment_date'))
 

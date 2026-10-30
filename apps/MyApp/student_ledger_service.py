@@ -98,6 +98,10 @@ def build_student_ledger_payload(student_id):
     # All student non-reversed payments across all sessions
     all_payments_qs = student.payments.filter(
         is_reversed=False
+    ).exclude(
+        receipt_number__startswith='STRESS-'
+    ).exclude(
+        notes__icontains='Capability testing dummy'
     ).select_related(
         'branch', 'session', 'admission', 'admission__session', 'previous_due'
     ).prefetch_related(
@@ -249,9 +253,9 @@ def build_student_ledger_payload(student_id):
             'status': 'CLEARED' if due_pend <= 0 else ('PARTIAL' if col_amt > 0 else 'PENDING'),
         })
 
-    # Consolidated Lifetime Financials
+    # Consolidated Lifetime Financials (Synchronized single-source-of-truth)
     lifetime_agreed = total_admission_payable + total_prev_outstanding
-    lifetime_paid = sum((p.total_amount for p in all_payments), MONEY_ZERO)
+    lifetime_paid = total_admission_paid + total_prev_collected
     lifetime_pending = max(MONEY_ZERO, lifetime_agreed - lifetime_paid)
     lifetime_clearance_pct = round((lifetime_paid / lifetime_agreed * 100), 1) if lifetime_agreed > 0 else 100.0
 
