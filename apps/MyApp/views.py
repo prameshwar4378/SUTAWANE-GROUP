@@ -7773,7 +7773,8 @@ def settings_manage_view(request):
     audit_logs = filtered_logs[:100]
 
     # Roles & Users Management Data (Tab 6)
-    users_list = User.objects.select_related('branch').order_by('role', 'name')
+    all_users = User.objects.select_related('branch')
+    users_list = all_users.exclude(role='DEVELOPER').order_by('role', 'name')
     bm_permissions, _ = RolePermission.objects.get_or_create(
         role='BRANCH_MANAGER',
         user__isnull=True,
@@ -7782,9 +7783,9 @@ def settings_manage_view(request):
     active_branches = list(Branch.objects.filter(is_active=True).order_by('name'))
 
     total_users_count = users_list.count()
-    class_owners_count = users_list.filter(role='CLASS_OWNER').count()
-    branch_managers_count = users_list.filter(role='BRANCH_MANAGER').count()
-    developers_count = users_list.filter(role='DEVELOPER').count()
+    class_owners_count = all_users.filter(role='CLASS_OWNER').count()
+    branch_managers_count = all_users.filter(role='BRANCH_MANAGER').count()
+    developers_count = all_users.filter(role='DEVELOPER').count()
     today_display = timezone.localtime().strftime('%A, %d %B %Y')
 
     context = {

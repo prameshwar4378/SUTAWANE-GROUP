@@ -2152,6 +2152,7 @@
             </thead>
             <tbody class="divide-y divide-border/60 bg-card">
               {% for u in users_list %}
+              {% if not u.is_developer and u.role != 'DEVELOPER' %}
               <tr class="hover:bg-muted/30 transition-colors">
                 <td class="py-3 px-4 font-medium text-foreground">
                   <div class="flex items-center gap-2.5">
@@ -2165,11 +2166,7 @@
                   </div>
                 </td>
                 <td class="py-3 px-3">
-                  {% if u.is_developer %}
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200">
-                      <i data-lucide="shield-alert" class="w-3 h-3 text-blue-500"></i> Developer
-                    </span>
-                  {% elif u.is_branch_manager %}
+                  {% if u.is_branch_manager %}
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200">
                       <i data-lucide="building-2" class="w-3 h-3 text-purple-500"></i> Branch Manager
                     </span>
@@ -2232,6 +2229,13 @@
                     </button>
                     {% endif %}
                   </div>
+                </td>
+              </tr>
+              {% endif %}
+              {% empty %}
+              <tr>
+                <td colspan="6" class="py-8 text-center text-xs text-muted-foreground">
+                  No active staff or manager accounts found.
                 </td>
               </tr>
               {% endfor %}
