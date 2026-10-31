@@ -1473,7 +1473,8 @@
                   {% endif %}
 
                   <!-- Reverse Payment -->
-                  {% if not p.is_reversed and (is_developer or is_class_owner or user_permissions.can_void_receipts) %}
+                  {% if not p.is_reversed %}
+                  {% if is_developer or is_class_owner or user_permissions.can_void_receipts %}
                   <button
                     type="button"
                     onclick="openReversalModal('{{ p.id }}', '{{ p.receipt_number|escapejs }}', {{ p.total_amount }}, '{{ p.student.full_name|escapejs }}')"
@@ -1482,6 +1483,7 @@
                   >
                     <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                   </button>
+                  {% endif %}
                   {% endif %}
                 </div>
               </td>

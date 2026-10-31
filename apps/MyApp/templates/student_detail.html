@@ -427,7 +427,8 @@
           </span>
         </div>
 
-        {% if current_admission and (is_developer or is_class_owner or user_permissions.can_edit_students) %}
+        {% if current_admission %}
+        {% if is_developer or is_class_owner or user_permissions.can_edit_students %}
         <button
           type="button"
           onclick="openEditAdmissionModal('{{ student.id }}', '{{ current_admission.id }}')"
@@ -437,6 +438,7 @@
           <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
           <span>Update Enrollment</span>
         </button>
+        {% endif %}
         {% endif %}
       </div>
     </div>
@@ -829,7 +831,8 @@
       </div>
 
       <div class="flex items-center gap-2">
-        {% if current_admission and (is_developer or is_class_owner or user_permissions.can_edit_students) %}
+        {% if current_admission %}
+        {% if is_developer or is_class_owner or user_permissions.can_edit_students %}
         <button
           type="button"
           onclick="openEditAdmissionModal('{{ student.id }}', '{{ current_admission.id }}')"
@@ -839,6 +842,7 @@
           <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
           <span>Update Fee / Enrollment</span>
         </button>
+        {% endif %}
         {% endif %}
 
         <button
