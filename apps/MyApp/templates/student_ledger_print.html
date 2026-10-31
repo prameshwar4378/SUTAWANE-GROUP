@@ -18,6 +18,14 @@
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
+    html, body {
+      height: auto !important;
+      min-height: 100% !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      scroll-behavior: smooth;
+    }
     body {
       margin: 0;
       padding: 0;
@@ -623,6 +631,28 @@
 
     </div>
   </main>
+
+  <!-- Floating Quick-Scroll Controls (Hidden on Print) -->
+  <div class="no-print fixed bottom-6 right-6 z-40 flex flex-col gap-2.5">
+    <button
+      id="btn-scroll-top"
+      type="button"
+      onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
+      class="w-10 h-10 rounded-full bg-slate-900/90 hover:bg-slate-900 text-white shadow-lg border border-slate-700/50 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+      title="Scroll to Top"
+    >
+      <i data-lucide="chevron-up" class="w-5 h-5"></i>
+    </button>
+    <button
+      id="btn-scroll-bottom"
+      type="button"
+      onclick="window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'smooth'})"
+      class="w-10 h-10 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-lg border border-slate-300 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+      title="Scroll to Bottom"
+    >
+      <i data-lucide="chevron-down" class="w-5 h-5"></i>
+    </button>
+  </div>
 
   <script>
     // Initialize Lucide icons on page load
