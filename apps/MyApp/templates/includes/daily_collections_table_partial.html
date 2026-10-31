@@ -33,6 +33,11 @@
       <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
         {{ p.payment_mode }}
       </span>
+      {% if p.is_reversed %}
+        <span class="block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-destructive/15 text-destructive border border-destructive/20" title="{{ p.reversal_reason|default:'Refunded / Reversed' }}">
+          REFUNDED
+        </span>
+      {% endif %}
     </td>
     <td class="py-2.5 px-3 text-xs text-foreground">
       <div class="font-medium text-foreground">{{ p.received_by_display|default:p.received_by.name|default:"Staff" }}</div>
@@ -43,7 +48,7 @@
     <td class="py-2.5 px-3 text-center text-xs text-muted-foreground">
       {{ p.payment_date|date:"d M Y" }}
     </td>
-    <td class="py-2.5 px-3 text-right font-black text-emerald-700 dark:text-emerald-400">
+    <td class="py-2.5 px-3 text-right font-black {% if p.is_reversed %}text-muted-foreground line-through opacity-70{% else %}text-emerald-700 dark:text-emerald-400{% endif %}">
       ₹{{ p.total_amount|floatformat:0|intcomma }}
     </td>
     <td class="py-2.5 px-3 text-center no-print">

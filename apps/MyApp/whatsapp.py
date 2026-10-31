@@ -9,7 +9,10 @@ professional WhatsApp message deep links for:
 """
 
 import urllib.parse
+import threading
 from datetime import datetime
+
+_whatsapp_credit_lock = threading.Lock()
 
 
 def format_whatsapp_number(raw_phone: str) -> str:
@@ -362,6 +365,7 @@ import urllib.error
 def deduct_whatsapp_credit() -> int:
     """
     Atomically decrements whatsapp_credits_balance by 1 and increments whatsapp_messages_sent_count by 1.
+    Thread-safe to prevent lost updates under concurrent message dispatches.
     Returns the remaining balance after deduction.
     """
     from .models import SystemSetting
@@ -369,32 +373,33 @@ def deduct_whatsapp_credit() -> int:
     from django.db import transaction
 
     try:
-        with transaction.atomic():
-            setting, _ = SystemSetting.objects.get_or_create(
-                key='whatsapp_credits_balance',
-                defaults={'value': '500'}
-            )
-            try:
-                curr_bal = int(setting.value or 0)
-            except (ValueError, TypeError):
-                curr_bal = 0
-            new_bal = max(0, curr_bal - 1)
-            setting.value = str(new_bal)
-            setting.save(update_fields=['value'])
+        with _whatsapp_credit_lock:
+            with transaction.atomic():
+                setting, _ = SystemSetting.objects.get_or_create(
+                    key='whatsapp_credits_balance',
+                    defaults={'value': '500'}
+                )
+                try:
+                    curr_bal = int(setting.value or 0)
+                except (ValueError, TypeError):
+                    curr_bal = 0
+                new_bal = max(0, curr_bal - 1)
+                setting.value = str(new_bal)
+                setting.save(update_fields=['value'])
 
-            sent_setting, _ = SystemSetting.objects.get_or_create(
-                key='whatsapp_messages_sent_count',
-                defaults={'value': '0'}
-            )
-            try:
-                curr_sent = int(sent_setting.value or 0)
-            except (ValueError, TypeError):
-                curr_sent = 0
-            sent_setting.value = str(curr_sent + 1)
-            sent_setting.save(update_fields=['value'])
+                sent_setting, _ = SystemSetting.objects.get_or_create(
+                    key='whatsapp_messages_sent_count',
+                    defaults={'value': '0'}
+                )
+                try:
+                    curr_sent = int(sent_setting.value or 0)
+                except (ValueError, TypeError):
+                    curr_sent = 0
+                sent_setting.value = str(curr_sent + 1)
+                sent_setting.save(update_fields=['value'])
 
-        invalidate_global_context_cache()
-        return new_bal
+            invalidate_global_context_cache()
+            return new_bal
     except Exception as exc:
         return None
 
@@ -552,7 +557,7 @@ def dispatch_whatsapp_message(
                 },
                 method='POST'
             )
-            with urllib.request.urlopen(req, timeout=15) as response:
+            with urllib.request.urlopen(req, timeout=3) as response:
                 resp_body = response.read().decode('utf-8')
                 resp_data = json.loads(resp_body) if resp_body else {}
 
@@ -596,7 +601,8 @@ def dispatch_whatsapp_message(
                 provider=provider,
                 sent_by=sent_by
             )
-            return {'success': False, 'status': 'FAILED', 'error': f"Meta API Error: {err_detail}", 'log_id': log.id}
+            manual_fallback = f"https://wa.me/{norm_phone}?text={urllib.parse.quote(message)}"
+            return {'success': False, 'status': 'FAILED', 'error': f"Meta API Error: {err_detail}", 'log_id': log.id, 'manual_url': manual_fallback}
         except Exception as ex:
             log = NotificationLog.objects.create(
                 recipient_mobile=norm_phone,
@@ -609,7 +615,8 @@ def dispatch_whatsapp_message(
                 provider=provider,
                 sent_by=sent_by
             )
-            return {'success': False, 'status': 'FAILED', 'error': str(ex), 'log_id': log.id}
+            manual_fallback = f"https://wa.me/{norm_phone}?text={urllib.parse.quote(message)}"
+            return {'success': False, 'status': 'FAILED', 'error': str(ex), 'log_id': log.id, 'manual_url': manual_fallback}
 
     # LOCAL_WHATSAPP Gateway (Node bridge at http://localhost:3000/send)
     try:
@@ -628,7 +635,7 @@ def dispatch_whatsapp_message(
             method='POST'
         )
 
-        with urllib.request.urlopen(req, timeout=12) as response:
+        with urllib.request.urlopen(req, timeout=3) as response:
             resp_body = response.read().decode('utf-8')
             resp_data = json.loads(resp_body) if resp_body else {}
 
@@ -675,7 +682,8 @@ def dispatch_whatsapp_message(
             provider='LOCAL_WHATSAPP',
             sent_by=sent_by
         )
-        return {'success': False, 'status': 'FAILED', 'error': err_msg, 'log_id': log.id}
+        manual_fallback = f"https://wa.me/{norm_phone}?text={urllib.parse.quote(message)}"
+        return {'success': False, 'status': 'FAILED', 'error': err_msg, 'log_id': log.id, 'manual_url': manual_fallback}
 
     except urllib.error.URLError as err:
         err_msg = str(err)
@@ -693,7 +701,8 @@ def dispatch_whatsapp_message(
             provider='LOCAL_WHATSAPP',
             sent_by=sent_by
         )
-        return {'success': False, 'status': 'FAILED', 'error': err_msg, 'log_id': log.id}
+        manual_fallback = f"https://wa.me/{norm_phone}?text={urllib.parse.quote(message)}"
+        return {'success': False, 'status': 'FAILED', 'error': err_msg, 'log_id': log.id, 'manual_url': manual_fallback}
 
     except Exception as exc:
         log = NotificationLog.objects.create(
@@ -707,5 +716,6 @@ def dispatch_whatsapp_message(
             provider='LOCAL_WHATSAPP',
             sent_by=sent_by
         )
-        return {'success': False, 'status': 'FAILED', 'error': str(exc), 'log_id': log.id}
+        manual_fallback = f"https://wa.me/{norm_phone}?text={urllib.parse.quote(message)}"
+        return {'success': False, 'status': 'FAILED', 'error': str(exc), 'log_id': log.id, 'manual_url': manual_fallback}
 

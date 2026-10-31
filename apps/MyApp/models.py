@@ -683,7 +683,7 @@ class Expense(models.Model):
     @property
     def created_by_display(self):
         if self.created_by:
-            return self.created_by.name
+            return self.created_by.name or self.created_by.username or "Staff"
         return "Staff"
 
     @property
@@ -695,7 +695,7 @@ class Expense(models.Model):
     @property
     def updated_by_display(self):
         if self.updated_by:
-            return self.updated_by.name
+            return self.updated_by.name or self.updated_by.username or "Staff"
         return None
 
     def save(self, *args, **kwargs):

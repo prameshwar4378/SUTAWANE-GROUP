@@ -11,7 +11,7 @@
   <style>
     @page {
       size: A4 portrait;
-      margin: 5mm 8mm;
+      margin: 8mm 10mm;
     }
     @page thermal {
       size: 80mm auto;
@@ -37,80 +37,20 @@
       color: #0f172a;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
-    @media screen {
-      .printing-receipt #printable-receipt-container {
-        max-width: 194mm;
-        margin: 0 auto;
-      }
-      .printing-receipt .receipt-slip-card {
-        min-height: 480px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-    }
     @media print {
-      html, body {
-        height: 100% !important;
-        max-height: 100% !important;
-        overflow: hidden !important;
+      body {
         background: #ffffff !important;
         padding: 0 !important;
-        margin: 0 !important;
       }
       .no-print {
         display: none !important;
       }
-      body.format-a4_dual #printable-receipt-container {
-        height: 287mm !important;
-        max-height: 287mm !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
-        margin: 0 auto !important;
-        padding: 0 !important;
-        box-sizing: border-box !important;
-        page-break-after: avoid !important;
-        break-after: avoid !important;
-      }
-      body.format-a4_dual .receipt-slip-card {
-        height: 139mm !important;
-        max-height: 139mm !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
-        box-sizing: border-box !important;
-        padding: 4.5mm 5mm !important;
-        border: 1.5px solid #0f172a !important;
+      .receipt-slip-card {
+        border: 1.5px solid #1e293b !important;
         border-radius: 8px !important;
         box-shadow: none !important;
-        background: #ffffff !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
-      }
-      body.format-a4_dual .receipt-cut-line {
-        height: 6mm !important;
-        max-height: 6mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        flex-shrink: 0 !important;
-      }
-      .receipt-slip-card table thead tr th {
-        padding-top: 2.2mm !important;
-        padding-bottom: 2.2mm !important;
-        font-size: 9.5px !important;
-      }
-      .receipt-slip-card table tbody tr td {
-        padding-top: 2.5mm !important;
-        padding-bottom: 2.5mm !important;
-        font-size: 11px !important;
-      }
-      .receipt-slip-card .stamp-box {
-        height: 12.5mm !important;
-        width: 38mm !important;
       }
     }
     /* Thermal mode styling */
@@ -128,7 +68,7 @@
     }
   </style>
 </head>
-<body class="{% if current_mode == 'thermal' %}printing-thermal{% else %}printing-receipt{% endif %} format-{{ current_mode }}">
+<body class="{% if current_mode == 'thermal' %}printing-thermal{% else %}printing-receipt{% endif %}">
 
   <!-- ========================================================= -->
   <!-- TOP CONTROL TOOLBAR (HIDDEN ON PRINT)                    -->

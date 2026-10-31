@@ -330,11 +330,15 @@
       </div>
       {% endif %}
 
-      <div class="px-1">
-        <p class="font-semibold text-foreground truncate">
-          {{ institute_name }}
-        </p>
-        <p class="text-[11px] text-muted-foreground/80 mt-0.5">Django Management v1.0</p>
+      <div class="px-1 pt-0.5">
+        <a
+          href="{% url 'support' %}"
+          class="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors font-medium group {% if request.resolver_match.url_name == 'support' %}text-primary font-semibold{% endif %}"
+          title="Technical Support & Developer Contact"
+        >
+          <i data-lucide="life-buoy" class="w-3.5 h-3.5 {% if request.resolver_match.url_name == 'support' %}text-primary{% else %}text-muted-foreground group-hover:text-primary{% endif %} transition-colors"></i>
+          <span class="hover:underline">Support</span>
+        </a>
       </div>
 
       <button
@@ -364,6 +368,14 @@
         <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
       </a>
       {% endif %}
+
+      <a
+        href="{% url 'support' %}"
+        class="w-8 h-8 rounded-full bg-background border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors shadow-xs {% if request.resolver_match.url_name == 'support' %}text-primary border-primary/50{% endif %}"
+        title="Help & Support"
+      >
+        <i data-lucide="life-buoy" class="w-3.5 h-3.5"></i>
+      </a>
 
       <button
         type="button"

@@ -106,7 +106,16 @@
         </th>
 
         <!-- Recorded By -->
-        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-recordedBy">Recorded By</th>
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-recordedBy">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=recordedBy&direction={% if filters.sort == 'recordedBy' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+            <span>Recorded By</span>
+            {% if filters.sort == 'recordedBy' %}
+              {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
+            {% else %}
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-white/50"></i>
+            {% endif %}
+          </a>
+        </th>
 
         <!-- Actions -->
         <th class="py-3 px-4 text-right text-xs font-semibold whitespace-nowrap pr-4 col-actions">Actions</th>
@@ -190,18 +199,18 @@
         <td class="py-3 px-3 text-xs col-recordedBy whitespace-nowrap">
           <div class="flex items-center gap-2">
             <div class="w-6 h-6 rounded-full bg-primary/10 text-primary font-black flex items-center justify-center text-[10px] flex-shrink-0">
-              {{ exp.created_by_display|slice:":1"|upper }}
+              {{ exp.created_by_display|default:exp.recorded_by|default:"Staff"|slice:":1"|upper }}
             </div>
             <div class="min-w-0">
-              <span class="font-bold text-foreground block text-xs truncate max-w-[120px] leading-tight" title="{{ exp.created_by_display }}">
-                {{ exp.created_by_display }}
+              <span class="font-bold text-foreground block text-xs truncate max-w-[130px] leading-tight" title="{{ exp.created_by_display|default:exp.recorded_by|default:'Staff' }}">
+                {{ exp.created_by_display|default:exp.recorded_by|default:"Staff" }}
               </span>
               <span class="text-[10px] text-muted-foreground block leading-tight">
-                {{ exp.created_by_role_display }}
+                {{ exp.created_by_role_display|default:exp.recorded_by_role|default:"Staff" }}
               </span>
             </div>
           </div>
-          {% if exp.updated_by %}
+          {% if exp.updated_by or exp.updated_by_display %}
           <span class="text-[9.5px] text-muted-foreground/80 block mt-0.5" title="Edited by {{ exp.updated_by_display }}">
             Edited by: {{ exp.updated_by_display }}
           </span>

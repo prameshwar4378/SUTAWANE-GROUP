@@ -67,8 +67,35 @@
   #modalDeleteUser .modal-dialog-box {
     max-width: 460px !important;
   }
+  #notificationDetailModal {
+    overflow-y: auto !important;
+  }
   #notificationDetailModal .modal-dialog-box {
     max-width: 580px !important;
+    max-height: calc(100vh - 2.5rem) !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  #notificationDetailModal .modal-scroll-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+  }
+  #notifModalMessageText {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    overflow-x: hidden !important;
+    max-height: 220px !important;
+  }
+  #notifModalResponsePayload {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    overflow-x: hidden !important;
+    max-height: 120px !important;
   }
 
   select, input, textarea {
@@ -3696,7 +3723,7 @@
     </div>
 
     <!-- Modal Body -->
-    <div class="p-4 sm:p-5 overflow-y-auto space-y-3.5 text-xs">
+    <div class="modal-scroll-body p-4 sm:p-5 overflow-y-auto space-y-3.5 text-xs">
       
       <!-- Key Meta Grid (Compact & Refined) -->
       <div class="grid grid-cols-2 gap-2.5">
@@ -3758,7 +3785,7 @@
           </button>
         </div>
         <div class="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-3 shadow-2xs">
-          <pre id="notifModalMessageText" class="text-[11.5px] font-sans text-foreground whitespace-pre-wrap leading-relaxed select-text font-normal max-h-56 sm:max-h-64 overflow-y-auto"></pre>
+          <pre id="notifModalMessageText" class="text-[11.5px] font-sans text-foreground leading-relaxed select-text font-normal max-h-48 overflow-y-auto" style="white-space: pre-wrap !important; word-break: break-word !important; overflow-wrap: anywhere !important; overflow-x: hidden !important;"></pre>
         </div>
       </div>
 
@@ -3768,7 +3795,7 @@
           <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
           <span>Gateway Diagnostic / Failure Response</span>
         </label>
-        <div class="bg-rose-50/70 dark:bg-rose-950/30 border border-rose-500/30 rounded-xl p-2.5 font-mono text-[10.5px] text-rose-800 dark:text-rose-300 whitespace-pre-wrap break-all max-h-28 overflow-y-auto" id="notifModalResponsePayload">
+        <div class="bg-rose-50/70 dark:bg-rose-950/30 border border-rose-500/30 rounded-xl p-2.5 font-mono text-[10.5px] text-rose-800 dark:text-rose-300 max-h-28 overflow-y-auto" id="notifModalResponsePayload" style="white-space: pre-wrap !important; word-break: break-word !important; overflow-wrap: anywhere !important; overflow-x: hidden !important;">
         </div>
       </div>
 

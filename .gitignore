@@ -55,3 +55,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Scratch & Staging
+scratch/
+*.dbsnapshot
+*.staging

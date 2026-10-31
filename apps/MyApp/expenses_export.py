@@ -77,6 +77,7 @@ def export_expenses_to_excel(expenses, options=None):
         ("Vendor / Payee", 20),
         ("Payment Mode", 15),
         ("Reference / UTR", 18),
+        ("Recorded By", 20),
         ("Outflow Amount (₹)", 18),
     ]
 
@@ -86,7 +87,7 @@ def export_expenses_to_excel(expenses, options=None):
 
         for col_idx, (h_text, _) in enumerate(headers, start=1):
             cell = ws.cell(row=header_row, column=col_idx, value=h_text)
-            cell.alignment = Alignment(horizontal="center" if col_idx in [1, 2, 7] else ("left" if col_idx in [3, 4, 5, 6, 8] else "right"), vertical="center")
+            cell.alignment = Alignment(horizontal="center" if col_idx in [1, 2, 7, 8] else ("left" if col_idx in [3, 4, 5, 6, 9] else "right"), vertical="center")
 
         curr_row = 5
         tot_outflow = 0.0
@@ -94,6 +95,7 @@ def export_expenses_to_excel(expenses, options=None):
         for idx, exp in enumerate(records, start=1):
             amt = float(exp.get('amount', 0.0))
             tot_outflow += amt
+            rec_by = exp.get('recorded_by') or exp.get('created_by_display') or 'Staff'
 
             row_vals = [
                 idx,
@@ -104,6 +106,7 @@ def export_expenses_to_excel(expenses, options=None):
                 exp.get('vendor') or '—',
                 exp.get('payment_mode') or 'UPI',
                 exp.get('reference_number') or '—',
+                rec_by,
                 amt,
             ]
 
@@ -112,11 +115,11 @@ def export_expenses_to_excel(expenses, options=None):
                 cell = ws.cell(row=curr_row, column=col_idx, value=val)
                 cell.border = thin_border
 
-                if col_idx == 9:
+                if col_idx == 10:
                     cell.number_format = '₹#,##0'
                     cell.alignment = Alignment(horizontal="right", vertical="center")
                     cell.font = outflow_font
-                elif col_idx in [1, 2, 7]:
+                elif col_idx in [1, 2, 7, 8]:
                     cell.alignment = Alignment(horizontal="center", vertical="center")
                     cell.font = normal_font
                 else:
@@ -127,17 +130,17 @@ def export_expenses_to_excel(expenses, options=None):
 
         # Totals Row
         ws.row_dimensions[curr_row].height = 24
-        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=8)
+        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=9)
         lbl = ws.cell(row=curr_row, column=1, value=f"TOTAL OUTFLOW ({len(records)} vouchers)")
         lbl.font = totals_bold
         lbl.alignment = Alignment(horizontal="right", vertical="center")
 
-        amt_cell = ws.cell(row=curr_row, column=9, value=tot_outflow)
+        amt_cell = ws.cell(row=curr_row, column=10, value=tot_outflow)
         amt_cell.font = totals_red
         amt_cell.number_format = '₹#,##0'
         amt_cell.alignment = Alignment(horizontal="right", vertical="center")
 
-        for col in range(1, 10):
+        for col in range(1, 11):
             c = ws.cell(row=curr_row, column=col)
             c.border = totals_border
             c.fill = totals_fill
@@ -287,6 +290,7 @@ def export_expenses_to_pdf(expenses, options=None):
             "Vendor / Payee",
             "Payment Mode",
             "Ref / Bill No",
+            "Recorded By",
             "Amount (Rs.)"
         ]
     ]
@@ -303,6 +307,7 @@ def export_expenses_to_pdf(expenses, options=None):
         vendor = exp.get('vendor') or '—'
         mode = exp.get('payment_mode') or 'UPI'
         ref_no = exp.get('reference_number') or '—'
+        rec_by = exp.get('recorded_by') or exp.get('created_by_display') or 'Staff'
 
         table_data.append([
             Paragraph(str(idx), cell_center),
@@ -313,17 +318,18 @@ def export_expenses_to_pdf(expenses, options=None):
             Paragraph(vendor, cell_normal),
             Paragraph(mode, cell_mode),
             Paragraph(ref_no, cell_center),
+            Paragraph(rec_by, cell_normal),
             Paragraph(format_currency_inr(amt), cell_red),
         ])
 
     # 3. Totals Row
     table_data.append([
         Paragraph(f"<b>TOTAL OUTFLOW ({len(expenses)} vouchers)</b>", cell_bold),
-        "", "", "", "", "", "", "",
+        "", "", "", "", "", "", "", "",
         Paragraph(f"<b>{format_currency_inr(total_amount)}</b>", cell_red),
     ])
 
-    col_widths = [24, 66, 100, 164, 104, 104, 72, 80, 90]
+    col_widths = [22, 62, 88, 138, 84, 84, 60, 76, 96, 94]
 
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
@@ -336,13 +342,13 @@ def export_expenses_to_pdf(expenses, options=None):
         ('ALIGN', (0, 0), (0, -1), 'CENTER'),
         ('ALIGN', (1, 0), (1, -1), 'CENTER'),
         ('ALIGN', (6, 0), (7, -1), 'CENTER'),
-        ('ALIGN', (8, 0), (8, -1), 'RIGHT'),
+        ('ALIGN', (9, 0), (9, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),
         ('TOPPADDING', (0, 1), (-1, -1), 4.5),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 4.5),
-        ('SPAN', (0, -1), (7, -1)),
+        ('SPAN', (0, -1), (8, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.25, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('LINEBELOW', (0, -1), (-1, -1), 1.25, colors.HexColor(COLOR_NAVY_PRIMARY)),

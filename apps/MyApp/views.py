@@ -12,7 +12,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib import messages
-from django.db import transaction
+import threading
+from django.db import transaction, IntegrityError
 from django.db.models import Q, Count, Sum, F, Value, Subquery, OuterRef, DecimalField
 from django.db.models.functions import Coalesce
 from django.conf import settings
@@ -989,6 +990,19 @@ def get_active_scope(request):
     return branch_id, session_id, active_branch, active_session
 
 
+def is_user_authorized_for_student(user, student) -> bool:
+    """
+    Guarantees strict cross-branch isolation:
+    - Developers & Class Owners have unrestricted oversight across all branches.
+    - Branch Managers restricted to their assigned branch cannot access or mutate students from other branches.
+    """
+    if not user or user.is_developer or user.is_class_owner:
+        return True
+    if user.is_branch_manager and user.branch_id and has_permission(user, 'restricted_to_assigned_branch'):
+        return student.admissions.filter(branch_id=user.branch_id).exists()
+    return True
+
+
 def dashboard_view(request):
     """
     Main Executive Dashboard View.
@@ -1019,7 +1033,8 @@ def dashboard_view(request):
         admissions_qs = admissions_qs.filter(session_id=active_session.id)
         payments_qs = payments_qs.filter(session_id=active_session.id)
         if active_session.start_date and active_session.end_date:
-            expenses_qs = expenses_qs.filter(expense_date__range=[active_session.start_date, active_session.end_date])
+            sess_end = active_session.end_date.replace(hour=23, minute=59, second=59, microsecond=999999) if hasattr(active_session.end_date, 'replace') else active_session.end_date
+            expenses_qs = expenses_qs.filter(expense_date__range=[active_session.start_date, sess_end])
         else:
             expenses_qs = expenses_qs.none()
 
@@ -1075,8 +1090,14 @@ def dashboard_view(request):
         prev_collected = prev_dues_agg['tot_col'] or MONEY_ZERO
         prev_pending = max(MONEY_ZERO, prev_outstanding - prev_collected)
 
-        total_expected_fees = plan_expected_fees + prev_outstanding
-        total_collected_fees = plan_collected_fees + prev_collected
+        if is_all_sessions:
+            # In All-Sessions scope, historical FeePlans already encompass all primary agreed fees.
+            # Carried dues (PreviousSessionDue) are intra-session transfers; adding them would double-count carried debt.
+            total_expected_fees = plan_expected_fees
+            total_collected_fees = plan_collected_fees
+        else:
+            total_expected_fees = plan_expected_fees + prev_outstanding
+            total_collected_fees = plan_collected_fees + prev_collected
 
         # Calculate true pending fees across active student accounts (never netting one student's surplus against another's debt)
         paid_per_adm = dict(
@@ -1087,7 +1108,7 @@ def dashboard_view(request):
              for fp in FeePlan.objects.filter(admission__in=admissions_qs)),
             MONEY_ZERO
         )
-        total_pending_fees = plan_pending_fees + prev_pending
+        total_pending_fees = plan_pending_fees if is_all_sessions else (plan_pending_fees + prev_pending)
 
         # 6. Installments Due Today & Overdue Dues
         due_today_count = 0
@@ -1543,12 +1564,15 @@ def generate_next_roll_number(branch=None, session=None) -> str:
         return "SC-1"
 
     branch_code = extract_branch_code(branch)
-    qs = StudentAdmission.objects.filter(branch=branch)
-    session_rolls = set(qs.filter(session=session).values_list('roll_number', flat=True)) if session else set()
+    if session:
+        qs = StudentAdmission.objects.filter(branch=branch, session=session)
+    else:
+        qs = StudentAdmission.objects.filter(branch=branch)
+    session_rolls = set(qs.values_list('roll_number', flat=True))
 
     max_num = 0
     pattern = re.compile(rf'^{re.escape(branch_code)}-(\d+)$', re.IGNORECASE)
-    for roll in qs.values_list('roll_number', flat=True):
+    for roll in session_rolls:
         if roll:
             m = pattern.match(str(roll).strip())
             if m:
@@ -1633,12 +1657,15 @@ def students_list_view(request):
 
             scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
 
-            # Resolve branch
-            branch = None
-            if branch_id and branch_id != 'ALL':
-                branch = Branch.objects.filter(id=branch_id, is_active=True).first()
-            if not branch:
-                branch = scope_b or Branch.objects.filter(is_active=True).first()
+            # Resolve branch (strictly enforce assigned branch for Branch Managers)
+            if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+                branch = Branch.objects.filter(id=current_user.branch_id, is_active=True).first()
+            else:
+                branch = None
+                if branch_id and branch_id != 'ALL':
+                    branch = Branch.objects.filter(id=branch_id, is_active=True).first()
+                if not branch:
+                    branch = scope_b or Branch.objects.filter(is_active=True).first()
             if not branch:
                 messages.error(request, "No active branch found. Please create a branch first.")
                 return redirect('students_list')
@@ -1653,12 +1680,10 @@ def students_list_view(request):
                 messages.error(request, "No academic session found. Please configure a session first.")
                 return redirect('students_list')
 
-            # Auto-generate short sequential roll number if not provided (e.g. VAI-1)
+            user_provided_roll = bool(roll_number)
             if not roll_number:
                 roll_number = generate_next_roll_number(branch, session)
-
-            # Check roll number uniqueness within this branch + session
-            if StudentAdmission.objects.filter(branch=branch, session=session, roll_number=roll_number).exists():
+            elif StudentAdmission.objects.filter(branch=branch, session=session, roll_number=roll_number).exists():
                 messages.error(request, f"Roll number '{roll_number}' already exists in {branch.name} for session {session.name}.")
                 return redirect('students_list')
 
@@ -1691,45 +1716,57 @@ def students_list_view(request):
                         dest.write(chunk)
                 photo_url = f"/media/photos/{filename}"
 
-            with transaction.atomic():
-                # Create Student
-                student = Student.objects.create(
-                    student_code=generate_student_code(),
-                    full_name=full_name,
-                    parent_phone=parent_phone,
-                    student_phone=student_phone,
-                    address=address,
-                    photo_url=photo_url,
-                )
+            admission = None
+            student = None
+            max_attempts = 4
+            for attempt in range(max_attempts):
+                try:
+                    with transaction.atomic():
+                        # Create Student
+                        student = Student.objects.create(
+                            student_code=generate_student_code(),
+                            full_name=full_name,
+                            parent_phone=parent_phone,
+                            student_phone=student_phone,
+                            address=address,
+                            photo_url=photo_url,
+                        )
 
-                # Create StudentAdmission
-                admission = StudentAdmission.objects.create(
-                    student=student,
-                    branch=branch,
-                    session=session,
-                    roll_number=roll_number,
-                    standard=standard or 'Class 10',
-                    admission_date=timezone.now(),
-                    is_active=True,
-                )
+                        # Create StudentAdmission
+                        admission = StudentAdmission.objects.create(
+                            student=student,
+                            branch=branch,
+                            session=session,
+                            roll_number=roll_number,
+                            standard=standard or 'Class 10',
+                            admission_date=timezone.now(),
+                            is_active=True,
+                        )
 
-                # Create FeePlan
-                fee_plan = FeePlan.objects.create(
-                    admission=admission,
-                    session=session,
-                    total_fees=total_fees,
-                    total_discount=MONEY_ZERO,
-                    net_payable=total_fees,
-                )
+                        # Create FeePlan
+                        fee_plan = FeePlan.objects.create(
+                            admission=admission,
+                            session=session,
+                            total_fees=total_fees,
+                            total_discount=MONEY_ZERO,
+                            net_payable=total_fees,
+                        )
 
-                # Create initial Installment
-                Installment.objects.create(
-                    fee_plan=fee_plan,
-                    installment_no=1,
-                    label='Session Fee',
-                    due_date=due_datetime,
-                    amount_due=total_fees,
-                )
+                        # Create initial Installment
+                        Installment.objects.create(
+                            fee_plan=fee_plan,
+                            installment_no=1,
+                            label='Session Fee',
+                            due_date=due_datetime,
+                            amount_due=total_fees,
+                        )
+                    break
+                except IntegrityError:
+                    if not user_provided_roll and attempt < max_attempts - 1:
+                        roll_number = generate_next_roll_number(branch, session)
+                        continue
+                    messages.error(request, f"Roll number '{roll_number}' conflict occurred. Please try again.")
+                    return redirect('students_list')
 
             # Automatic WhatsApp Welcome / Admission Confirmation Dispatch
             inst_settings = get_institute_settings_dict()
@@ -1791,6 +1828,17 @@ def students_list_view(request):
             student_id = request.POST.get('student_id')
             student = get_object_or_404(Student, id=student_id)
             name = student.full_name
+
+            active_payments = student.payments.filter(is_reversed=False)
+            if active_payments.exists():
+                tot_p = sum((p.total_amount for p in active_payments), MONEY_ZERO)
+                messages.error(
+                    request,
+                    f"Financial Protection Guard: Cannot permanently delete student '{name}' because {active_payments.count()} "
+                    f"active payment receipt(s) totaling ₹{tot_p:,.0f} are on record. "
+                    "In compliance with accounting standards, receipts cannot be deleted. Please refund/void the receipts first or mark the student as Archived."
+                )
+                return redirect('students_list')
 
             # Cascade delete related records cleanly
             for adm in student.admissions.all():
@@ -2321,6 +2369,18 @@ def student_detail_view(request, student_id):
             if not has_permission(current_user, 'can_delete_students'):
                 messages.error(request, "Access Denied: You do not have permission to delete student records.")
                 return redirect('student_detail', student_id=student.id)
+
+            active_payments = student.payments.filter(is_reversed=False)
+            if active_payments.exists():
+                tot_p = sum((p.total_amount for p in active_payments), MONEY_ZERO)
+                messages.error(
+                    request,
+                    f"Financial Protection Guard: Cannot permanently delete student '{student.full_name}' because {active_payments.count()} "
+                    f"active payment receipt(s) totaling ₹{tot_p:,.0f} are on record. "
+                    "In compliance with accounting standards, receipts cannot be deleted. Please refund/void the receipts first or mark the student as Archived."
+                )
+                return redirect('student_detail', student_id=student.id)
+
             with transaction.atomic():
                 for adm in student.admissions.all():
                     if hasattr(adm, 'fee_plan'):
@@ -2570,9 +2630,24 @@ def student_statement_view(request, student_id):
     """
     Renders dedicated printable A4 HTML Student Account Statement & Batchwise Financial Ledger.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    student = Student.objects.filter(id=student_id).first()
+    if not student:
+        messages.error(request, "Student not found.")
+        return redirect('students_list')
+
+    if not is_user_authorized_for_student(current_user, student):
+        messages.error(request, "Access Denied: You are not authorized to view account statements outside your assigned branch.")
+        return redirect('students_list')
+
     payload = build_student_ledger_payload(student_id)
     if not payload:
-        messages.error(request, "Student not found.")
+        messages.error(request, "Student ledger could not be generated.")
         return redirect('students_list')
     return render(request, 'student_ledger_print.html', payload)
 
@@ -2581,6 +2656,21 @@ def student_statement_pdf_view(request, student_id):
     """
     Exports official publication-grade Portrait A4 PDF for student account statement.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    student = Student.objects.filter(id=student_id).first()
+    if not student:
+        messages.error(request, "Student not found.")
+        return redirect('students_list')
+
+    if not is_user_authorized_for_student(current_user, student):
+        messages.error(request, "Access Denied: You are not authorized to view account statements outside your assigned branch.")
+        return redirect('students_list')
+
     payload = build_student_ledger_payload(student_id)
     if not payload:
         messages.error(request, "Student not found.")
@@ -2600,6 +2690,21 @@ def student_statement_excel_view(request, student_id):
     """
     Exports comprehensive 3-sheet Excel workbook for student account statement.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    student = Student.objects.filter(id=student_id).first()
+    if not student:
+        messages.error(request, "Student not found.")
+        return redirect('students_list')
+
+    if not is_user_authorized_for_student(current_user, student):
+        messages.error(request, "Access Denied: You are not authorized to view account statements outside your assigned branch.")
+        return redirect('students_list')
+
     payload = build_student_ledger_payload(student_id)
     if not payload:
         messages.error(request, "Student not found.")
@@ -2661,6 +2766,16 @@ def student_promotion_preview_view(request, student_id):
     Matches React /students/:id/promotion-preview and PromoteStudentModal.tsx.
     """
     student = get_object_or_404(Student, id=student_id)
+
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not is_user_authorized_for_student(current_user, student):
+        return HttpResponseForbidden("Access Denied: You are not authorized to view student records outside your assigned branch.")
+
     current_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.order_by('-created_at').first()
 
     # Dues calculation from current admission
@@ -2766,11 +2881,20 @@ def promote_student_view(request, student_id):
         messages.error(request, "Access Denied: You do not have permission to promote students.")
         return redirect('student_detail', student_id=student.id)
 
+    if not is_user_authorized_for_student(current_user, student):
+        messages.error(request, "Access Denied: You cannot promote students outside your assigned branch.")
+        return redirect('students_list')
+
     if request.method != 'POST':
         return redirect('student_detail', student_id=student.id)
 
     target_session_id = request.POST.get('target_session_id')
     target_branch_id = request.POST.get('target_branch_id')
+
+    # If restricted branch manager, enforce assigned branch
+    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+        target_branch_id = str(current_user.branch_id)
+
     target_standard = request.POST.get('target_standard', '').strip()
     new_roll_number = request.POST.get('new_roll_number', '').strip()
     try:
@@ -2914,6 +3038,9 @@ def edit_admission_modal_view(request, student_id, admission_id):
     student = get_object_or_404(Student, id=student_id)
     admission = get_object_or_404(StudentAdmission, id=admission_id, student=student)
 
+    if not is_user_authorized_for_student(current_user, student):
+        return HttpResponse('<div class="p-4 text-destructive text-sm font-semibold">Access Denied: You cannot edit enrollment records outside your assigned branch.</div>', status=403)
+
     fee_plan = getattr(admission, 'fee_plan', None)
     valid_payments = admission.payments.filter(is_reversed=False)
     already_paid = sum((p.total_amount for p in valid_payments), MONEY_ZERO)
@@ -2978,6 +3105,10 @@ def update_admission_view(request, student_id, admission_id):
         messages.error(request, "Access Denied: You do not have permission to modify student enrollments.")
         return redirect('student_detail', student_id=student.id)
 
+    if not is_user_authorized_for_student(current_user, student):
+        messages.error(request, "Access Denied: You cannot modify enrollment records outside your assigned branch.")
+        return redirect('students_list')
+
     action = request.POST.get('action', 'update_enrollment')
 
     # 1. ACTION: Permanent Delete Enrollment
@@ -2998,6 +3129,22 @@ def update_admission_view(request, student_id, admission_id):
 
         sess_name = admission.session.name if admission.session else 'Session'
         std_name = admission.standard or 'Course'
+
+        active_payments = admission.payments.filter(is_reversed=False)
+        if active_payments.exists():
+            tot_p = sum((p.total_amount for p in active_payments), MONEY_ZERO)
+            messages.error(
+                request,
+                f"Financial Protection Guard: Cannot permanently delete enrollment '{sess_name}' ({std_name}) "
+                f"because {active_payments.count()} active payment receipt(s) totaling ₹{tot_p:,.0f} are attached to it. "
+                "In compliance with accounting standards, receipts cannot be deleted. Please refund/void the receipts first or mark this enrollment as Inactive/Archived."
+            )
+            target_url = f"/students/{student.id}/?admission_id={admission.id}"
+            if request.headers.get('HX-Request'):
+                response = HttpResponse(status=204)
+                response['HX-Redirect'] = target_url
+                return response
+            return redirect(target_url)
 
         with transaction.atomic():
             if hasattr(admission, 'fee_plan') and admission.fee_plan:
@@ -3068,7 +3215,10 @@ def update_admission_view(request, student_id, admission_id):
                 form_error = str(exc)
 
         if not form_error and new_total_fees < already_paid:
-            form_error = f"Total Fees (₹{new_total_fees:,.0f}) cannot be less than already collected payments (₹{already_paid:,.0f})."
+            form_error = (
+                f"Total Agreed Fees (₹{new_total_fees:,.0f}) "
+                f"cannot be less than already collected payments (₹{already_paid:,.0f})."
+            )
 
         target_session = AcademicSession.objects.filter(id=target_session_id).first() if not form_error else None
         target_branch = Branch.objects.filter(id=target_branch_id).first() if not form_error else None
@@ -3147,19 +3297,20 @@ def update_admission_view(request, student_id, admission_id):
             admission.payments.all().update(branch=target_branch, session=target_session)
 
             # Update FeePlan
+            actual_disc = fee_plan.discounts.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO if fee_plan else MONEY_ZERO
             if not fee_plan:
                 fee_plan = FeePlan.objects.create(
                     admission=admission,
                     session=target_session,
-                    total_fees=new_total_fees,
-                    total_discount=MONEY_ZERO,
+                    total_fees=new_total_fees + actual_disc,
+                    total_discount=actual_disc,
                     net_payable=new_total_fees,
                 )
             else:
                 fee_plan.session = target_session
-                fee_plan.total_fees = new_total_fees
-                disc = fee_plan.total_discount or MONEY_ZERO
-                fee_plan.net_payable = max(MONEY_ZERO, new_total_fees - disc)
+                fee_plan.total_discount = actual_disc
+                fee_plan.total_fees = new_total_fees + actual_disc
+                fee_plan.net_payable = new_total_fees
                 fee_plan.save()
 
             # Synchronize Installments
@@ -3629,49 +3780,54 @@ def extract_academic_year(session) -> str:
     return f"{y}-{str(y + 1)[-2:]}"
 
 
+_receipt_counter_lock = threading.Lock()
+
+
 def generate_sequential_receipt_number(branch, session) -> str:
     """
     Thread-safe atomic sequential receipt number generator.
+    Guarded with threading.Lock() to guarantee zero race collisions under Waitress multi-threaded WSGI.
     Format: academicyear-branchcode-receipt number
     Example: 2026-27-VAI-REC1
     """
-    if not branch:
-        branch = Branch.objects.filter(is_active=True).first() or Branch.objects.first()
-    if not session:
-        session = (
-            AcademicSession.objects.filter(is_current=True, isActive=True).first()
-            or AcademicSession.objects.filter(isActive=True).first()
-            or AcademicSession.objects.first()
-        )
-
-    academic_year = extract_academic_year(session)
-    branch_code = extract_branch_code(branch)
-    prefix = f"{academic_year}-{branch_code}-REC"
-
-    if branch and session:
-        with transaction.atomic():
-            counter, _ = ReceiptCounter.objects.select_for_update().get_or_create(
-                branch=branch,
-                session=session,
-                defaults={'prefix': prefix, 'last_number': 0}
+    with _receipt_counter_lock:
+        if not branch:
+            branch = Branch.objects.filter(is_active=True).first() or Branch.objects.first()
+        if not session:
+            session = (
+                AcademicSession.objects.filter(is_current=True, isActive=True).first()
+                or AcademicSession.objects.filter(isActive=True).first()
+                or AcademicSession.objects.first()
             )
-            while True:
-                counter.last_number += 1
-                receipt_no = f"{prefix}{counter.last_number}"
-                if not Payment.objects.filter(receipt_number=receipt_no).exists():
-                    break
 
-            counter.prefix = prefix
-            counter.save()
-            return receipt_no
-    else:
-        # Fallback when no Branch/Session entity exists in database
-        seq = Payment.objects.count() + 1
-        while True:
-            receipt_no = f"{prefix}{seq}"
-            if not Payment.objects.filter(receipt_number=receipt_no).exists():
+        academic_year = extract_academic_year(session)
+        branch_code = extract_branch_code(branch)
+        prefix = f"{academic_year}-{branch_code}-REC"
+
+        if branch and session:
+            with transaction.atomic():
+                counter, _ = ReceiptCounter.objects.select_for_update().get_or_create(
+                    branch=branch,
+                    session=session,
+                    defaults={'prefix': prefix, 'last_number': 0}
+                )
+                while True:
+                    counter.last_number += 1
+                    receipt_no = f"{prefix}{counter.last_number}"
+                    if not Payment.objects.filter(receipt_number=receipt_no).exists():
+                        break
+
+                counter.prefix = prefix
+                counter.save()
                 return receipt_no
-            seq += 1
+        else:
+            # Fallback when no Branch/Session entity exists in database
+            seq = Payment.objects.count() + 1
+            while True:
+                receipt_no = f"{prefix}{seq}"
+                if not Payment.objects.filter(receipt_number=receipt_no).exists():
+                    return receipt_no
+                seq += 1
 
 
 def fee_collect_view(request):
@@ -3705,6 +3861,9 @@ def fee_collect_view(request):
             reversal_reason = request.POST.get('reversal_reason', '').strip()
 
             payment = get_object_or_404(Payment, id=payment_id)
+            if not is_user_authorized_for_student(current_user, payment.student):
+                messages.error(request, "Access Denied: You cannot void receipts outside your assigned branch.")
+                return redirect(f"{request.path}?tab=history")
             if payment.is_reversed:
                 messages.warning(request, f"Receipt #{payment.receipt_number} is already refunded/voided.")
                 return redirect(f"{request.path}?tab=history")
@@ -3756,6 +3915,9 @@ def fee_collect_view(request):
                 return redirect(f"{request.path}?tab=collect&student_id={student_id}")
 
             student = get_object_or_404(Student, id=student_id)
+            if not is_user_authorized_for_student(current_user, student):
+                messages.error(request, "Access Denied: You cannot collect fees for students outside your assigned branch.")
+                return redirect(f"{request.path}?tab=collect")
 
             if amount <= 0:
                 messages.error(request, "Please enter a valid positive payment amount.")
@@ -3885,6 +4047,14 @@ def fee_collect_view(request):
                 return redirect(f"{request.path}?tab=collect&student_id={student.id}")
 
             if fee_plan:
+                if fee_plan.installments.count() == 0:
+                    Installment.objects.create(
+                        fee_plan=fee_plan,
+                        installment_no=1,
+                        label='Session Fee',
+                        due_date=timezone.now(),
+                        amount_due=net_payable,
+                    )
                 installment_capacity = sum(
                     max(
                         MONEY_ZERO,
@@ -3896,12 +4066,12 @@ def fee_collect_view(request):
                     for inst in fee_plan.installments.all()
                 )
                 if amount > installment_capacity + Decimal('0.005'):
-                    messages.error(
-                        request,
-                        "This fee plan's installment balances cannot fully accept the payment. "
-                        "Please correct the installments before collecting the payment."
-                    )
-                    return redirect(f"{request.path}?tab=collect&student_id={student.id}")
+                    # Auto-heal: If installments were not adjusted after a discount/restructuring, rebalance the last installment
+                    last_inst = fee_plan.installments.order_by('installment_no').last()
+                    if last_inst:
+                        needed_cap = amount - installment_capacity
+                        last_inst.amount_due += needed_cap
+                        last_inst.save(update_fields=['amount_due'])
 
             next_due_datetime = None
             if next_due_date_str:
@@ -3946,7 +4116,16 @@ def fee_collect_view(request):
                             remaining_amount -= alloc_now
 
                     if remaining_amount > Decimal('0.005'):
-                        raise RuntimeError("Payment allocation invariant failed after validation.")
+                        last_inst = fee_plan.installments.order_by('installment_no').last()
+                        if last_inst:
+                            last_inst.amount_due += remaining_amount
+                            last_inst.save(update_fields=['amount_due'])
+                            PaymentAllocation.objects.create(
+                                payment=payment,
+                                installment=last_inst,
+                                allocated_amount=remaining_amount,
+                            )
+                            remaining_amount = MONEY_ZERO
 
                     # Update next promise due date if balance remains
                     if next_due_datetime and (pending_due - amount) > 0:
@@ -4318,9 +4497,20 @@ def collect_fee_modal_view(request, student_id):
     """
     Renders and processes standalone Collect Fee modal dialog via HTMX directly on Student Profile.
     Does NOT redirect away from student profile.
-    Maintains pure independent session accounting.
+    Maintains pure independent session accounting with cross-branch isolation.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
     student = get_object_or_404(Student, id=student_id)
+    if not is_user_authorized_for_student(current_user, student):
+        if request.headers.get('HX-Request'):
+            return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You cannot collect fees for students outside your assigned branch.</div>', status=403)
+        messages.error(request, "Access Denied: You cannot collect fees for students outside your assigned branch.")
+        return redirect('students_list')
 
     # Multi-session data for student
     admissions_qs = student.admissions.select_related('branch', 'session', 'fee_plan').prefetch_related(
@@ -4431,6 +4621,14 @@ def collect_fee_modal_view(request, student_id):
 
             # Allocate across installments using FIFO
             if fee_plan:
+                if fee_plan.installments.count() == 0:
+                    Installment.objects.create(
+                        fee_plan=fee_plan,
+                        installment_no=1,
+                        label='Session Fee',
+                        due_date=timezone.now(),
+                        amount_due=fee_plan.net_payable,
+                    )
                 remaining_amount = amount
                 for inst in fee_plan.installments.all().order_by('installment_no'):
                     if remaining_amount <= 0:
@@ -4445,6 +4643,19 @@ def collect_fee_modal_view(request, student_id):
                             allocated_amount=alloc_now,
                         )
                         remaining_amount -= alloc_now
+
+                # If remaining amount exists due to unadjusted installments, expand the last installment
+                if remaining_amount > Decimal('0.005'):
+                    last_inst = fee_plan.installments.order_by('installment_no').last()
+                    if last_inst:
+                        last_inst.amount_due += remaining_amount
+                        last_inst.save(update_fields=['amount_due'])
+                        PaymentAllocation.objects.create(
+                            payment=payment,
+                            installment=last_inst,
+                            allocated_amount=remaining_amount,
+                        )
+                        remaining_amount = MONEY_ZERO
 
                 # Update next due date if specified
                 if next_due_datetime and (pending_due - amount) > 0:
@@ -4602,10 +4813,19 @@ def payment_receipt_modal_view(request, payment_id):
     Renders printable dual-copy fee receipt modal (A4 Student/Office Copy & Thermal 80mm).
     Matches React FeeReceiptModal.tsx.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
     payment = get_object_or_404(
         Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due', 'received_by', 'created_by', 'reversed_by'),
         id=payment_id
     )
+
+    if not is_user_authorized_for_student(current_user, payment.student):
+        return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You cannot view receipts outside your assigned branch.</div>', status=403)
 
     allocations = payment.allocations.select_related('installment').all()
 
@@ -4654,10 +4874,21 @@ def payment_receipt_print_view(request, payment_id):
     Student Slip, Office Slip, and 80mm Thermal Receipt.
     Matches React FeeReceiptModal print output.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
     payment = get_object_or_404(
         Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due', 'received_by', 'created_by', 'reversed_by'),
         id=payment_id
     )
+
+    if not is_user_authorized_for_student(current_user, payment.student):
+        messages.error(request, "Access Denied: You cannot view or print receipts outside your assigned branch.")
+        return redirect('fee_collect')
+
     allocations = payment.allocations.select_related('installment').all()
 
     remaining_balance = get_payment_point_in_time_balance(payment)
@@ -4724,6 +4955,11 @@ def payment_receipt_void_view(request, payment_id):
         return redirect(next_url)
 
     payment = get_object_or_404(Payment.objects.select_related('student', 'previous_due'), id=payment_id)
+    if not is_user_authorized_for_student(current_user, payment.student):
+        if request.headers.get('Accept') == 'application/json':
+            return JsonResponse({'success': False, 'error': 'Access Denied: You cannot void receipts outside your assigned branch.'}, status=403)
+        messages.error(request, "Access Denied: You cannot void receipts outside your assigned branch.")
+        return redirect(next_url)
     if payment.is_reversed:
         if request.headers.get('Accept') == 'application/json':
             return JsonResponse({'success': False, 'error': f"Receipt #{payment.receipt_number} has already been refunded/reversed."}, status=400)
@@ -4887,7 +5123,7 @@ def fees_dues_view(request):
                     paid = sum(
                         a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed
                     )
-                    balance = max(MONEY_ZERO, inst.amount_due - paid)
+                    balance = min(max(MONEY_ZERO, inst.amount_due - paid), student_session_pending)
 
                     # STRICT RULE: Cleared / 0 balance installments MUST NEVER appear in dues register
                     if balance <= MONEY_ZERO:
@@ -5262,14 +5498,16 @@ def expenses_list_view(request):
             else:
                 cat = ExpenseCategory.objects.first()
 
-            # Resolve Branch
-            # Resolve Branch
-            branch_id = request.POST.get('branch_id')
-            if branch_id and branch_id != 'ALL':
-                branch = get_object_or_404(Branch, id=branch_id)
+            # Resolve Branch (strictly enforce assigned branch for Branch Managers)
+            if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+                branch = Branch.objects.filter(id=current_user.branch_id, is_active=True).first()
             else:
-                scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
-                branch = scope_b or Branch.objects.filter(is_active=True).first()
+                branch_id = request.POST.get('branch_id')
+                if branch_id and branch_id != 'ALL':
+                    branch = get_object_or_404(Branch, id=branch_id)
+                else:
+                    scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
+                    branch = scope_b or Branch.objects.filter(is_active=True).first()
 
             payment_mode = request.POST.get('payment_mode', 'UPI')
             vendor = request.POST.get('vendor', '').strip() or None
@@ -5325,6 +5563,10 @@ def expenses_list_view(request):
         elif action == 'update':
             expense_id = request.POST.get('expense_id')
             expense = get_object_or_404(Expense, id=expense_id)
+            if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+                if expense.branch_id != current_user.branch_id:
+                    messages.error(request, "Access Denied: You cannot modify expense vouchers outside your assigned branch.")
+                    return redirect('expenses_list')
 
             description = request.POST.get('description', '').strip()
             amount_str = request.POST.get('amount', '0').strip()
@@ -5346,9 +5588,12 @@ def expenses_list_view(request):
             elif category_id:
                 expense.category = get_object_or_404(ExpenseCategory, id=category_id)
 
-            branch_id = request.POST.get('branch_id')
-            if branch_id and branch_id != 'ALL':
-                expense.branch = get_object_or_404(Branch, id=branch_id)
+            if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+                expense.branch_id = current_user.branch_id
+            else:
+                branch_id = request.POST.get('branch_id')
+                if branch_id and branch_id != 'ALL':
+                    expense.branch = get_object_or_404(Branch, id=branch_id)
 
             expense.description = description
             expense.payment_mode = request.POST.get('payment_mode', 'UPI')
@@ -5396,6 +5641,10 @@ def expenses_list_view(request):
                 return redirect('expenses_list')
             expense_id = request.POST.get('expense_id')
             expense = get_object_or_404(Expense, id=expense_id)
+            if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+                if expense.branch_id != current_user.branch_id:
+                    messages.error(request, "Access Denied: You cannot delete expense vouchers outside your assigned branch.")
+                    return redirect('expenses_list')
             desc = expense.description
             amt = expense.amount
 
@@ -5617,7 +5866,7 @@ def expenses_list_view(request):
         if end_date_str:
             qs = qs.filter(expense_date__date__lte=end_date_str)
 
-    # Multi-token Search across description, vendor, ref no, category name, branch name, payment mode
+    # Multi-token Search across description, vendor, ref no, category name, branch name, payment mode, recorded by
     if search_query:
         tokens = search_query.split()
         for token in tokens:
@@ -5627,7 +5876,9 @@ def expenses_list_view(request):
                 Q(reference_number__icontains=token) |
                 Q(category__name__icontains=token) |
                 Q(branch__name__icontains=token) |
-                Q(payment_mode__icontains=token)
+                Q(payment_mode__icontains=token) |
+                Q(created_by__name__icontains=token) |
+                Q(created_by__username__icontains=token)
             )
 
     # 4. Serialize to list of dictionaries for sorting and metrics
@@ -5636,6 +5887,9 @@ def expenses_list_view(request):
         atts = list(exp.attachments.all())
         first_att = atts[0] if atts else None
         exp_dt = timezone.localtime(exp.expense_date) if exp.expense_date else None
+        rec_by = exp.created_by_display
+        rec_role = exp.created_by_role_display
+        upd_by = exp.updated_by_display
 
         raw_expenses.append({
             'id': exp.id,
@@ -5650,7 +5904,12 @@ def expenses_list_view(request):
             'vendor': exp.vendor or '',
             'payment_mode': exp.payment_mode,
             'reference_number': exp.reference_number or '',
-            'recorded_by': exp.created_by_display,
+            'recorded_by': rec_by,
+            'recorded_by_role': rec_role,
+            'created_by_display': rec_by,
+            'created_by_role_display': rec_role,
+            'updated_by': exp.updated_by,
+            'updated_by_display': upd_by,
             'amount': exp.amount,
             'has_attachment': bool(first_att),
             'attachment_file_name': first_att.file_name if first_att else '',
@@ -5676,6 +5935,8 @@ def expenses_list_view(request):
         raw_expenses.sort(key=lambda x: x['reference_number'].lower(), reverse=reverse_sort)
     elif sort_field == 'amount':
         raw_expenses.sort(key=lambda x: x['amount'], reverse=reverse_sort)
+    elif sort_field == 'recordedBy':
+        raw_expenses.sort(key=lambda x: (x.get('recorded_by') or '').lower(), reverse=reverse_sort)
     else:
         raw_expenses.sort(key=lambda x: x['expense_date'] or timezone.now(), reverse=True)
 
@@ -6471,32 +6732,43 @@ def daily_reports_view(request):
 
     # Query Payments & Expenses
     pay_qs = Payment.objects.filter(
-        is_reversed=False,
         payment_date__gte=start_dt,
         payment_date__lte=end_dt
-    ).select_related('student', 'branch', 'session', 'admission').order_by('-payment_date')
+    ).select_related('student', 'branch', 'session', 'admission', 'received_by').order_by('-payment_date')
+
+    # Query Fee Refunds/Reversals executed during this reporting period
+    refund_qs = Payment.objects.filter(
+        is_reversed=True,
+        reversed_at__gte=start_dt,
+        reversed_at__lte=end_dt
+    ).select_related('student', 'branch', 'session', 'admission', 'reversed_by').order_by('-reversed_at')
 
     if selected_branch_id != 'ALL':
         pay_qs = pay_qs.filter(branch_id=selected_branch_id)
+        refund_qs = refund_qs.filter(branch_id=selected_branch_id)
     if selected_session_id != 'ALL':
         pay_qs = pay_qs.filter(Q(session_id=selected_session_id) | Q(admission__session_id=selected_session_id))
+        refund_qs = refund_qs.filter(Q(session_id=selected_session_id) | Q(admission__session_id=selected_session_id))
 
     exp_qs = Expense.objects.filter(
         expense_date__gte=start_dt,
         expense_date__lte=end_dt
-    ).select_related('category', 'branch').order_by('-expense_date')
+    ).select_related('category', 'branch', 'created_by').order_by('-expense_date')
 
     if selected_branch_id != 'ALL':
         exp_qs = exp_qs.filter(branch_id=selected_branch_id)
 
     payments = list(pay_qs)
+    refunds = list(refund_qs)
     expenses = list(exp_qs)
 
     total_collections = sum((p.total_amount for p in payments), MONEY_ZERO)
     collections_count = len(payments)
+    total_refunds = sum((r.total_amount for r in refunds), MONEY_ZERO)
+    refunds_count = len(refunds)
     total_expenses = sum((e.amount for e in expenses), MONEY_ZERO)
     expenses_count = len(expenses)
-    net_movement = total_collections - total_expenses
+    net_movement = total_collections - total_expenses - total_refunds
     is_profit = net_movement >= 0
 
     # Mode and Category breakdowns (normalized uppercase)
@@ -6554,7 +6826,7 @@ def daily_reports_view(request):
     filtered_collections_count = len(filtered_collections) if q_col else collections_count
     filtered_expenses_sum = sum((e.amount for e in filtered_expenses), MONEY_ZERO) if q_exp else total_expenses
     filtered_expenses_count = len(filtered_expenses) if q_exp else expenses_count
-    filtered_net = filtered_collections_sum - filtered_expenses_sum
+    filtered_net = filtered_collections_sum - filtered_expenses_sum - total_refunds
 
     # Statement Payload for Exports & APIs
     statement_data = {
@@ -6567,6 +6839,8 @@ def daily_reports_view(request):
             'collectionsCount': filtered_collections_count,
             'totalExpenses': filtered_expenses_sum,
             'expensesCount': filtered_expenses_count,
+            'totalRefunds': total_refunds,
+            'refundsCount': refunds_count,
             'netMovement': filtered_net,
             'isProfit': filtered_net >= 0,
             'grossTotalCollections': total_collections,
@@ -6592,8 +6866,27 @@ def daily_reports_view(request):
                 'standard': p.admission.standard if p.admission else '—',
                 'branchName': p.branch.name if p.branch else '—',
                 'sessionName': p.session.display_name if p.session else '—',
+                'isReversed': p.is_reversed,
+                'reversalReason': p.reversal_reason or '',
             }
             for p in filtered_collections
+        ],
+        'refunds': [
+            {
+                'id': r.id,
+                'receiptNumber': r.receipt_number,
+                'reversedAt': r.reversed_at.isoformat() if r.reversed_at else '',
+                'totalAmount': r.total_amount,
+                'paymentMode': r.payment_mode,
+                'reversalReason': r.reversal_reason or '—',
+                'reversedBy': r.reversed_by.name if r.reversed_by else (r.received_by.name if r.received_by else 'Admin'),
+                'studentName': r.student.full_name if r.student else '—',
+                'studentCode': r.student.student_code if r.student else '—',
+                'rollNumber': r.admission.roll_number if r.admission else '—',
+                'standard': r.admission.standard if r.admission else '—',
+                'branchName': r.branch.name if r.branch else '—',
+            }
+            for r in refunds
         ],
         'expenses': [
             {
@@ -6686,6 +6979,9 @@ def daily_reports_view(request):
         'summary': statement_data['summary'],
         'collections': filtered_collections,
         'expenses': filtered_expenses,
+        'refunds': refunds,
+        'total_refunds': total_refunds,
+        'refunds_count': refunds_count,
         'years': list(range(datetime.now().year - 3, datetime.now().year + 4)),
         'month_names': [(i, calendar.month_name[i+1]) for i in range(12)],
         'today_str': today_str,
@@ -7552,10 +7848,13 @@ def backup_manage_view(request):
         if action == 'create':
             try:
                 b = create_full_backup_snapshot()
+                media_msg = f"{b['photosCount']} photos & {b['attachmentsCount']} vouchers"
+                if b.get('otherMediaCount', 0) > 0:
+                    media_msg += f" & {b['otherMediaCount']} other media"
                 messages.success(
                     request,
                     f"Full backup '{b['fileName']}' ({format_bytes(b['sizeBytes'])}) created! "
-                    f"Included {b['photosCount']} photos & {b['attachmentsCount']} attachments."
+                    f"Bundled database with {media_msg} (total {b['totalMediaCount']} media files)."
                 )
                 if request.GET.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
                     return JsonResponse({'success': True, 'message': 'Backup created successfully', 'backup': b})
@@ -8784,6 +9083,35 @@ def api_resend_notification_view(request):
         'new_log_id': result.get('log_id'),
         'message': 'Notification re-dispatched successfully!' if result.get('success') else (result.get('error') or 'Re-dispatch failed.')
     })
+
+
+def support_view(request):
+    """
+    Developer & Technical Support View.
+    Displays direct contact details, quick WhatsApp chat, direct dial, email,
+    and company website link for Rameshwar Pawar / Ultoxy Technologies.
+    """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not current_user:
+        return redirect('login')
+
+    context = {
+        'page_title': 'Help & Support',
+        'active_menu': 'support',
+        'developer_name': 'Rameshwar Pawar',
+        'developer_phone': '7776824564',
+        'developer_phone_formatted': '+91 77768 24564',
+        'company_name': 'Ultoxy Technologies',
+        'company_website': 'https://ultoxy-tech.github.io/ultoxy/',
+        'developer_email': 'ultoxy.tech@gmail.com',
+    }
+    return render(request, 'support.html', context)
+
 
 
 

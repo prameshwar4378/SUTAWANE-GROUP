@@ -1568,7 +1568,9 @@ def export_statement_excel(statement_data, options=None):
     cnt_col = int(summary.get('collectionsCount', 0))
     tot_exp = float(summary.get('totalExpenses', 0.0))
     cnt_exp = int(summary.get('expensesCount', 0))
-    net = tot_col - tot_exp
+    tot_ref = float(summary.get('totalRefunds', 0.0))
+    cnt_ref = int(summary.get('refundsCount', 0))
+    net = tot_col - tot_exp - tot_ref
 
     # -------------------------------------------------------------
     # Sheet 1: Executive Summary
@@ -1603,9 +1605,13 @@ def export_statement_excel(statement_data, options=None):
 
     summary_rows = [
         ['Total Fee Collections', tot_col, f'{cnt_col} Receipts', 'Confirmed fees deposited into center accounts'],
-        ['Total Center Expenditures', tot_exp, f'{cnt_exp} Vouchers', 'Operational disbursements & branch overheads'],
-        ['Net Cash Flow / Operating Surplus', net, f'{cnt_col + cnt_exp} Transactions', 'Operating Surplus' if net >= 0 else 'Operating Deficit'],
     ]
+    if tot_ref > 0:
+        summary_rows.append(['Fee Refunds & Reversals Disbursed', -tot_ref, f'{cnt_ref} Refunds', 'Returned fee receipts'])
+    summary_rows.extend([
+        ['Total Center Expenditures', tot_exp, f'{cnt_exp} Vouchers', 'Operational disbursements & branch overheads'],
+        ['Net Cash Flow / Operating Surplus', net, f'{cnt_col + cnt_exp + cnt_ref} Transactions', 'Operating Surplus' if net >= 0 else 'Operating Deficit'],
+    ])
 
     for idx, r_data in enumerate(summary_rows, 1):
         row_num = 4 + idx
@@ -1749,7 +1755,7 @@ def export_statement_excel(statement_data, options=None):
 
     exp_headers = [
         '#', 'Voucher / Ref No.', 'Expense Category', 'Description / Purpose',
-        'Paid To / Vendor', 'Campus Branch', 'Payment Mode', 'Disbursement Date', 'Amount (Rs.)'
+        'Paid To / Vendor', 'Campus Branch', 'Payment Mode', 'Recorded By', 'Disbursement Date', 'Amount (Rs.)'
     ]
     max_col_letter3 = get_column_letter(len(exp_headers))
 
@@ -1773,7 +1779,7 @@ def export_statement_excel(statement_data, options=None):
         cell.font = header_font
         cell.fill = HEADER_FILL
         cell.border = THIN_BORDER
-        align_h = 'center' if col_idx in [1, 7, 8] else ('right' if col_idx == 9 else 'left')
+        align_h = 'center' if col_idx in [1, 7, 9] else ('right' if col_idx == 10 else 'left')
         cell.alignment = Alignment(horizontal=align_h, vertical="center")
 
     expenses = statement_data.get('expenses', [])
@@ -1783,6 +1789,7 @@ def export_statement_excel(statement_data, options=None):
         amt = float(e.get('amount', 0.0))
         tot_exp_amt += amt
         e_date = e.get('expenseDate', '')[:10] if e.get('expenseDate') else '—'
+        rec_by = e.get('recordedBy') or e.get('recorded_by') or 'Staff'
 
         row_num = 4 + idx
         ws3.row_dimensions[row_num].height = 20
@@ -1794,6 +1801,7 @@ def export_statement_excel(statement_data, options=None):
             e.get('vendor') or e.get('paidTo') or '—',
             e.get('branchName', '—'),
             e.get('paymentMode', '—'),
+            rec_by,
             e_date,
             amt
         ]
@@ -1802,11 +1810,11 @@ def export_statement_excel(statement_data, options=None):
             cell = ws3.cell(row=row_num, column=col_idx, value=val)
             cell.border = THIN_BORDER
 
-            if col_idx == 9:
+            if col_idx == 10:
                 cell.number_format = '₹#,##0'
                 cell.alignment = Alignment(horizontal='right', vertical="center")
                 cell.font = due_font
-            elif col_idx in [1, 7, 8]:
+            elif col_idx in [1, 7, 9]:
                 cell.font = normal_font
                 cell.alignment = Alignment(horizontal='center', vertical="center")
             elif col_idx in [2, 3]:
@@ -1819,14 +1827,14 @@ def export_statement_excel(statement_data, options=None):
     # Expenses Totals Row
     tot_row_num3 = 4 + len(expenses) + 1
     ws3.row_dimensions[tot_row_num3].height = 24
-    sum_vals_exp = ['TOTAL', f'{len(expenses)} Vouchers', '', '', '', '', '', '', tot_exp_amt]
+    sum_vals_exp = ['TOTAL', f'{len(expenses)} Vouchers', '', '', '', '', '', '', '', tot_exp_amt]
 
     for col_idx, val in enumerate(sum_vals_exp, 1):
         cell = ws3.cell(row=tot_row_num3, column=col_idx, value=val)
         cell.border = TOTALS_BORDER
         cell.fill = TOTALS_FILL
 
-        if col_idx == 9:
+        if col_idx == 10:
             cell.number_format = '₹#,##0'
             cell.alignment = Alignment(horizontal='right', vertical="center")
             cell.font = totals_due
@@ -1971,7 +1979,8 @@ def export_statement_pdf(statement_data, options=None):
     cnt_col = int(summary.get('collectionsCount', 0))
     tot_exp = float(summary.get('totalExpenses', 0.0))
     cnt_exp = int(summary.get('expensesCount', 0))
-    net = tot_col - tot_exp
+    tot_ref = float(summary.get('totalRefunds', 0.0))
+    net = tot_col - tot_exp - tot_ref
 
     header_meta = {
         'branch_name': branch_label,
@@ -2080,6 +2089,7 @@ def export_statement_pdf(statement_data, options=None):
         Paragraph("Paid To / Vendor", hdr_style),
         Paragraph("Branch", hdr_style),
         Paragraph("Mode", hdr_style),
+        Paragraph("Recorded By", hdr_style),
         Paragraph("Date", hdr_style),
         Paragraph("Amount (Rs.)", hdr_right_style),
     ]
@@ -2088,6 +2098,7 @@ def export_statement_pdf(statement_data, options=None):
     for idx, e in enumerate(expenses, 1):
         e_date = e.get('expenseDate', '')[:10] if e.get('expenseDate') else '—'
         amt = float(e.get('amount', 0.0))
+        rec_by = e.get('recordedBy') or e.get('recorded_by') or 'Staff'
         exp_tbl_rows.append([
             Paragraph(str(idx), cell_center),
             Paragraph(str(e.get('referenceNumber') or f"EXP-{idx:04d}"), cell_bold),
@@ -2096,26 +2107,27 @@ def export_statement_pdf(statement_data, options=None):
             Paragraph(str(e.get('vendor') or e.get('paidTo') or '—'), cell_normal),
             Paragraph(str(e.get('branchName', '—')), cell_normal),
             Paragraph(str(e.get('paymentMode', '—')), cell_center),
+            Paragraph(rec_by, cell_normal),
             Paragraph(e_date, cell_center),
             Paragraph(format_currency_inr(amt), cell_red),
         ])
 
     exp_tbl_rows.append([
         Paragraph(f"<b>TOTAL ({len(expenses)} Vouchers Incurred)</b>", cell_bold),
-        "", "", "", "", "", "", "",
+        "", "", "", "", "", "", "", "",
         Paragraph(format_currency_inr(tot_exp), cell_red),
     ])
 
     # Col widths totaling 802 pt (Landscape A4)
-    # [22, 95, 95, 175, 100, 75, 50, 65, 125] = 802
-    exp_table = Table(exp_tbl_rows, colWidths=[22, 95, 95, 175, 100, 75, 50, 65, 125])
+    # [22, 85, 85, 150, 90, 75, 50, 80, 60, 105] = 802
+    exp_table = Table(exp_tbl_rows, colWidths=[22, 85, 85, 150, 90, 75, 50, 80, 60, 105])
     exp_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_NAVY_SECONDARY)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
-        ('SPAN', (0, -1), (7, -1)),
+        ('SPAN', (0, -1), (8, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1.2, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F8FAFC')]),

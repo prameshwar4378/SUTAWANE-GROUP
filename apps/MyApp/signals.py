@@ -127,17 +127,56 @@ def on_fee_structure_changed(sender, instance, **kwargs):
 def sync_fee_plan_on_discount_change(sender, instance, **kwargs):
     """
     Auto-healing synchronization: guarantees that whenever a FeeDiscount is added,
-    modified, or deleted, FeePlan.total_discount and FeePlan.net_payable are mathematically refreshed.
+    modified, or deleted, FeePlan.total_discount and FeePlan.net_payable are mathematically refreshed,
+    and associated Installment records are proportionally rebalanced to match net_payable.
     """
     try:
         if instance.fee_plan_id:
             fp = instance.fee_plan
             tot_disc = fp.discounts.aggregate(tot=Sum('amount'))['tot'] or Decimal('0.00')
             net = max(Decimal('0.00'), (fp.total_fees or Decimal('0.00')) - tot_disc)
+            fp_updated = False
             if fp.total_discount != tot_disc or fp.net_payable != net:
                 fp.total_discount = tot_disc
                 fp.net_payable = net
                 fp.save(update_fields=['total_discount', 'net_payable', 'updated_at'])
+                fp_updated = True
+
+            # Synchronize Installments to maintain invariant: sum(installments.amount_due) == fp.net_payable
+            installments = list(fp.installments.order_by('installment_no'))
+            if not installments:
+                from django.utils import timezone
+                Installment.objects.create(
+                    fee_plan=fp,
+                    installment_no=1,
+                    label='Session Fee',
+                    due_date=timezone.now(),
+                    amount_due=net,
+                )
+            elif len(installments) == 1:
+                inst = installments[0]
+                if inst.amount_due != net:
+                    inst.amount_due = net
+                    inst.save(update_fields=['amount_due'])
+            else:
+                remaining_target = net
+                for idx, inst in enumerate(installments):
+                    alloc_paid = sum(
+                        (a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)),
+                        Decimal('0.00'),
+                    )
+                    if idx == len(installments) - 1:
+                        inst_target = max(alloc_paid, remaining_target)
+                    else:
+                        inst_target = max(alloc_paid, min(inst.amount_due, remaining_target))
+                        remaining_target = max(Decimal('0.00'), remaining_target - inst_target)
+
+                    if inst.amount_due != inst_target:
+                        inst.amount_due = inst_target
+                        inst.save(update_fields=['amount_due'])
+
+            if fp_updated:
+                invalidate_financial_cache()
     except Exception as exc:
         logger.warning("Error auto-syncing FeePlan discount totals in signal: %s", exc)
 

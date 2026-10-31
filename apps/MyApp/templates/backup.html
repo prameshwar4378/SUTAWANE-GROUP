@@ -35,11 +35,11 @@
           <i data-lucide="database" class="w-5 h-5"></i>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground font-medium">Database (sutawane.db)</p>
+          <p class="text-xs text-muted-foreground font-medium">Database (SQLite 3)</p>
           <p class="text-lg font-bold text-foreground">
             {{ stats.dbSizeFormatted|default:"0 B" }}
           </p>
-          <p class="text-[11px] text-muted-foreground">SQLite 3 Local Persistent</p>
+          <p class="text-[11px] text-muted-foreground">All Text, Records &amp; Settings</p>
         </div>
       </div>
     </div>
@@ -256,7 +256,7 @@
 
                     {% if b.photosCount is not None %}
                       <span class="text-[10px] text-muted-foreground">
-                        {{ b.photosCount }} photos &bull; {{ b.attachmentsCount|default:0 }} vouchers
+                        {{ b.photosCount }} photos &bull; {{ b.attachmentsCount|default:0 }} vouchers{% if b.otherMediaCount %} &bull; {{ b.otherMediaCount }} other files{% endif %}
                       </span>
                     {% endif %}
                   </div>
@@ -565,8 +565,10 @@
   document.getElementById('createBackupForm').addEventListener('submit', function() {
     const btn = document.getElementById('createBackupBtn');
     const txt = document.getElementById('createBackupBtnText');
-    btn.disabled = true;
-    txt.textContent = 'Bundling & Compressing...';
+    setTimeout(() => {
+      btn.disabled = true;
+      txt.textContent = 'Bundling & Compressing...';
+    }, 20);
   });
 
   // --- Restore Modal Functions ---
@@ -587,8 +589,10 @@
   document.getElementById('restoreForm').addEventListener('submit', function() {
     const btn = document.getElementById('restoreSubmitBtn');
     const txt = document.getElementById('restoreSubmitBtnText');
-    btn.disabled = true;
-    txt.textContent = 'Restoring System...';
+    setTimeout(() => {
+      btn.disabled = true;
+      txt.textContent = 'Restoring System...';
+    }, 20);
     if (window.PageLoader) {
       window.PageLoader.showOverlay('Restoring System Snapshot...');
     }
@@ -630,8 +634,10 @@
   document.getElementById('uploadRestoreForm').addEventListener('submit', function() {
     const btn = document.getElementById('uploadRestoreSubmitBtn');
     const txt = document.getElementById('uploadRestoreSubmitBtnText');
-    btn.disabled = true;
-    txt.textContent = 'Uploading & Restoring...';
+    setTimeout(() => {
+      btn.disabled = true;
+      txt.textContent = 'Uploading & Restoring...';
+    }, 20);
     if (window.PageLoader) {
       window.PageLoader.showOverlay('Uploading & Restoring System Backup...');
     }
