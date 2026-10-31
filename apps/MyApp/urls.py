@@ -42,6 +42,7 @@ urlpatterns = [
     path('expenses/', views.expenses_list_view, name='expenses_list'),
     path('reports/', views.financial_reports_view, name='financial_reports'),
     path('reports/daily/', views.daily_reports_view, name='daily_reports'),
+    path('reports/user/', views.user_report_view, name='user_report'),
     path('api/reports/statement/', views.api_reports_statement_view, name='api_reports_statement'),
     path('api/reports/session-audit/', views.api_session_audit_view, name='api_session_audit'),
     path('api/reports/payment-modes-summary/', views.api_payment_modes_view, name='api_payment_modes'),

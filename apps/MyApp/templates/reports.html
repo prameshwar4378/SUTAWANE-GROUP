@@ -19,8 +19,16 @@
     </div>
 
     <!-- Actions Toolbar -->
-    {% if is_developer or is_class_owner or user_permissions.can_view_daily_reports %}
     <div class="flex items-center gap-2.5">
+      <a
+        href="{% url 'user_report' %}"
+        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-semibold shadow-xs transition-colors"
+      >
+        <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+        <span>Report by User</span>
+      </a>
+
+      {% if is_developer or is_class_owner or user_permissions.can_view_daily_reports %}
       <a
         href="{% url 'daily_reports' %}?mode=DAILY{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
         class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs transition-colors"
@@ -28,8 +36,8 @@
         <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
         <span>Open Daily Statement</span>
       </a>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 
   <!-- Print-Only Executive Header -->
@@ -91,6 +99,14 @@
     >
       <i data-lucide="file-text" class="w-4 h-4"></i>
       <span>Statements &amp; Ledgers Directory</span>
+    </a>
+
+    <a
+      href="{% url 'user_report' %}"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <i data-lucide="user-check" class="w-4 h-4"></i>
+      <span>Staff Operations &amp; User Audit</span>
     </a>
   </div>
 

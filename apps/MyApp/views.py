@@ -56,6 +56,7 @@ from .reports_export import (
 )
 from .student_ledger_service import build_student_ledger_payload
 from .student_ledger_export import export_student_ledger_pdf, export_student_ledger_excel
+from .user_report_export import export_user_report_excel, export_user_report_pdf
 from .backup_service import (
     get_storage_paths, get_dir_stats, format_bytes,
     create_full_backup_snapshot, execute_restore_from_file,
@@ -6639,8 +6640,376 @@ def daily_reports_view(request):
 
 
 # -----------------------------------------------------------------------------
-# Reports API Endpoints (Exact React Backend Parity)
+# Staff Operations & User Activity Audit Report View
 # -----------------------------------------------------------------------------
+
+def user_report_view(request):
+    """
+    Renders comprehensive User Activity & Staff Operations Audit Report.
+    Audits individual user/staff actions across:
+    - Fee Payment Collections (Received By / Initiated By)
+    - Center Operational Expenditures (Recorded By)
+    - Student Admissions & Enrollments (Enrolled By / Fee Plan Configured By)
+    - Fee Concessions & Discounts Authorized (Granted By)
+    Supports multi-dimensional filtering by user, branch, session, and date ranges.
+    """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not current_user:
+        return redirect('login')
+
+    is_dev = (current_user.role == 'DEVELOPER')
+    is_owner = (current_user.role == 'CLASS_OWNER')
+    can_view = is_dev or is_owner or has_permission(current_user, 'can_view_reports')
+    if not can_view:
+        messages.error(request, "Access restricted. You do not have permission to view staff audit reports.")
+        return redirect('dashboard')
+
+    user_perms = get_user_permissions(current_user)
+    is_branch_restricted = (not is_dev and not is_owner and user_perms.get('restricted_to_assigned_branch', False))
+    user_branch_id = str(current_user.branch_id) if current_user.branch else None
+
+    # Users List
+    users_qs = User.objects.filter(is_active=True).order_by('name')
+    if not is_dev:
+        users_qs = users_qs.exclude(role='DEVELOPER')
+    users_list = list(users_qs)
+
+    selected_user_id = request.GET.get('user_id', 'ALL')
+    target_user = None
+    if selected_user_id != 'ALL':
+        target_user = User.objects.filter(id=selected_user_id).first()
+        if not target_user:
+            selected_user_id = 'ALL'
+
+    # Branch & Session Scopes
+    selected_branch_id = request.GET.get('branch_id', 'ALL')
+    if is_branch_restricted and user_branch_id:
+        selected_branch_id = user_branch_id
+
+    branches = list(Branch.objects.filter(is_active=True).order_by('name'))
+    sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
+    selected_session_id = request.GET.get('session_id', 'ALL')
+
+    # Date Presets & Range Handling
+    preset = request.GET.get('preset', 'this_month')
+    today = timezone.localtime(timezone.now()).date()
+
+    start_date_str = request.GET.get('start_date', '')
+    end_date_str = request.GET.get('end_date', '')
+
+    if preset == 'today':
+        start_date = today
+        end_date = today
+        period_label = f"Today ({today.strftime('%d %b %Y')})"
+    elif preset == 'yesterday':
+        yest = today - timedelta(days=1)
+        start_date = yest
+        end_date = yest
+        period_label = f"Yesterday ({yest.strftime('%d %b %Y')})"
+    elif preset == 'this_week':
+        start_date = today - timedelta(days=today.weekday())
+        end_date = today
+        period_label = f"This Week ({start_date.strftime('%d %b')} – {end_date.strftime('%d %b %Y')})"
+    elif preset == 'this_month':
+        start_date = today.replace(day=1)
+        end_date = today
+        period_label = f"This Month ({start_date.strftime('%B %Y')})"
+    elif preset == 'this_session':
+        curr_sess = AcademicSession.objects.filter(is_current=True).first()
+        if curr_sess:
+            start_date = timezone.localtime(curr_sess.start_date).date()
+            end_date = timezone.localtime(curr_sess.end_date).date()
+            period_label = f"Session: {curr_sess.display_name or curr_sess.name}"
+        else:
+            start_date = today.replace(month=1, day=1)
+            end_date = today
+            period_label = f"Current Year {today.year}"
+    elif preset == 'all_time':
+        start_date = datetime(2020, 1, 1).date()
+        end_date = today + timedelta(days=365)
+        period_label = "All Time Audit"
+    elif preset == 'custom' and start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            period_label = f"{start_date.strftime('%d %b %Y')} – {end_date.strftime('%d %b %Y')}"
+        except Exception:
+            start_date = today.replace(day=1)
+            end_date = today
+            period_label = f"This Month ({start_date.strftime('%B %Y')})"
+            preset = 'this_month'
+    else:
+        start_date = today.replace(day=1)
+        end_date = today
+        period_label = f"This Month ({start_date.strftime('%B %Y')})"
+        preset = 'this_month'
+
+    start_dt = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+    end_dt = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+    # 1. Query Payments
+    p_qs = Payment.objects.filter(payment_date__gte=start_dt, payment_date__lte=end_dt).select_related(
+        'student', 'admission', 'branch', 'session', 'received_by', 'created_by'
+    )
+    if selected_user_id != 'ALL':
+        p_qs = p_qs.filter(Q(received_by_id=selected_user_id) | Q(created_by_id=selected_user_id))
+    if selected_branch_id != 'ALL':
+        p_qs = p_qs.filter(branch_id=selected_branch_id)
+    if selected_session_id != 'ALL':
+        p_qs = p_qs.filter(session_id=selected_session_id)
+    p_qs = p_qs.order_by('-payment_date')
+
+    # 2. Query Expenses
+    e_qs = Expense.objects.filter(expense_date__gte=start_dt, expense_date__lte=end_dt).select_related(
+        'category', 'branch', 'created_by'
+    )
+    if selected_user_id != 'ALL':
+        e_qs = e_qs.filter(created_by_id=selected_user_id)
+    if selected_branch_id != 'ALL':
+        e_qs = e_qs.filter(branch_id=selected_branch_id)
+    e_qs = e_qs.order_by('-expense_date')
+
+    # 3. Query Admissions (enrolled by user / fee plan creator)
+    a_qs = StudentAdmission.objects.filter(admission_date__gte=start_dt, admission_date__lte=end_dt).select_related(
+        'student', 'branch', 'session', 'fee_plan', 'fee_plan__created_by'
+    )
+    if selected_user_id != 'ALL':
+        a_qs = a_qs.filter(fee_plan__created_by_id=selected_user_id)
+    if selected_branch_id != 'ALL':
+        a_qs = a_qs.filter(branch_id=selected_branch_id)
+    if selected_session_id != 'ALL':
+        a_qs = a_qs.filter(session_id=selected_session_id)
+    a_qs = a_qs.order_by('-admission_date')
+
+    # 4. Query Discounts
+    d_qs = FeeDiscount.objects.filter(approved_date__gte=start_dt, approved_date__lte=end_dt).select_related(
+        'fee_plan', 'fee_plan__admission', 'fee_plan__admission__student',
+        'fee_plan__admission__branch', 'fee_plan__session', 'created_by'
+    )
+    if selected_user_id != 'ALL':
+        d_qs = d_qs.filter(created_by_id=selected_user_id)
+    if selected_branch_id != 'ALL':
+        d_qs = d_qs.filter(fee_plan__admission__branch_id=selected_branch_id)
+    if selected_session_id != 'ALL':
+        d_qs = d_qs.filter(fee_plan__session_id=selected_session_id)
+    d_qs = d_qs.order_by('-approved_date')
+
+    # Aggregations
+    active_payments = [p for p in p_qs if not p.is_reversed]
+    voided_payments = [p for p in p_qs if p.is_reversed]
+    tot_collected = sum((p.total_amount for p in active_payments), MONEY_ZERO)
+    tot_expenses = sum((e.amount for e in e_qs), MONEY_ZERO)
+    net_cash = tot_collected - tot_expenses
+
+    tot_agreed_fees = sum((a.fee_plan.total_fees for a in a_qs if hasattr(a, 'fee_plan') and a.fee_plan), MONEY_ZERO)
+    tot_discounts = sum((d.amount for d in d_qs), MONEY_ZERO)
+
+    # Mode breakdown
+    mode_counts = {}
+    for p in active_payments:
+        m = p.payment_mode or 'OTHER'
+        if m not in mode_counts:
+            mode_counts[m] = {'mode': m, 'count': 0, 'total': MONEY_ZERO}
+        mode_counts[m]['count'] += 1
+        mode_counts[m]['total'] += p.total_amount
+    collections_by_mode = sorted(mode_counts.values(), key=lambda x: x['total'], reverse=True)
+
+    # Category breakdown
+    cat_counts = {}
+    for e in e_qs:
+        c_name = e.category.name if e.category else 'General'
+        if c_name not in cat_counts:
+            cat_counts[c_name] = {'category': c_name, 'count': 0, 'total': MONEY_ZERO}
+        cat_counts[c_name]['count'] += 1
+        cat_counts[c_name]['total'] += e.amount
+    expenses_by_category = sorted(cat_counts.values(), key=lambda x: x['total'], reverse=True)
+
+    # Serialized Collections
+    collections_list = []
+    for idx, p in enumerate(p_qs, 1):
+        collections_list.append({
+            'index': idx,
+            'id': p.id,
+            'receipt_number': p.receipt_number,
+            'payment_date': p.payment_date.strftime('%d-%b-%Y') if p.payment_date else '',
+            'student_name': p.student.full_name if p.student else '—',
+            'student_code': p.student.student_code if p.student else '—',
+            'roll_number': p.admission.roll_number if p.admission else (p.student.student_code if p.student else '—'),
+            'standard': p.admission.standard if p.admission else 'General',
+            'branch_name': p.branch.name if p.branch else 'Main Campus',
+            'session_name': p.session.display_name if p.session else '',
+            'payment_mode': p.payment_mode,
+            'amount': float(p.total_amount),
+            'status': 'VOIDED' if p.is_reversed else 'ACTIVE',
+            'received_by': p.received_by_display,
+            'created_by': p.created_by.name if p.created_by else p.received_by_display,
+        })
+
+    # Serialized Expenses
+    expenses_list = []
+    for idx, e in enumerate(e_qs, 1):
+        expenses_list.append({
+            'index': idx,
+            'id': e.id,
+            'reference_number': e.reference_number or f"EXP-{idx:04d}",
+            'expense_date': e.expense_date.strftime('%d-%b-%Y') if e.expense_date else '',
+            'category_name': e.category.name if e.category else 'General',
+            'description': e.description or '—',
+            'vendor': e.vendor or '—',
+            'branch_name': e.branch.name if e.branch else 'Main Campus',
+            'payment_mode': e.payment_mode,
+            'amount': float(e.amount),
+            'recorded_by': e.created_by_display,
+        })
+
+    # Serialized Admissions
+    admissions_list = []
+    for idx, a in enumerate(a_qs, 1):
+        fp = getattr(a, 'fee_plan', None)
+        tot_f = float(fp.total_fees) if fp else 0.0
+        dsc_f = float(fp.total_discount) if fp else 0.0
+        net_f = float(fp.net_payable) if fp else tot_f
+        adm_user = fp.created_by.name if fp and fp.created_by else 'Staff'
+        admissions_list.append({
+            'index': idx,
+            'id': a.id,
+            'student_id': a.student.id if a.student else '',
+            'student_code': a.student.student_code if a.student else '—',
+            'student_name': a.student.full_name if a.student else '—',
+            'parent_phone': a.student.parent_phone if a.student else '—',
+            'roll_number': a.roll_number or '—',
+            'standard': a.standard or '—',
+            'branch_name': a.branch.name if a.branch else 'Main Campus',
+            'session_name': a.session.name if a.session else '',
+            'admission_date': a.admission_date.strftime('%d-%b-%Y') if a.admission_date else '',
+            'total_fees': tot_f,
+            'total_discount': dsc_f,
+            'net_payable': net_f,
+            'enrolled_by': adm_user,
+        })
+
+    # Serialized Discounts
+    discounts_list = []
+    for idx, d in enumerate(d_qs, 1):
+        std_name = d.fee_plan.admission.student.full_name if d.fee_plan and d.fee_plan.admission and d.fee_plan.admission.student else '—'
+        roll_no = d.fee_plan.admission.roll_number if d.fee_plan and d.fee_plan.admission else '—'
+        std_val = d.fee_plan.admission.standard if d.fee_plan and d.fee_plan.admission else '—'
+        br_name = d.fee_plan.admission.branch.name if d.fee_plan and d.fee_plan.admission and d.fee_plan.admission.branch else '—'
+        auth_by = d.created_by.name if d.created_by else 'Class Owner'
+        discounts_list.append({
+            'index': idx,
+            'id': d.id,
+            'student_name': std_name,
+            'roll_number': roll_no,
+            'standard': std_val,
+            'branch_name': br_name,
+            'reason': d.reason or 'Concession',
+            'amount': float(d.amount),
+            'granted_date': d.approved_date.strftime('%d-%b-%Y') if d.approved_date else (d.created_at.strftime('%d-%b-%Y') if d.created_at else ''),
+            'authorized_by': auth_by,
+        })
+
+    branch_label = 'All Branches'
+    if selected_branch_id != 'ALL':
+        b_obj = Branch.objects.filter(id=selected_branch_id).first()
+        if b_obj:
+            branch_label = b_obj.name
+
+    session_label = 'All Sessions'
+    if selected_session_id != 'ALL':
+        s_obj = AcademicSession.objects.filter(id=selected_session_id).first()
+        if s_obj:
+            session_label = s_obj.name
+
+    user_meta = None
+    if target_user:
+        user_meta = {
+            'id': str(target_user.id),
+            'name': target_user.name,
+            'username': target_user.username,
+            'role': target_user.role,
+            'role_display': target_user.get_role_display(),
+            'branch_name': target_user.branch.name if target_user.branch else 'All Branches',
+            'email': getattr(target_user, 'email', '') or '',
+            'phone': getattr(target_user, 'phone', '') or '',
+        }
+
+    report_payload = {
+        'user': user_meta,
+        'period': {
+            'label': period_label,
+            'preset': preset,
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
+        },
+        'branch_label': branch_label,
+        'session_label': session_label,
+        'summary': {
+            'total_collected': tot_collected,
+            'payments_count': len(active_payments),
+            'voided_payments_count': len(voided_payments),
+            'total_expenses': tot_expenses,
+            'expenses_count': len(e_qs),
+            'net_cash': net_cash,
+            'admissions_count': len(a_qs),
+            'total_agreed_fees': tot_agreed_fees,
+            'discounts_count': len(d_qs),
+            'total_discounts': tot_discounts,
+            'collections_by_mode': collections_by_mode,
+            'expenses_by_category': expenses_by_category,
+        },
+        'collections': collections_list,
+        'expenses': expenses_list,
+        'admissions': admissions_list,
+        'discounts': discounts_list,
+    }
+
+    # Export handling
+    export_type = request.GET.get('export')
+    if export_type in ('excel', 'pdf'):
+        if not has_permission(current_user, 'can_export_reports'):
+            messages.error(request, "Access restricted. You do not have permission to export reports.")
+            return redirect('user_report')
+
+        safe_user = (target_user.name if target_user else 'All_Staff').replace(' ', '_')
+        safe_date = today.strftime('%Y-%m-%d')
+        if export_type == 'excel':
+            xlsx_content = export_user_report_excel(report_payload, {'branch_label': branch_label, 'session_label': session_label})
+            response = HttpResponse(
+                xlsx_content,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="User_Activity_{safe_user}_{safe_date}.xlsx"'
+            return response
+
+        if export_type == 'pdf':
+            pdf_content = export_user_report_pdf(report_payload, {'branch_label': branch_label, 'session_label': session_label})
+            response = HttpResponse(pdf_content, content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="User_Activity_{safe_user}_{safe_date}.pdf"'
+            return response
+
+    context = {
+        'report': report_payload,
+        'users_list': users_list,
+        'branches': branches,
+        'sessions': sessions,
+        'selected_user_id': selected_user_id,
+        'selected_branch_id': selected_branch_id,
+        'selected_session_id': selected_session_id,
+        'preset': preset,
+        'start_date_str': start_date.strftime('%Y-%m-%d'),
+        'end_date_str': end_date.strftime('%Y-%m-%d'),
+        'active_tab': request.GET.get('tab', 'COLLECTIONS'),
+        'is_branch_restricted': is_branch_restricted,
+        'target_user': target_user,
+        'printed_date': datetime.now().strftime('%d %B %Y'),
+    }
+    return render(request, 'user_report.html', context)
 
 def api_reports_statement_view(request):
     """API endpoint for /api/reports/statement/ matching React backend."""
