@@ -76,7 +76,7 @@ def export_payments_to_excel(payments_list, meta=None):
 
     headers = [
         '#', 'Receipt No.', 'Payment Date', 'Student Name', 'Roll No.', 'Class / Course',
-        'Campus Branch', 'Academic Session', 'Payment Mode', 'Reference / Txn No.',
+        'Campus Branch', 'Academic Session', 'Payment Mode', 'Received By',
         'Amount Collected (Rs.)', 'Receipt Status', 'Notes / Remarks'
     ]
 
@@ -144,7 +144,7 @@ def export_payments_to_excel(payments_list, meta=None):
                 b_name,
                 s_name,
                 p.payment_mode,
-                p.reference_number or '',
+                p.received_by_display,
                 amt,
                 status_text,
                 p.notes or ''
@@ -353,8 +353,8 @@ def export_payments_to_pdf(payments_list, meta=None):
     )
 
     # 2. Table Headers & Column Widths (Total: 802pt)
-    # Col Widths: #=20, Receipt=110, Date=55, Student=130, Roll=55, Class=80, Branch=85, Mode=55, Amount=80, Status=50
-    col_widths = [20, 110, 55, 130, 55, 80, 85, 55, 80, 52]
+    # Col Widths: #=20, Receipt=105, Date=55, Student=125, Roll=50, Class=75, Branch=75, Mode=50, ReceivedBy=90, Amount=85, Status=72
+    col_widths = [20, 105, 55, 125, 50, 75, 75, 50, 90, 85, 72]
 
     table_data = [[
         Paragraph("#", hdr_style),
@@ -365,6 +365,7 @@ def export_payments_to_pdf(payments_list, meta=None):
         Paragraph("Class / Course", hdr_style),
         Paragraph("Campus Branch", hdr_style),
         Paragraph("Mode", hdr_style),
+        Paragraph("Received By", hdr_style),
         Paragraph("Amount (Rs.)", hdr_right_style),
         Paragraph("Status", hdr_style),
     ]]
@@ -387,6 +388,7 @@ def export_payments_to_pdf(payments_list, meta=None):
             Paragraph(std_name, cell_normal),
             Paragraph(b_name, cell_normal),
             Paragraph(p.payment_mode, cell_center),
+            Paragraph(p.received_by_display, cell_normal),
             amt_par,
             status_par,
         ])
@@ -394,7 +396,7 @@ def export_payments_to_pdf(payments_list, meta=None):
     # Totals Row
     table_data.append([
         Paragraph(f"<b>TOTALS: {total_receipts} Receipts ({voided_receipts} Voided)</b>", cell_bold),
-        "", "", "", "", "", "",
+        "", "", "", "", "", "", "",
         Paragraph("<b>NET:</b>", cell_right),
         Paragraph(f"<b>{format_currency_inr(tot_collected)}</b>", cell_paid),
         "",
@@ -411,7 +413,7 @@ def export_payments_to_pdf(payments_list, meta=None):
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor(COLOR_BORDER)),
         ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor(COLOR_NAVY_PRIMARY)),
-        ('SPAN', (0, -1), (6, -1)),
+        ('SPAN', (0, -1), (7, -1)),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor(COLOR_BG_TOTALS)),
         ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor(COLOR_NAVY_PRIMARY)),
         ('LINEBELOW', (0, -1), (-1, -1), 1.5, colors.HexColor(COLOR_NAVY_PRIMARY)),

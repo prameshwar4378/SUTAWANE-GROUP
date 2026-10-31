@@ -1642,7 +1642,7 @@ def export_statement_excel(statement_data, options=None):
 
     col_headers = [
         '#', 'Receipt No.', 'Student Name', 'Roll No.', 'Class / Course',
-        'Campus Branch', 'Payment Mode', 'Txn / Ref No.', 'Payment Date', 'Amount (Rs.)'
+        'Campus Branch', 'Payment Mode', 'Received By', 'Payment Date', 'Amount (Rs.)'
     ]
     max_col_letter2 = get_column_letter(len(col_headers))
 
@@ -1687,7 +1687,7 @@ def export_statement_excel(statement_data, options=None):
             p.get('standard', '—'),
             p.get('branchName', '—'),
             p.get('paymentMode', '—'),
-            p.get('referenceNumber', '—'),
+            p.get('receivedBy') or 'Staff',
             p_date,
             amt
         ]
@@ -2023,7 +2023,7 @@ def export_statement_pdf(statement_data, options=None):
         Paragraph("Class / Course", hdr_style),
         Paragraph("Branch", hdr_style),
         Paragraph("Mode", hdr_style),
-        Paragraph("Reference / Txn", hdr_style),
+        Paragraph("Received By", hdr_style),
         Paragraph("Date", hdr_style),
         Paragraph("Amount (Rs.)", hdr_right_style),
     ]
@@ -2040,7 +2040,7 @@ def export_statement_pdf(statement_data, options=None):
             Paragraph(str(p.get('standard', '—')), cell_normal),
             Paragraph(str(p.get('branchName', '—')), cell_normal),
             Paragraph(str(p.get('paymentMode', '—')), cell_center),
-            Paragraph(str(p.get('referenceNumber') or '—'), cell_normal),
+            Paragraph(str(p.get('receivedBy') or 'Staff'), cell_normal),
             Paragraph(p_date, cell_center),
             Paragraph(format_currency_inr(amt), cell_green),
         ])

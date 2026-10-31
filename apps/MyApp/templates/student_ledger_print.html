@@ -430,7 +430,7 @@
                         <th class="py-2 px-3 font-semibold">Receipt #</th>
                         <th class="py-2 px-3 font-semibold">Date</th>
                         <th class="py-2 px-3 font-semibold">Mode</th>
-                        <th class="py-2 px-3 font-semibold">Ref / Txn ID</th>
+                        <th class="py-2 px-3 font-semibold">Received By</th>
                         <th class="py-2 px-3 font-semibold">Milestone Allocation</th>
                         <th class="py-2 px-3 font-semibold text-right">Amount (₹)</th>
                       </tr>
@@ -445,7 +445,12 @@
                             {{ p.payment_mode }}
                           </span>
                         </td>
-                        <td class="py-2 px-3 font-mono text-slate-500 text-[11px]">{{ p.reference_number }}</td>
+                        <td class="py-2 px-3 text-slate-700 text-xs">
+                          <span class="font-medium text-slate-900 block">{{ p.received_by|default:"Staff" }}</span>
+                          {% if p.reference_number and p.reference_number != '-' and p.reference_number != '—' %}
+                          <span class="font-mono text-slate-400 text-[10px] block">Ref: {{ p.reference_number }}</span>
+                          {% endif %}
+                        </td>
                         <td class="py-2 px-3 text-slate-600 text-[11px]">{{ p.allocations_summary }}</td>
                         <td class="py-2 px-3 text-right font-mono font-bold text-emerald-600">₹{{ p.amount|floatformat:0 }}</td>
                       </tr>
@@ -537,7 +542,7 @@
                 <th class="py-2 px-3 font-semibold">Session</th>
                 <th class="py-2 px-3 font-semibold">Course / Standard</th>
                 <th class="py-2 px-3 font-semibold">Payment Mode</th>
-                <th class="py-2 px-3 font-semibold">Ref / Txn No</th>
+                <th class="py-2 px-3 font-semibold">Received By</th>
                 <th class="py-2 px-3 font-semibold text-right">Amount (₹)</th>
                 <th class="py-2 px-3 font-semibold text-right">Running Total (₹)</th>
               </tr>
@@ -555,7 +560,12 @@
                     {{ p.payment_mode }}
                   </span>
                 </td>
-                <td class="py-2 px-3 font-mono text-slate-500 text-[11px]">{{ p.reference_number }}</td>
+                <td class="py-2 px-3 text-slate-700 text-xs">
+                  <span class="font-medium text-slate-900 block">{{ p.received_by|default:"Staff" }}</span>
+                  {% if p.reference_number and p.reference_number != '-' and p.reference_number != '—' %}
+                  <span class="font-mono text-slate-400 text-[10px] block">Ref: {{ p.reference_number }}</span>
+                  {% endif %}
+                </td>
                 <td class="py-2 px-3 text-right font-mono font-bold text-emerald-600 whitespace-nowrap">₹{{ p.amount|floatformat:0 }}</td>
                 <td class="py-2 px-3 text-right font-mono font-semibold text-slate-800 whitespace-nowrap">₹{{ p.running_total|floatformat:0 }}</td>
               </tr>

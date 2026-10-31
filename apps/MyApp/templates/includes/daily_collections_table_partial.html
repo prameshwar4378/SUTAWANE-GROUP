@@ -34,8 +34,11 @@
         {{ p.payment_mode }}
       </span>
     </td>
-    <td class="py-2.5 px-3 font-mono text-xs text-muted-foreground">
-      {{ p.reference_number|default:"—" }}
+    <td class="py-2.5 px-3 text-xs text-foreground">
+      <div class="font-medium text-foreground">{{ p.received_by_display|default:p.received_by.name|default:"Staff" }}</div>
+      {% if p.reference_number and p.reference_number != '—' and p.reference_number != '-' %}
+        <div class="text-[10px] text-muted-foreground font-mono">Ref: {{ p.reference_number }}</div>
+      {% endif %}
     </td>
     <td class="py-2.5 px-3 text-center text-xs text-muted-foreground">
       {{ p.payment_date|date:"d M Y" }}

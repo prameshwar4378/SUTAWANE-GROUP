@@ -506,13 +506,14 @@ def export_student_ledger_pdf(ledger_data):
         Paragraph("Session", th_style),
         Paragraph("Course / Standard", th_style),
         Paragraph("Mode", th_style),
-        Paragraph("Ref / Txn No", th_style),
+        Paragraph("Received By", th_style),
         Paragraph("Amount", th_right_style),
         Paragraph("Running Total", th_right_style),
     ]
     ledger_rows = [ledger_headers]
     for p in payments_ledger:
         p_date_str = p['payment_date'].strftime('%d-%b-%Y') if p.get('payment_date') else '-'
+        rcv_staff = p.get('received_by') or 'Staff'
         ledger_rows.append([
             Paragraph(str(p['index']), cell_regular_style),
             Paragraph(p['receipt_number'], cell_bold_style),
@@ -520,7 +521,7 @@ def export_student_ledger_pdf(ledger_data):
             Paragraph(p['session_name'], cell_regular_style),
             Paragraph(p['standard'], cell_regular_style),
             Paragraph(p['payment_mode'], cell_regular_style),
-            Paragraph(p['reference_number'], cell_muted_style),
+            Paragraph(rcv_staff, cell_regular_style),
             Paragraph(format_currency_inr(p['amount']), cell_green_bold),
             Paragraph(format_currency_inr(p['running_total']), cell_right_bold),
         ])
@@ -899,7 +900,7 @@ def export_student_ledger_excel(ledger_data):
 
     headers3 = [
         "#", "Receipt Number", "Payment Date", "Academic Session", "Course / Batch",
-        "Campus Branch", "Payment Mode", "Ref / Txn No", "Milestone Allocation", "Amount (Rs.)", "Running Total (Rs.)"
+        "Campus Branch", "Payment Mode", "Received By", "Milestone Allocation", "Amount (Rs.)", "Running Total (Rs.)"
     ]
     ws3.row_dimensions[4].height = 24
     for c_idx, h in enumerate(headers3, start=1):
@@ -923,7 +924,7 @@ def export_student_ledger_excel(ledger_data):
         ws3.cell(row=cur_row3, column=5, value=p['standard'])
         ws3.cell(row=cur_row3, column=6, value=p['branch_name'])
         ws3.cell(row=cur_row3, column=7, value=p['payment_mode'])
-        ws3.cell(row=cur_row3, column=8, value=p['reference_number'])
+        ws3.cell(row=cur_row3, column=8, value=p.get('received_by') or 'Staff')
         ws3.cell(row=cur_row3, column=9, value=p['allocations_summary'])
 
         c10 = ws3.cell(row=cur_row3, column=10, value=float(p['amount']))
