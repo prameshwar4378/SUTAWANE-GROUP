@@ -47,10 +47,28 @@
   .settings-layout-grid > *,
   .form-row-2col > *,
   .tab-panel,
-  .bg-card {
+  .tab-panel .bg-card {
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+  }
+
+  /* Modal Dialog Dimension Guards & Responsive Centering */
+  .modal-dialog-box {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: auto !important;
+  }
+  #modalAddUser .modal-dialog-box,
+  #modalEditUser .modal-dialog-box {
+    max-width: 520px !important;
+  }
+  #modalResetPassword .modal-dialog-box,
+  #modalDeleteUser .modal-dialog-box {
+    max-width: 460px !important;
+  }
+  #notificationDetailModal .modal-dialog-box {
+    max-width: 580px !important;
   }
 
   select, input, textarea {
@@ -3643,8 +3661,8 @@
   onclick="if (event.target === this) closeNotificationLogModal();"
 >
   <div
-    class="bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-    style="max-width: 540px;"
+    class="modal-dialog-box bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    style="max-width: 580px !important;"
     onclick="event.stopPropagation();"
   >
     <!-- Modal Header -->
@@ -3791,7 +3809,8 @@
   onclick="if (event.target === this) closeAddUserModal();"
 >
   <div
-    class="bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    class="modal-dialog-box bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    style="max-width: 520px !important;"
     onclick="event.stopPropagation();"
   >
     <!-- Header -->
@@ -3933,7 +3952,8 @@
   onclick="if (event.target === this) closeEditUserModal();"
 >
   <div
-    class="bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    class="modal-dialog-box bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    style="max-width: 520px !important;"
     onclick="event.stopPropagation();"
   >
     <!-- Header -->
@@ -4071,7 +4091,8 @@
   onclick="if (event.target === this) closeResetPasswordModal();"
 >
   <div
-    class="bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    class="modal-dialog-box bg-card text-card-foreground border border-border/90 rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    style="max-width: 460px !important;"
     onclick="event.stopPropagation();"
   >
     <!-- Header -->
@@ -4152,7 +4173,8 @@
   onclick="if (event.target === this) closeDeleteUserModal();"
 >
   <div
-    class="bg-card text-card-foreground border border-rose-500/40 rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    class="modal-dialog-box bg-card text-card-foreground border border-rose-500/40 rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+    style="max-width: 460px !important;"
     onclick="event.stopPropagation();"
   >
     <!-- Header -->
