@@ -4,7 +4,7 @@
 
 @page {
   size: A4 portrait;
-  margin: 8mm 10mm;
+  margin: 5mm 8mm;
 }
 
 @page thermal {
@@ -47,6 +47,9 @@
     color: black !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
   }
 
   body.printing-receipt aside,
@@ -66,28 +69,68 @@
   }
 
   body.printing-receipt #printable-receipt-container {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
     visibility: visible !important;
     position: static !important;
     width: 100% !important;
     max-width: 194mm !important;
+    height: 287mm !important;
+    max-height: 287mm !important;
     margin: 0 auto !important;
     padding: 0 !important;
     background: white !important;
     color: black !important;
     box-shadow: none !important;
     border: none !important;
+    box-sizing: border-box !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   /* Perforation cut line printing */
-  .receipt-cut-line {
+  body.printing-receipt .receipt-cut-line {
+    height: 6mm !important;
+    max-height: 6mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
     border-top: 1.5px dashed #444 !important;
-    margin: 8px 0 !important;
   }
 
-  .receipt-slip-card {
+  body.printing-receipt .receipt-slip-card {
+    height: 139mm !important;
+    max-height: 139mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+    padding: 4.5mm 5mm !important;
+    border: 1.5px solid #0f172a !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  body.printing-receipt .receipt-slip-card table thead tr th {
+    padding-top: 2.2mm !important;
+    padding-bottom: 2.2mm !important;
+    font-size: 9.5px !important;
+  }
+  body.printing-receipt .receipt-slip-card table tbody tr td {
+    padding-top: 2.5mm !important;
+    padding-bottom: 2.5mm !important;
+    font-size: 11px !important;
+  }
+  body.printing-receipt .receipt-slip-card .stamp-box {
+    height: 12.5mm !important;
+    width: 38mm !important;
   }
 
   /* Thermal Receipt Mode */

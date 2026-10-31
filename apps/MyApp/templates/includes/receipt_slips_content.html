@@ -118,12 +118,12 @@
 <!-- ======================================================= -->
 <!-- A4 PRINTABLE CONTAINER (STUDENT + OFFICE SLIP)           -->
 <!-- ======================================================= -->
-<div id="printable-receipt-container" class="space-y-3 max-w-[194mm] mx-auto print:max-w-none {% if current_mode == 'thermal' %}hidden{% endif %}">
+<div id="printable-receipt-container" class="space-y-3 max-w-[194mm] mx-auto print:max-w-none print:space-y-0 {% if current_mode == 'thermal' %}hidden{% endif %}">
 
   <!-- ===================================================================== -->
   <!-- SLIP 1: STUDENT COPY                                                  -->
   <!-- ===================================================================== -->
-  <div id="slip-student-copy" class="receipt-slip-card border-1.5 border-[#1e293b] rounded-xl p-3 sm:p-3.5 bg-white text-slate-900 shadow-xs space-y-2 select-text print:border-1.5 print:border-black print:rounded-none {% if current_mode == 'office_only' %}hidden{% endif %}">
+  <div id="slip-student-copy" class="receipt-slip-card border-1.5 border-[#1e293b] rounded-xl p-3.5 sm:p-4 bg-white text-slate-900 shadow-xs flex flex-col justify-between select-text print:border-1.5 print:border-black print:rounded-none {% if current_mode == 'office_only' %}hidden{% endif %}">
     
     {% if payment.is_reversed %}
     <div class="bg-rose-100 text-rose-800 border border-rose-300 px-3 py-1 rounded text-center font-bold text-xs uppercase tracking-wider">
@@ -280,7 +280,7 @@
     <!-- Stamp & Signatory Strip -->
     <div class="pt-1.5 flex justify-between items-end text-xs text-slate-600 border-t border-slate-200">
       <div class="flex items-end gap-3">
-        <div class="w-32 h-9 border border-dashed border-slate-400 rounded flex items-center justify-center text-[8px] text-slate-500 font-bold uppercase tracking-wider bg-slate-50 flex-shrink-0 px-1 text-center">
+        <div class="stamp-box w-36 h-11 border border-dashed border-slate-400 rounded flex items-center justify-center text-[8px] text-slate-500 font-bold uppercase tracking-wider bg-slate-50 flex-shrink-0 px-1 text-center">
           [ OFFICIAL SEAL / STAMP ]
         </div>
         <div>
@@ -304,7 +304,7 @@
   <!-- ===================================================================== -->
   <!-- SCISSOR CUT LINE SEPARATOR                                            -->
   <!-- ===================================================================== -->
-  <div id="slip-scissor-line" class="receipt-cut-line relative flex items-center justify-center my-2 py-1 border-t-1.5 border-dashed border-slate-400 text-slate-500 select-none {% if current_mode != 'a4_dual' %}hidden{% endif %}">
+  <div id="slip-scissor-line" class="receipt-cut-line relative flex items-center justify-center my-2 py-1 border-t-1.5 border-dashed border-slate-400 text-slate-500 select-none print:my-0 {% if current_mode != 'a4_dual' %}hidden{% endif %}">
     <div class="absolute bg-white px-3 flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">
       <i data-lucide="scissors" class="w-3.5 h-3.5 transform -rotate-90 text-slate-500"></i>
       <span>Cut or fold along dotted line for student / office copy</span>
@@ -316,7 +316,7 @@
   <!-- ===================================================================== -->
   <!-- SLIP 2: OFFICE AUDIT COPY                                             -->
   <!-- ===================================================================== -->
-  <div id="slip-office-copy" class="receipt-slip-card border-1.5 border-[#1e293b] rounded-xl p-3 sm:p-3.5 bg-white text-slate-900 shadow-xs space-y-2 select-text print:border-1.5 print:border-black print:rounded-none {% if current_mode == 'student_only' %}hidden{% endif %}">
+  <div id="slip-office-copy" class="receipt-slip-card border-1.5 border-[#1e293b] rounded-xl p-3.5 sm:p-4 bg-white text-slate-900 shadow-xs flex flex-col justify-between select-text print:border-1.5 print:border-black print:rounded-none {% if current_mode == 'student_only' %}hidden{% endif %}">
     
     {% if payment.is_reversed %}
     <div class="bg-rose-100 text-rose-800 border border-rose-300 px-3 py-1 rounded text-center font-bold text-xs uppercase tracking-wider">
@@ -473,7 +473,7 @@
     <!-- Stamp & Signatory Strip -->
     <div class="pt-1.5 flex justify-between items-end text-xs text-slate-600 border-t border-slate-200">
       <div class="flex items-end gap-3">
-        <div class="w-32 h-9 border border-dashed border-slate-400 rounded flex items-center justify-center text-[8px] text-slate-500 font-bold uppercase tracking-wider bg-slate-50 flex-shrink-0 px-1 text-center">
+        <div class="stamp-box w-36 h-11 border border-dashed border-slate-400 rounded flex items-center justify-center text-[8px] text-slate-500 font-bold uppercase tracking-wider bg-slate-50 flex-shrink-0 px-1 text-center">
           [ ACCOUNTS VERIFIED ]
         </div>
         <div>
