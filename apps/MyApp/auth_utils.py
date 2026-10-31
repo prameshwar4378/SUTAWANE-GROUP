@@ -315,6 +315,12 @@ def invalidate_permissions_cache(user_id=None):
         safe_cache_delete(f"user_perms_{user_id}")
     safe_cache_delete("default_bm_permissions")
     invalidate_namespace('permissions')
+    if not user_id:
+        try:
+            for uid in User.objects.filter(role='BRANCH_MANAGER').values_list('id', flat=True):
+                safe_cache_delete(f"user_perms_{uid}")
+        except Exception:
+            pass
 
 
 def get_default_branch_manager_permissions() -> RolePermission:
@@ -342,8 +348,8 @@ def get_user_permissions(user) -> dict:
         return ALL_PERMISSIONS_GRANTED.copy()
 
     # Branch Manager
-    from .cache_utils import safe_cache_get, safe_cache_set
-    cache_key = f"user_perms_{user.id}"
+    from .cache_utils import safe_cache_get, safe_cache_set, build_cache_key
+    cache_key = build_cache_key('permissions', f"user_perms_{user.id}")
     cached = safe_cache_get(cache_key)
     if cached is not None:
         return cached

@@ -383,6 +383,7 @@
           <span>Columns</span>
         </button>
 
+        {% if is_developer or is_class_owner or user_permissions.can_export_reports %}
         <!-- Export to Excel Button -->
         <a
           href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=excel"
@@ -403,6 +404,7 @@
           <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
           <span>Export PDF</span>
         </a>
+        {% endif %}
       </div>
     </div>
 

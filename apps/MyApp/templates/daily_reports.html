@@ -40,6 +40,7 @@
         <span>Print Statement</span>
       </button>
 
+      {% if is_developer or is_class_owner or user_permissions.can_export_reports %}
       <!-- Export to Excel -->
       <a
         href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
@@ -57,6 +58,7 @@
         <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
         <span>Export PDF</span>
       </a>
+      {% endif %}
     </div>
   </div>
 
@@ -92,6 +94,13 @@
         <!-- Scope Selectors (Branch & Session) -->
         <div class="flex flex-wrap items-center gap-2">
           <!-- Branch Selector -->
+          {% if is_branch_manager and current_user.branch and user_permissions.restricted_to_assigned_branch %}
+          <div class="flex items-center gap-1.5 bg-muted/60 border rounded-lg px-2.5 py-1.5 text-xs shadow-xs text-muted-foreground" title="Scope locked to your assigned branch">
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500"></i>
+            <span class="font-bold text-foreground">{{ current_user.branch.name }}</span>
+            <input type="hidden" name="branch_id" value="{{ current_user.branch.id }}">
+          </div>
+          {% else %}
           <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
             <i data-lucide="building-2" class="w-3.5 h-3.5 text-muted-foreground"></i>
             <select
@@ -105,6 +114,7 @@
               {% endfor %}
             </select>
           </div>
+          {% endif %}
 
           <!-- Session Selector -->
           <div class="flex items-center gap-1.5 bg-background border rounded-lg px-2.5 py-1.5 text-xs shadow-xs">
@@ -609,6 +619,7 @@
       </button>
 
       <div class="flex items-center gap-2">
+        {% if is_developer or is_class_owner or user_permissions.can_export_reports %}
         <a
           href="?mode={{ active_mode }}&date={{ daily_date }}&month={{ selected_month }}&year={{ selected_year }}&start_date={{ custom_start_date }}&end_date={{ custom_end_date }}{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=pdf"
           class="inline-flex items-center gap-1.5 h-9 px-4 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold transition-colors"
@@ -616,6 +627,7 @@
           <i data-lucide="download" class="w-3.5 h-3.5"></i>
           <span>Download PDF</span>
         </a>
+        {% endif %}
 
         <button
           type="button"

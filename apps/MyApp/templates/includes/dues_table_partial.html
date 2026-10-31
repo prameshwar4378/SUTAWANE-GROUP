@@ -175,7 +175,7 @@
             </button>
 
             <!-- WhatsApp Fee Reminder Button -->
-            {% if d.whatsapp_url %}
+            {% if d.whatsapp_url and (is_developer or is_class_owner or user_permissions.can_send_fee_reminders) %}
             <a
               href="{{ d.whatsapp_url }}"
               target="_blank"
@@ -189,6 +189,7 @@
             {% endif %}
 
             <!-- Collect Fees Direct Action -->
+            {% if is_developer or is_class_owner or user_permissions.can_collect_fees %}
             <a
               href="{% url 'fee_collect' %}?tab=collect&student_id={{ d.student_id }}&admission_id={{ d.admission_id }}&amount={{ d.balance_remaining|floatformat:0 }}"
               title="Collect Fee for {{ d.student_name }}"
@@ -197,6 +198,7 @@
               <i data-lucide="credit-card" class="w-3.5 h-3.5 mr-1"></i>
               <span>Collect</span>
             </a>
+            {% endif %}
           </div>
         </td>
       </tr>

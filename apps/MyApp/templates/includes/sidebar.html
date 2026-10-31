@@ -222,11 +222,22 @@
     {% if is_developer or is_class_owner or user_permissions.can_view_reports %}
     <a
       href="{% url 'financial_reports' %}"
-      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'reports' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'financial_reports' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
       title="Financial Reports"
     >
       <i data-lucide="bar-chart-3" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Financial Reports</span>
+    </a>
+    {% endif %}
+
+    {% if is_developer or is_class_owner or user_permissions.can_view_daily_reports %}
+    <a
+      href="{% url 'daily_reports' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'daily_reports' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Daily Collections / Day Book"
+    >
+      <i data-lucide="calendar" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Daily Collections</span>
     </a>
     {% endif %}
 

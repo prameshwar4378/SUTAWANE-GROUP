@@ -19,6 +19,7 @@
     </div>
 
     <!-- Actions Toolbar -->
+    {% if is_developer or is_class_owner or user_permissions.can_view_daily_reports %}
     <div class="flex items-center gap-2.5">
       <a
         href="{% url 'daily_reports' %}?mode=DAILY{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}"
@@ -28,6 +29,7 @@
         <span>Open Daily Statement</span>
       </a>
     </div>
+    {% endif %}
   </div>
 
   <!-- Print-Only Executive Header -->
@@ -122,6 +124,7 @@
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
           <span>Refresh</span>
         </a>
+        {% if is_developer or is_class_owner or user_permissions.can_export_reports %}
         <a
           href="?tab=SESSION_AUDIT{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
           class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-medium transition-colors"
@@ -137,6 +140,7 @@
           <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
           <span>Export PDF</span>
         </a>
+        {% endif %}
       </div>
     </div>
 
@@ -469,6 +473,7 @@
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
           <span>Refresh</span>
         </a>
+        {% if is_developer or is_class_owner or user_permissions.can_export_reports %}
         <a
           href="?tab=PAYMENT_MODES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
           class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-medium transition-colors"
@@ -483,6 +488,7 @@
           <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
           <span>Export PDF</span>
         </a>
+        {% endif %}
       </div>
     </div>
 
@@ -584,6 +590,7 @@
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
           <span>Refresh</span>
         </a>
+        {% if is_developer or is_class_owner or user_permissions.can_export_reports %}
         <a
           href="?tab=EXPENSE_CATEGORIES{% if selected_branch_id != 'ALL' %}&branch_id={{ selected_branch_id }}{% endif %}{% if selected_session_id != 'ALL' %}&session_id={{ selected_session_id }}{% endif %}&export=excel"
           class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-medium transition-colors"
@@ -598,6 +605,7 @@
           <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
           <span>Export PDF</span>
         </a>
+        {% endif %}
       </div>
     </div>
 

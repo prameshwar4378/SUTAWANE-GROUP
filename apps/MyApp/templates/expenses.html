@@ -31,6 +31,7 @@
       </button>
 
       <!-- Add Expense Voucher Button -->
+      {% if is_developer or is_class_owner or user_permissions.can_add_expenses %}
       <button
         type="button"
         onclick="openCreateExpenseModal()"
@@ -39,6 +40,7 @@
         <i data-lucide="plus" class="w-4 h-4"></i>
         <span>Add Expense Voucher</span>
       </button>
+      {% endif %}
     </div>
   </div>
 

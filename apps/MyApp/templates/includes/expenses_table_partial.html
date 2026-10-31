@@ -219,6 +219,7 @@
             >
               <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
             </button>
+            {% if is_developer or is_class_owner or user_permissions.can_delete_expenses %}
             <button
               type="button"
               onclick="openDeleteExpenseModal('{{ exp.id }}', '{{ exp.description|escapejs }}', '{{ exp.amount }}')"
@@ -227,6 +228,7 @@
             >
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
+            {% endif %}
           </div>
         </td>
       </tr>

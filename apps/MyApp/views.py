@@ -5011,6 +5011,11 @@ def fees_dues_view(request):
         meta_branch = b_obj.name if b_obj else 'All Branches'
         meta_session = s_obj.name if s_obj else 'All Sessions'
 
+    if export_type in ('excel', 'pdf'):
+        if not has_permission(current_user, 'can_export_reports'):
+            messages.error(request, "Access Denied: You do not have permission to export pending dues statements.")
+            return HttpResponse("Access Denied: You do not have permission to export pending dues statements.", status=403)
+
     if export_type == 'excel':
         meta = {
             'branch_name': meta_branch,
@@ -5048,25 +5053,26 @@ def fees_dues_view(request):
         paginated_dues = filtered_dues[start_idx:end_idx]
 
     # Lazy on-demand WhatsApp link generation ONLY for visible rows on the current page (fast rendering)
-    for d in paginated_dues:
-        if d.get('parent_phone') and d['parent_phone'] != '—' and not d.get('whatsapp_url'):
-            branch_obj = Branch.objects.filter(id=d.get('branch_id')).first() if d.get('branch_id') else None
-            b_brand = get_branch_branding(branch_obj)
-            msg = build_fee_reminder_whatsapp_message(
-                institute_name=b_brand['class_name'],
-                student_name=d['student_name'],
-                student_code=d['student_code'],
-                roll_number=d['roll_number'],
-                standard=d['standard'],
-                current_pending_amount=d.get('session_pending_amount', d['balance_remaining']),
-                previous_dues_pending=d['previous_dues_pending'],
-                overall_pending_amount=d['overall_pending_amount'],
-                next_due_date=d['due_date'].strftime('%d %B %Y') if d['due_date'] else None,
-                branch_name=b_brand['branch_name'] if b_brand['branch_name'] != 'Central Campus' else (d['branch_name'] if d['branch_name'] != '—' else ''),
-                session_name=d['session_name'] if d['session_name'] != '—' else '',
-                helpline=b_brand['phone'] or d.get('branch_phone') or '',
-            )
-            d['whatsapp_url'] = generate_whatsapp_url(d['parent_phone'], msg)
+    if has_permission(current_user, 'can_send_fee_reminders'):
+        for d in paginated_dues:
+            if d.get('parent_phone') and d['parent_phone'] != '—' and not d.get('whatsapp_url'):
+                branch_obj = Branch.objects.filter(id=d.get('branch_id')).first() if d.get('branch_id') else None
+                b_brand = get_branch_branding(branch_obj)
+                msg = build_fee_reminder_whatsapp_message(
+                    institute_name=b_brand['class_name'],
+                    student_name=d['student_name'],
+                    student_code=d['student_code'],
+                    roll_number=d['roll_number'],
+                    standard=d['standard'],
+                    current_pending_amount=d.get('session_pending_amount', d['balance_remaining']),
+                    previous_dues_pending=d['previous_dues_pending'],
+                    overall_pending_amount=d['overall_pending_amount'],
+                    next_due_date=d['due_date'].strftime('%d %B %Y') if d['due_date'] else None,
+                    branch_name=b_brand['branch_name'] if b_brand['branch_name'] != 'Central Campus' else (d['branch_name'] if d['branch_name'] != '—' else ''),
+                    session_name=d['session_name'] if d['session_name'] != '—' else '',
+                    helpline=b_brand['phone'] or d.get('branch_phone') or '',
+                )
+                d['whatsapp_url'] = generate_whatsapp_url(d['parent_phone'], msg)
 
     # Available distinct standards for filter
     available_standards = sorted(list(set(
@@ -5724,6 +5730,11 @@ def financial_reports_view(request):
     if not selected_branch_id:
         selected_branch_id = scope_b_id
 
+    # Strictly enforce assigned branch isolation for Branch Managers
+    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+        selected_branch_id = str(current_user.branch_id)
+        branches = branches.filter(id=current_user.branch_id)
+
     selected_session_id = request.GET.get('session_id')
     if not selected_session_id:
         selected_session_id = scope_s_id
@@ -6201,6 +6212,11 @@ def financial_reports_view(request):
 
     session_name_label = target_session.name if target_session else 'All Sessions'
 
+    if export_type in ('excel', 'pdf'):
+        if not has_permission(current_user, 'can_export_reports'):
+            messages.error(request, "Access Denied: You do not have permission to export financial reports.")
+            return HttpResponse("Access Denied: You do not have permission to export financial reports.", status=403)
+
     if export_type == 'excel':
         if active_tab == 'SESSION_AUDIT':
             content = export_session_audit_excel(session_audit_data, {
@@ -6282,11 +6298,29 @@ def daily_reports_view(request):
     Supports DAILY, MONTHLY, and CUSTOM modes, dual collections & expenses ledgers,
     mode-based cash reconciliation, HTMX search, official print modal, and Excel/PDF exports.
     """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_view_daily_reports'):
+        if request.GET.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
+            return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to view Daily Reports / Day Book.'}, status=403)
+        messages.error(request, "Access Denied: You do not have permission to view Daily Reports / Day Book.")
+        return redirect('dashboard')
+
     branches = Branch.objects.filter(is_active=True).order_by('name')
     sessions = AcademicSession.objects.filter(isActive=True).order_by('-start_date')
 
     scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
     selected_branch_id = request.GET.get('branch_id') or scope_b_id
+
+    # Strictly enforce assigned branch isolation for Branch Managers
+    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
+        selected_branch_id = str(current_user.branch_id)
+        branches = branches.filter(id=current_user.branch_id)
+
     selected_session_id = request.GET.get('session_id') or scope_s_id
 
     modes_list = [m.upper() for m in request.GET.getlist('mode') if m]
@@ -6509,6 +6543,11 @@ def daily_reports_view(request):
         s_match = AcademicSession.objects.filter(id=selected_session_id).first()
         if s_match:
             session_name_label = s_match.name
+
+    if export_type in ('excel', 'pdf'):
+        if not has_permission(current_user, 'can_export_reports'):
+            messages.error(request, "Access Denied: You do not have permission to export day book statements.")
+            return HttpResponse("Access Denied: You do not have permission to export day book statements.", status=403)
 
     if export_type == 'excel':
         content = export_statement_excel(statement_data, {
