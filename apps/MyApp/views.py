@@ -2345,6 +2345,50 @@ def student_detail_view(request, student_id):
             messages.success(request, "Student and all linked records permanently deleted.")
             return redirect('students_list')
 
+        # 6. Refund / Return Collected Payment
+        elif action == 'refund_payment':
+            if not has_permission(current_user, 'can_void_receipts'):
+                messages.error(request, "Access Denied: You do not have permission to refund or reverse fee receipts.")
+                return redirect(f"{request.path}?tab=payments")
+
+            payment_id = request.POST.get('payment_id')
+            refund_mode = request.POST.get('refund_mode', 'CASH').strip().upper()
+            reversal_reason = request.POST.get('reversal_reason', '').strip()
+
+            if not reversal_reason:
+                messages.error(request, "A specific mandatory reason is required to refund/return collected fees.")
+                return redirect(f"{request.path}?tab=payments")
+
+            payment = get_object_or_404(Payment.objects.select_related('student', 'previous_due'), id=payment_id, student_id=student.id)
+            if payment.is_reversed:
+                messages.warning(request, f"Receipt #{payment.receipt_number} has already been refunded/reversed.")
+                return redirect(f"{request.path}?tab=payments")
+
+            formatted_reason = f"[REFUND via {refund_mode}] {reversal_reason}"
+
+            with transaction.atomic():
+                payment.is_reversed = True
+                payment.reversal_reason = formatted_reason
+                payment.reversed_at = timezone.now()
+                payment.reversed_by = current_user
+                payment.updated_by = current_user
+                payment.save()
+
+                if payment.previous_due:
+                    pd = payment.previous_due
+                    pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
+                    pd.save()
+
+            invalidate_financial_cache()
+            invalidate_student_cache(student.id)
+
+            messages.success(
+                request,
+                f"Receipt #{payment.receipt_number} of ₹{payment.total_amount:,.0f} has been refunded/returned via {refund_mode}. "
+                f"Student pending dues have been increased by ₹{payment.total_amount:,.0f}."
+            )
+            return redirect(f"{request.path}?tab=payments")
+
     # GET: Assemble full profile details
     admissions = student.admissions.select_related('branch', 'session', 'fee_plan').prefetch_related(
         'payments', 'fee_plan__installments', 'fee_plan__installments__allocations__payment', 'fee_plan__discounts'
@@ -2435,15 +2479,13 @@ def student_detail_view(request, student_id):
                 'is_cleared': is_cleared,
             })
 
-    # All student payment receipts (excluding reversed and benchmark test records)
-    all_payments = list(student.payments.filter(
-        is_reversed=False
-    ).exclude(
+    # All student payment receipts (both active and refunded/reversed, excluding benchmark test records)
+    all_payments = list(student.payments.exclude(
         receipt_number__startswith='STRESS-'
     ).exclude(
         notes__icontains='Capability testing dummy'
     ).select_related(
-        'branch', 'session', 'admission', 'admission__fee_plan', 'previous_due'
+        'branch', 'session', 'admission', 'admission__fee_plan', 'previous_due', 'reversed_by', 'received_by', 'created_by'
     ).prefetch_related('allocations__installment', 'admission__payments').order_by('-payment_date'))
 
     inst_settings = get_institute_settings_dict()
@@ -3653,22 +3695,25 @@ def fee_collect_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # 1. Reverse Payment
+        # 1. Reverse / Refund Payment
         if action == 'reverse_payment':
             if not has_permission(current_user, 'can_void_receipts'):
-                messages.error(request, "Access Denied: You do not have permission to void or reverse receipts.")
+                messages.error(request, "Access Denied: You do not have permission to refund or void receipts.")
                 return redirect(f"{request.path}?tab=history")
             payment_id = request.POST.get('payment_id')
+            refund_mode = request.POST.get('refund_mode', 'CASH').strip().upper()
             reversal_reason = request.POST.get('reversal_reason', '').strip()
 
             payment = get_object_or_404(Payment, id=payment_id)
             if payment.is_reversed:
-                messages.warning(request, f"Receipt #{payment.receipt_number} is already voided.")
+                messages.warning(request, f"Receipt #{payment.receipt_number} is already refunded/voided.")
                 return redirect(f"{request.path}?tab=history")
+
+            formatted_reason = f"[REFUND via {refund_mode}] {reversal_reason or 'Fee refund requested'}"
 
             with transaction.atomic():
                 payment.is_reversed = True
-                payment.reversal_reason = reversal_reason or "Cancelled by administrator"
+                payment.reversal_reason = formatted_reason
                 payment.reversed_at = timezone.now()
                 payment.reversed_by = current_user
                 payment.updated_by = current_user
@@ -3683,7 +3728,11 @@ def fee_collect_view(request):
             invalidate_financial_cache()
             invalidate_student_cache(payment.student_id)
 
-            messages.success(request, f"Receipt #{payment.receipt_number} voided and reversed successfully. Ledgers updated.")
+            messages.success(
+                request,
+                f"Receipt #{payment.receipt_number} of ₹{payment.total_amount:,.0f} has been refunded/returned via {refund_mode}. "
+                f"Student pending dues have been increased by ₹{payment.total_amount:,.0f}."
+            )
             return redirect(f"{request.path}?tab=history")
 
         # 2. Collect Payment
@@ -4657,8 +4706,8 @@ def payment_receipt_print_view(request, payment_id):
 
 def payment_receipt_void_view(request, payment_id):
     """
-    Cancels/voids an official fee receipt with audit trail.
-    Restores student pending dues.
+    Cancels/refunds an official fee receipt with audit trail.
+    Restores student pending dues by increasing outstanding balance.
     """
     current_user = getattr(request, 'current_user', None)
     if not current_user:
@@ -4666,26 +4715,33 @@ def payment_receipt_void_view(request, payment_id):
         if user_id:
             current_user = User.objects.filter(id=user_id, is_active=True).first()
 
+    next_url = request.POST.get('next') or request.GET.get('next') or request.META.get('HTTP_REFERER') or reverse('fee_collect')
+
     if not has_permission(current_user, 'can_void_receipts'):
         if request.headers.get('Accept') == 'application/json':
-            return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to void receipts.'}, status=403)
-        messages.error(request, "Access Denied: You do not have permission to void receipts.")
-        return redirect('fee_collect')
+            return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to refund/void receipts.'}, status=403)
+        messages.error(request, "Access Denied: You do not have permission to refund/void receipts.")
+        return redirect(next_url)
 
     payment = get_object_or_404(Payment.objects.select_related('student', 'previous_due'), id=payment_id)
     if payment.is_reversed:
-        messages.warning(request, f"Receipt #{payment.receipt_number} has already been reversed.")
-        return redirect('fee_collect')
+        if request.headers.get('Accept') == 'application/json':
+            return JsonResponse({'success': False, 'error': f"Receipt #{payment.receipt_number} has already been refunded/reversed."}, status=400)
+        messages.warning(request, f"Receipt #{payment.receipt_number} has already been refunded/reversed.")
+        return redirect(next_url)
 
     if request.method == 'POST':
+        refund_mode = request.POST.get('refund_mode', 'CASH').strip().upper()
         reversal_reason = request.POST.get('reversal_reason', '').strip()
         if not reversal_reason:
-            messages.error(request, "A specific mandatory reason is required to void/reverse a receipt.")
-            return redirect('fee_collect')
+            messages.error(request, "A specific mandatory reason is required to refund/return collected fees.")
+            return redirect(next_url)
+
+        formatted_reason = f"[REFUND via {refund_mode}] {reversal_reason}"
 
         with transaction.atomic():
             payment.is_reversed = True
-            payment.reversal_reason = reversal_reason
+            payment.reversal_reason = formatted_reason
             payment.reversed_at = timezone.now()
             payment.reversed_by = current_user
             payment.updated_by = current_user
@@ -4697,12 +4753,19 @@ def payment_receipt_void_view(request, payment_id):
                 pd.save()
 
         invalidate_financial_cache()
-        invalidate_student_cache()
+        invalidate_student_cache(payment.student_id)
 
-        messages.success(request, f"Fee Receipt #{payment.receipt_number} has been voided/reversed successfully. Balances restored.")
-        return redirect('fee_collect')
+        msg = (
+            f"Receipt #{payment.receipt_number} of ₹{payment.total_amount:,.0f} has been refunded/returned via {refund_mode}. "
+            f"Student pending dues have been increased by ₹{payment.total_amount:,.0f}."
+        )
+        if request.headers.get('Accept') == 'application/json':
+            return JsonResponse({'success': True, 'message': msg})
 
-    return redirect('fee_collect')
+        messages.success(request, msg)
+        return redirect(next_url)
+
+    return redirect(next_url)
 
 
 def fees_dues_view(request):

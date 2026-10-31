@@ -557,9 +557,16 @@
             </thead>
             <tbody class="divide-y divide-slate-100">
               {% for p in payments_ledger %}
-              <tr class="hover:bg-slate-50/50">
+              <tr class="hover:bg-slate-50/50 {% if p.is_reversed %}bg-rose-50/30{% endif %}">
                 <td class="py-2 px-3 text-center text-slate-400 font-mono">{{ p.index }}</td>
-                <td class="py-2 px-3 font-mono font-bold text-indigo-700">{{ p.receipt_number }}</td>
+                <td class="py-2 px-3 font-mono font-bold text-indigo-700">
+                  <div class="flex items-center gap-1.5">
+                    <span>{{ p.receipt_number }}</span>
+                    {% if p.is_reversed %}
+                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200">REFUNDED</span>
+                    {% endif %}
+                  </div>
+                </td>
                 <td class="py-2 px-3 text-slate-600 whitespace-nowrap">{{ p.payment_date|date:"d M Y" }}</td>
                 <td class="py-2 px-3 text-slate-700 font-medium">{{ p.session_name }}</td>
                 <td class="py-2 px-3 text-slate-800">{{ p.standard }}</td>
@@ -573,8 +580,20 @@
                   {% if p.reference_number and p.reference_number != '-' and p.reference_number != '—' %}
                   <span class="font-mono text-slate-400 text-[10px] block">Ref: {{ p.reference_number }}</span>
                   {% endif %}
+                  {% if p.is_reversed %}
+                  <span class="text-[9.5px] text-rose-600 font-medium block mt-0.5">
+                    Refunded{% if p.reversed_by %} by {{ p.reversed_by }}{% endif %}: {{ p.reversal_reason }}
+                  </span>
+                  {% endif %}
                 </td>
-                <td class="py-2 px-3 text-right font-mono font-bold text-emerald-600 whitespace-nowrap">₹{{ p.amount|floatformat:0 }}</td>
+                <td class="py-2 px-3 text-right font-mono font-bold whitespace-nowrap">
+                  {% if p.is_reversed %}
+                  <span class="line-through text-slate-400 font-medium">₹{{ p.amount|floatformat:0 }}</span>
+                  <span class="block text-[9px] text-rose-600 font-semibold font-sans">Refunded</span>
+                  {% else %}
+                  <span class="text-emerald-600">₹{{ p.amount|floatformat:0 }}</span>
+                  {% endif %}
+                </td>
                 <td class="py-2 px-3 text-right font-mono font-semibold text-slate-800 whitespace-nowrap">₹{{ p.running_total|floatformat:0 }}</td>
               </tr>
               {% empty %}

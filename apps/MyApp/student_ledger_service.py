@@ -95,15 +95,13 @@ def build_student_ledger_payload(student_id):
         'fee_plan__discounts'
     ).order_by('session__start_date', 'created_at')
 
-    # All student non-reversed payments across all sessions
-    all_payments_qs = student.payments.filter(
-        is_reversed=False
-    ).exclude(
+    # All student payment receipts across all sessions (audit trail includes reversed/refunded)
+    all_payments_qs = student.payments.exclude(
         receipt_number__startswith='STRESS-'
     ).exclude(
         notes__icontains='Capability testing dummy'
     ).select_related(
-        'branch', 'session', 'admission', 'admission__session', 'previous_due'
+        'branch', 'session', 'admission', 'admission__session', 'previous_due', 'reversed_by'
     ).prefetch_related(
         'allocations__installment'
     ).order_by('payment_date', 'created_at')
@@ -275,7 +273,8 @@ def build_student_ledger_payload(student_id):
     payments_ledger = []
     running_sum = MONEY_ZERO
     for idx, p in enumerate(all_payments, start=1):
-        running_sum += p.total_amount
+        if not p.is_reversed:
+            running_sum += p.total_amount
         sess_name = p.session.display_name if p.session else (p.admission.session.display_name if p.admission and p.admission.session else '-')
         batch_std = p.admission.standard if p.admission else ('Previous Due' if p.previous_due else 'Direct Payment')
         br_name = p.branch.name if p.branch else (p.admission.branch.name if p.admission and p.admission.branch else '-')
@@ -297,7 +296,11 @@ def build_student_ledger_payload(student_id):
             'received_by_role': p.received_by_role_display,
             'amount': p.total_amount,
             'running_total': running_sum,
-            'allocations_summary': ', '.join(alloc_items) if alloc_items else 'General Collection',
+            'is_reversed': p.is_reversed,
+            'reversal_reason': p.reversal_reason or '',
+            'reversed_at': p.reversed_at,
+            'reversed_by': p.reversed_by.name if p.reversed_by else '',
+            'allocations_summary': ', '.join(alloc_items) if alloc_items else ('Refunded / Returned' if p.is_reversed else 'General Collection'),
             'notes': p.notes or '',
         })
 

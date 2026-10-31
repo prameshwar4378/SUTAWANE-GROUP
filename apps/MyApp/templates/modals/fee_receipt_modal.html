@@ -230,9 +230,10 @@
           type="button"
           onclick="toggleReceiptVoidBox()"
           class="inline-flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold px-2.5 py-1.5 rounded-lg hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
+          title="Refund / Return Collected Fees"
         >
-          <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
-          <span>Void / Reverse</span>
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Refund / Return</span>
         </button>
         {% endif %}
         <span class="text-[11px] text-slate-500 hidden sm:inline">
@@ -291,25 +292,44 @@
     <!-- ======================================================================
          4. INLINE VOID/REVERSAL DRAWER (Conditional)
          ====================================================================== -->
-    <div id="inlineVoidBox" class="hidden p-3.5 bg-rose-50 border-t-2 border-rose-300 flex-shrink-0 z-30 print:hidden">
-      <form method="POST" action="{% url 'payment_receipt_void' payment.id %}" class="flex flex-wrap items-center gap-3">
+    <div id="inlineVoidBox" class="hidden p-3.5 bg-rose-50 border-t-2 border-rose-300 flex-shrink-0 z-30 print:hidden space-y-2">
+      <div class="text-[11px] text-rose-800 font-medium flex items-center gap-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5 flex-shrink-0 text-rose-600"></i>
+        <span>Refunding this receipt will return ₹{{ payment.total_amount|floatformat:0 }} and increase student pending fees by this amount.</span>
+      </div>
+      <form method="POST" action="{% url 'payment_receipt_void' payment.id %}" class="flex flex-wrap items-end gap-3">
         {% csrf_token %}
-        <div class="flex-1 min-w-[240px]">
-          <label class="block text-xs font-bold text-rose-800 mb-1">Reason for Reversal / Cancellation *</label>
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div class="w-36">
+          <label class="block text-xs font-bold text-rose-800 mb-1">Refund Method *</label>
+          <select
+            name="refund_mode"
+            class="w-full text-xs h-8 rounded-lg border border-rose-300 bg-white px-2.5 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
+          >
+            <option value="Cash" selected>Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-xs font-bold text-rose-800 mb-1">Reason for Return / Refund *</label>
           <input
             type="text"
             name="reversal_reason"
             required
-            placeholder="e.g. Cheque bounced / Payment entered by mistake / Cash refund"
+            placeholder="e.g. Student Left Class / Admission Withdrawn / Overpayment"
             class="w-full text-xs h-8 rounded-lg border border-rose-300 bg-white px-3 focus:outline-none focus:ring-1 focus:ring-rose-500"
           />
         </div>
-        <div class="flex items-center gap-2 pt-4">
+        <div class="flex items-center gap-2">
           <button
             type="submit"
-            class="text-xs font-bold px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer"
+            class="text-xs font-bold px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1"
           >
-            Confirm Void
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Confirm Refund</span>
           </button>
           <button
             type="button"

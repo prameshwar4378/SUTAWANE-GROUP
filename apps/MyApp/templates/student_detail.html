@@ -994,16 +994,27 @@
         </thead>
         <tbody class="divide-y divide-border">
           {% for p in payments %}
-          <tr class="hover:bg-muted/40 transition-colors {% if p.is_reversed %}opacity-60 bg-rose-50/20{% endif %}">
+          <tr class="hover:bg-muted/40 transition-colors {% if p.is_reversed %}opacity-75 bg-rose-50/20{% endif %}">
             <td class="font-mono text-xs font-bold text-primary py-3 px-4 whitespace-nowrap">
-              <button
-                type="button"
-                onclick="openReceiptModal('{{ p.id }}')"
-                class="hover:underline font-bold text-primary text-xs"
-                title="View Official Receipt"
-              >
-                {{ p.receipt_number }}
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onclick="openReceiptModal('{{ p.id }}')"
+                  class="hover:underline font-bold text-primary text-xs"
+                  title="View Official Receipt"
+                >
+                  {{ p.receipt_number }}
+                </button>
+                {% if p.is_reversed %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300">
+                  REFUNDED
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  ACTIVE
+                </span>
+                {% endif %}
+              </div>
             </td>
             <td class="text-xs text-foreground py-3 px-4 whitespace-nowrap font-mono">
               {{ p.payment_date|date:"d M Y, h:i A" }}
@@ -1016,14 +1027,22 @@
             <td class="text-xs font-mono text-muted-foreground py-3 px-4 whitespace-nowrap">
               {{ p.reference_number|default:"—" }}
             </td>
-            <td class="font-bold font-mono text-emerald-600 text-right py-3 px-4 whitespace-nowrap text-sm">
-              ₹{{ p.total_amount|floatformat:0|intcomma }}
+            <td class="font-mono text-right py-3 px-4 whitespace-nowrap text-sm">
+              {% if p.is_reversed %}
+              <span class="line-through text-muted-foreground font-semibold">₹{{ p.total_amount|floatformat:0|intcomma }}</span>
+              <span class="block text-[10px] text-rose-600 font-bold font-sans">Returned</span>
+              {% else %}
+              <span class="font-bold text-emerald-600">₹{{ p.total_amount|floatformat:0|intcomma }}</span>
+              {% endif %}
             </td>
             <td class="text-xs text-foreground py-3 px-4 whitespace-nowrap">
               <span class="font-bold text-foreground block">{{ p.received_by_display }}</span>
               <span class="text-[10px] text-muted-foreground block">{{ p.received_by_role_display }}</span>
-              {% if p.is_reversed and p.reversed_by %}
-              <span class="text-[9.5px] text-rose-600 font-semibold block mt-0.5">Voided by {{ p.reversed_by.name }}</span>
+              {% if p.is_reversed %}
+              <span class="text-[10px] text-rose-600 font-semibold block mt-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded max-w-xs whitespace-normal">
+                <strong>Refunded{% if p.reversed_by %} by {{ p.reversed_by.name }}{% endif %}:</strong>
+                {{ p.reversal_reason|default:"No reason specified" }}
+              </span>
               {% endif %}
             </td>
             <td class="text-xs text-muted-foreground py-3 px-4">
@@ -1037,6 +1056,19 @@
             </td>
             <td class="text-right py-3 px-4 pr-5 whitespace-nowrap">
               <div class="flex items-center justify-end gap-1.5">
+                {% if not p.is_reversed %}
+                {% if is_developer or is_class_owner or user_permissions.can_void_receipts %}
+                <button
+                  type="button"
+                  onclick="openRefundModal('{{ p.id }}', '{{ p.receipt_number|escapejs }}', '{{ p.total_amount }}', '{{ student.full_name|escapejs }}')"
+                  class="inline-flex items-center justify-center rounded-md text-xs font-semibold h-7 px-2.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer shadow-2xs gap-1"
+                  title="Refund / Return Collected Fees"
+                >
+                  <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-rose-600"></i>
+                  <span>Refund</span>
+                </button>
+                {% endif %}
+                {% endif %}
                 {% if not p.is_reversed and whatsapp_show_manual_buttons %}
                   {% if p.whatsapp_url %}
                   <a
@@ -1315,6 +1347,114 @@
       </div>
     </form>
   </div>
+</div>
+
+<!-- Refund / Return Collected Fees Modal -->
+<div id="refundModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) closeRefundModal();">
+  <div class="bg-card text-card-foreground border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200" style="max-width: 480px;">
+    <div class="p-5 sm:p-6 border-b border-border flex items-start justify-between gap-4 bg-muted/20">
+      <div class="flex items-start gap-3.5">
+        <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center flex-shrink-0 border border-rose-200/70 dark:border-rose-900/60 shadow-xs">
+          <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-foreground leading-snug">
+            Refund / Return Collected Fees
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">Reverse fee receipt and restore pending balance</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeRefundModal()" class="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer" title="Close dialog">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'student_detail' student.id %}" class="p-5 sm:p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="refund_payment">
+      <input type="hidden" name="payment_id" id="refundModalPaymentId">
+
+      <div class="p-3.5 bg-muted/50 border border-border/80 rounded-xl space-y-1.5 text-xs">
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">Receipt Number:</span>
+          <span class="font-mono font-bold text-foreground" id="refundModalReceiptNo">—</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">Student Name:</span>
+          <span class="font-semibold text-foreground" id="refundModalStudentName">{{ student.full_name }}</span>
+        </div>
+        <div class="flex justify-between items-center pt-1 border-t border-border/50">
+          <span class="text-muted-foreground font-medium">Refund Amount:</span>
+          <span class="font-mono font-bold text-sm text-rose-600 dark:text-rose-400" id="refundModalAmount">₹0</span>
+        </div>
+      </div>
+
+      <div class="p-3 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300 rounded-xl space-y-1 text-xs">
+        <div class="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-400">
+          <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+          <span>Impact on Student Pending Fees</span>
+        </div>
+        <p class="text-[11px] leading-relaxed text-rose-800/90 dark:text-rose-300/90">
+          Returning this fee will mark the receipt as <strong>REFUNDED</strong> and immediately <strong>increase the student's pending dues</strong> by this amount across all reports and statements.
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-foreground">Refund Payment Method *</label>
+          <select
+            name="refund_mode"
+            id="refundModalMode"
+            required
+            class="w-full text-xs h-9 rounded-lg border border-input bg-background px-3 font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-rose-500"
+          >
+            <option value="Cash" selected>Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Bank Transfer">Bank Transfer / NEFT</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-foreground">Reason for Return / Refund *</label>
+          <input
+            type="text"
+            name="reversal_reason"
+            id="refundModalReason"
+            required
+            placeholder="e.g. Student Left Class / Admission Withdrawn / Overpayment"
+            class="w-full text-xs h-9 rounded-lg border border-input bg-background px-3 focus:outline-none focus:ring-2 focus:ring-rose-500"
+          />
+          <div class="flex flex-wrap gap-1 mt-1">
+            <button type="button" onclick="document.getElementById('refundModalReason').value='Student Left Class / Admission Withdrawn'" class="text-[10px] bg-muted hover:bg-muted/80 text-foreground px-2 py-0.5 rounded border border-border cursor-pointer">Left Class</button>
+            <button type="button" onclick="document.getElementById('refundModalReason').value='Overpayment Refunded'" class="text-[10px] bg-muted hover:bg-muted/80 text-foreground px-2 py-0.5 rounded border border-border cursor-pointer">Overpayment</button>
+            <button type="button" onclick="document.getElementById('refundModalReason').value='Discount / Concession Adjusted'" class="text-[10px] bg-muted hover:bg-muted/80 text-foreground px-2 py-0.5 rounded border border-border cursor-pointer">Concession</button>
+            <button type="button" onclick="document.getElementById('refundModalReason').value='Payment Entered by Mistake'" class="text-[10px] bg-muted hover:bg-muted/80 text-foreground px-2 py-0.5 rounded border border-border cursor-pointer">Mistake</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 flex items-center justify-end gap-2.5 border-t border-border">
+        <button
+          type="button"
+          onclick="closeRefundModal()"
+          class="inline-flex items-center justify-center rounded-lg text-xs font-medium border border-input bg-background hover:bg-muted text-foreground h-9 px-4 transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white h-9 px-4 transition-colors cursor-pointer shadow-sm"
+        >
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          <span>Confirm Refund & Return</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ========================================== -->
 <!-- 1. Photo Options Modal (View, Update, Delete) -->
 <!-- ========================================== -->
@@ -1643,6 +1783,32 @@
     document.getElementById('deleteStudentModal').classList.add('hidden');
   }
 
+  function openRefundModal(paymentId, receiptNo, amount, studentName) {
+    const pInput = document.getElementById('refundModalPaymentId');
+    if (pInput) pInput.value = paymentId;
+    const rDisplay = document.getElementById('refundModalReceiptNo');
+    if (rDisplay) rDisplay.innerText = receiptNo || '—';
+    const sDisplay = document.getElementById('refundModalStudentName');
+    if (sDisplay) sDisplay.innerText = studentName || '—';
+    const aDisplay = document.getElementById('refundModalAmount');
+    if (aDisplay) {
+      const numAmt = Math.round(Number(amount) || 0);
+      aDisplay.innerText = '₹' + numAmt.toLocaleString('en-IN');
+    }
+    const reasonInput = document.getElementById('refundModalReason');
+    if (reasonInput) reasonInput.value = '';
+    const modal = document.getElementById('refundModal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function closeRefundModal() {
+    const modal = document.getElementById('refundModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
   function sendWhatsAppReminder(phone, name, code, roll, standard, pending, priorDues, totalDue, branch, session) {
     if (!phone) {
       alert("Parent mobile number is not registered for this student.");
@@ -1819,6 +1985,7 @@
       closePromoteModal();
       closeCollectFeeModal();
       closeReceiptModal();
+      closeRefundModal();
     }
   });
 
