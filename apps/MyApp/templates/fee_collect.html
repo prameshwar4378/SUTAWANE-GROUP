@@ -1342,7 +1342,15 @@
                 </div>
               </th>
 
-              <!-- Col 9: Actions (No Sort) -->
+              <!-- Col: Received By -->
+              <th class="py-2.5 px-3.5 text-left font-semibold cursor-pointer select-none hover:bg-[#1f2b48] transition-colors group col-receivedBy" onclick="sortTableByColumn('paymentsLedgerTable', 9, 'string')" title="Click to sort by Received By">
+                <div class="inline-flex items-center gap-1">
+                  <span>Received By</span>
+                  <span class="sort-icon text-white/40 group-hover:text-amber-300 text-[10px] inline-block transition-colors" data-col="9">↕</span>
+                </div>
+              </th>
+
+              <!-- Col 10: Actions (No Sort) -->
               <th class="py-2.5 px-3.5 text-right font-semibold pr-6 col-actions">Actions</th>
             </tr>
           </thead>
@@ -1402,6 +1410,28 @@
                 {% else %}
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                   ACTIVE
+                </span>
+                {% endif %}
+              </td>
+
+              <!-- Received By -->
+              <td class="py-3 px-4 text-xs col-receivedBy">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-full bg-primary/10 text-primary font-black flex items-center justify-center text-[10px] flex-shrink-0">
+                    {{ p.received_by_display|slice:":1"|upper }}
+                  </div>
+                  <div class="min-w-0">
+                    <span class="font-bold text-foreground block text-xs truncate max-w-[130px] leading-tight" title="{{ p.received_by_display }}">
+                      {{ p.received_by_display }}
+                    </span>
+                    <span class="text-[10px] text-muted-foreground block leading-tight">
+                      {{ p.received_by_role_display }}
+                    </span>
+                  </div>
+                </div>
+                {% if p.is_reversed and p.reversed_by %}
+                <span class="text-[9.5px] text-rose-600 font-semibold block mt-0.5" title="Voided by {{ p.reversed_by.name }}">
+                  Voided by: {{ p.reversed_by.name }}
                 </span>
                 {% endif %}
               </td>
@@ -1978,6 +2008,7 @@
     { id: 'paymentMode', label: 'Payment Mode', defaultVisible: true },
     { id: 'amount', label: 'Amount (₹)', defaultVisible: true },
     { id: 'status', label: 'Status', defaultVisible: true },
+    { id: 'receivedBy', label: 'Received By', defaultVisible: true },
     { id: 'actions', label: 'Actions', defaultVisible: true }
   ];
 

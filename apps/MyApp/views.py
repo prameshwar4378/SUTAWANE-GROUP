@@ -2838,6 +2838,318 @@ def promote_student_view(request, student_id):
     return redirect('student_detail', student_id=student.id)
 
 
+def edit_admission_modal_view(request, student_id, admission_id):
+    """
+    Renders the Edit Enrollment & Fee Structure modal dialog via HTMX / AJAX.
+    Allows updating:
+    - Academic Session
+    - Campus Branch
+    - Class / Standard
+    - Roll Number (with collision safety)
+    - Admission Date
+    - Total Agreed Tuition Fees (with installment rebalancing)
+    - Primary Installment Due Date
+    - Active / Archive status
+    - Permanent deletion of this enrollment record
+    """
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_edit_students'):
+        return HttpResponse('<div class="p-4 text-destructive text-sm font-semibold">Access Denied: You do not have permission to edit student enrollment.</div>', status=403)
+
+    student = get_object_or_404(Student, id=student_id)
+    admission = get_object_or_404(StudentAdmission, id=admission_id, student=student)
+
+    fee_plan = getattr(admission, 'fee_plan', None)
+    valid_payments = admission.payments.filter(is_reversed=False)
+    already_paid = sum((p.total_amount for p in valid_payments), MONEY_ZERO)
+    payments_count = valid_payments.count()
+
+    tot_fees = fee_plan.total_fees if fee_plan else MONEY_ZERO
+    net_payable = fee_plan.net_payable if fee_plan else tot_fees
+    pending_amount = max(MONEY_ZERO, net_payable - already_paid)
+
+    installments = list(fee_plan.installments.order_by('installment_no')) if fee_plan else []
+    primary_inst = next((i for i in installments if i.pending_amount > 0), installments[0] if installments else None)
+
+    inst_due_date_str = ''
+    if primary_inst and primary_inst.due_date:
+        d = timezone.localtime(primary_inst.due_date) if timezone.is_aware(primary_inst.due_date) else primary_inst.due_date
+        inst_due_date_str = d.strftime('%Y-%m-%d')
+
+    adm_date_str = ''
+    if admission.admission_date:
+        d = timezone.localtime(admission.admission_date) if timezone.is_aware(admission.admission_date) else admission.admission_date
+        adm_date_str = d.strftime('%Y-%m-%d')
+
+    sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
+    branches = list(Branch.objects.filter(is_active=True).order_by('name'))
+    courses = list(Course.objects.filter(is_active=True).order_by('sort_order', 'name'))
+
+    can_delete = has_permission(current_user, 'can_delete_students')
+    total_enrollments_count = student.admissions.count()
+
+    context = {
+        'student': student,
+        'admission': admission,
+        'fee_plan': fee_plan,
+        'already_paid': already_paid,
+        'payments_count': payments_count,
+        'pending_amount': pending_amount,
+        'inst_due_date_str': inst_due_date_str,
+        'adm_date_str': adm_date_str,
+        'sessions': sessions,
+        'branches': branches,
+        'courses': courses,
+        'can_delete': can_delete,
+        'total_enrollments_count': total_enrollments_count,
+    }
+    return render(request, 'modals/edit_admission_modal.html', context)
+
+
+def update_admission_view(request, student_id, admission_id):
+    """
+    Processes updates, archive toggle, or permanent deletion for a specific StudentAdmission.
+    """
+    student = get_object_or_404(Student, id=student_id)
+    admission = get_object_or_404(StudentAdmission, id=admission_id, student=student)
+
+    current_user = getattr(request, 'current_user', None)
+    if not current_user:
+        user_id = request.session.get('user_id')
+        if user_id:
+            current_user = User.objects.filter(id=user_id, is_active=True).first()
+
+    if not has_permission(current_user, 'can_edit_students'):
+        messages.error(request, "Access Denied: You do not have permission to modify student enrollments.")
+        return redirect('student_detail', student_id=student.id)
+
+    action = request.POST.get('action', 'update_enrollment')
+
+    # 1. ACTION: Permanent Delete Enrollment
+    if action == 'delete_enrollment':
+        if not has_permission(current_user, 'can_delete_students'):
+            messages.error(request, "Access Denied: You do not have permission to delete student enrollments.")
+            return redirect(f"/students/{student.id}/?admission_id={admission.id}")
+
+        sess_name = admission.session.name if admission.session else 'Session'
+        std_name = admission.standard or 'Course'
+
+        with transaction.atomic():
+            if hasattr(admission, 'fee_plan') and admission.fee_plan:
+                fp = admission.fee_plan
+                for inst in fp.installments.all():
+                    inst.allocations.all().delete()
+                fp.installments.all().delete()
+                fp.discounts.all().delete()
+                fp.delete()
+
+            # Clean up payments directly attached to this admission
+            admission.payments.all().delete()
+            admission.delete()
+
+        invalidate_financial_cache()
+        invalidate_student_cache(student.id)
+
+        messages.success(request, f"Enrollment for '{sess_name}' ({std_name}) has been permanently deleted.")
+        remaining_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.first()
+        target_url = f"/students/{student.id}/?admission_id={remaining_adm.id}" if remaining_adm else f"/students/{student.id}/"
+        if request.headers.get('HX-Request'):
+            response = HttpResponse(status=204)
+            response['HX-Redirect'] = target_url
+            return response
+        return redirect(target_url)
+
+    # 2. ACTION: Toggle Archive / Reactivate
+    elif action == 'toggle_archive':
+        admission.is_active = not admission.is_active
+        admission.save(update_fields=['is_active'])
+        invalidate_financial_cache()
+        invalidate_student_cache(student.id)
+        word = "reactivated" if admission.is_active else "archived"
+        messages.success(request, f"Enrollment for '{admission.session.name}' has been {word}.")
+        target_url = f"/students/{student.id}/?admission_id={admission.id}"
+        if request.headers.get('HX-Request'):
+            response = HttpResponse(status=204)
+            response['HX-Redirect'] = target_url
+            return response
+        return redirect(target_url)
+
+    # 3. ACTION: Update Enrollment & Fee Plan
+    elif action == 'update_enrollment':
+        target_session_id = request.POST.get('session_id')
+        target_branch_id = request.POST.get('branch_id')
+        standard = request.POST.get('standard', '').strip()
+        roll_number = request.POST.get('roll_number', '').strip()
+        admission_date_str = request.POST.get('admission_date', '').strip()
+        total_fees_str = request.POST.get('total_fees', '').strip()
+        installment_due_date_str = request.POST.get('installment_due_date', '').strip()
+        is_active = request.POST.get('is_active') in ('true', '1', 'on')
+
+        fee_plan = getattr(admission, 'fee_plan', None)
+        valid_payments = admission.payments.filter(is_reversed=False)
+        already_paid = sum((p.total_amount for p in valid_payments), MONEY_ZERO)
+        payments_count = valid_payments.count()
+
+        form_error = None
+        new_total_fees = MONEY_ZERO
+
+        if not target_session_id or not target_branch_id or not standard or not roll_number:
+            form_error = "Session, Branch, Course / Standard, and Roll Number are required."
+
+        if not form_error:
+            try:
+                new_total_fees = parse_non_negative_money(total_fees_str, allow_blank=False)
+            except ValueError as exc:
+                form_error = str(exc)
+
+        if not form_error and new_total_fees < already_paid:
+            form_error = f"Total Fees (₹{new_total_fees:,.0f}) cannot be less than already collected payments (₹{already_paid:,.0f})."
+
+        target_session = AcademicSession.objects.filter(id=target_session_id).first() if not form_error else None
+        target_branch = Branch.objects.filter(id=target_branch_id).first() if not form_error else None
+
+        if not form_error and not target_session:
+            form_error = "Selected academic session not found."
+        if not form_error and not target_branch:
+            form_error = "Selected campus branch not found."
+
+        # Check roll number collision
+        if not form_error:
+            collision = StudentAdmission.objects.filter(
+                branch=target_branch,
+                session=target_session,
+                roll_number=roll_number
+            ).exclude(id=admission.id).exists()
+            if collision:
+                form_error = f"Roll number '{roll_number}' is already taken in {target_branch.name} for {target_session.name}."
+
+        # Check duplicate admission in target session
+        if not form_error:
+            session_collision = student.admissions.filter(session=target_session).exclude(id=admission.id).exists()
+            if session_collision:
+                form_error = f"Student already has another admission record in {target_session.name}."
+
+        parsed_adm_date = None
+        if not form_error and admission_date_str:
+            try:
+                parsed_adm_date = parse_form_date(admission_date_str)
+            except ValueError as exc:
+                form_error = str(exc)
+
+        parsed_due_date = None
+        if not form_error and installment_due_date_str:
+            try:
+                parsed_due_date = parse_form_date(installment_due_date_str)
+            except ValueError as exc:
+                form_error = str(exc)
+
+        if form_error:
+            if request.headers.get('HX-Request'):
+                sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
+                branches = list(Branch.objects.filter(is_active=True).order_by('name'))
+                courses = list(Course.objects.filter(is_active=True).order_by('sort_order', 'name'))
+                context = {
+                    'student': student,
+                    'admission': admission,
+                    'fee_plan': fee_plan,
+                    'already_paid': already_paid,
+                    'payments_count': payments_count,
+                    'pending_amount': max(MONEY_ZERO, (fee_plan.net_payable if fee_plan else MONEY_ZERO) - already_paid),
+                    'inst_due_date_str': installment_due_date_str,
+                    'adm_date_str': admission_date_str,
+                    'sessions': sessions,
+                    'branches': branches,
+                    'courses': courses,
+                    'can_delete': has_permission(current_user, 'can_delete_students'),
+                    'total_enrollments_count': student.admissions.count(),
+                    'form_error': form_error,
+                }
+                return render(request, 'modals/edit_admission_modal.html', context)
+            messages.error(request, form_error)
+            return redirect(f"/students/{student.id}/?admission_id={admission.id}")
+
+        with transaction.atomic():
+            admission.session = target_session
+            admission.branch = target_branch
+            admission.standard = standard
+            admission.roll_number = roll_number
+            if parsed_adm_date:
+                admission.admission_date = parsed_adm_date
+            admission.is_active = is_active
+            admission.save()
+
+            # Synchronize payments branch and session for consistency
+            admission.payments.all().update(branch=target_branch, session=target_session)
+
+            # Update FeePlan
+            if not fee_plan:
+                fee_plan = FeePlan.objects.create(
+                    admission=admission,
+                    session=target_session,
+                    total_fees=new_total_fees,
+                    total_discount=MONEY_ZERO,
+                    net_payable=new_total_fees,
+                )
+            else:
+                fee_plan.session = target_session
+                fee_plan.total_fees = new_total_fees
+                disc = fee_plan.total_discount or MONEY_ZERO
+                fee_plan.net_payable = max(MONEY_ZERO, new_total_fees - disc)
+                fee_plan.save()
+
+            # Synchronize Installments
+            installments = list(fee_plan.installments.order_by('installment_no'))
+            if not installments:
+                Installment.objects.create(
+                    fee_plan=fee_plan,
+                    installment_no=1,
+                    label='Session Fee',
+                    due_date=parsed_due_date or timezone.now(),
+                    amount_due=fee_plan.net_payable
+                )
+            elif len(installments) == 1:
+                inst = installments[0]
+                inst.amount_due = fee_plan.net_payable
+                if parsed_due_date:
+                    inst.due_date = parsed_due_date
+                inst.save()
+            else:
+                # Multiple installments: adjust unpaid portion so total matches net_payable
+                remaining_target = fee_plan.net_payable
+                for idx, inst in enumerate(installments):
+                    if idx == len(installments) - 1:
+                        inst.amount_due = max(MONEY_ZERO, remaining_target)
+                        if parsed_due_date:
+                            inst.due_date = parsed_due_date
+                        inst.save()
+                    else:
+                        alloc_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
+                        inst_target = max(alloc_paid, min(inst.amount_due, remaining_target))
+                        inst.amount_due = inst_target
+                        inst.save()
+                        remaining_target -= inst_target
+
+        invalidate_financial_cache()
+        invalidate_student_cache(student.id)
+
+        if request.headers.get('HX-Request'):
+            context = {
+                'success': True,
+                'student': student,
+                'admission': admission,
+                'fee_plan': fee_plan,
+            }
+            return render(request, 'modals/edit_admission_modal.html', context)
+
+        messages.success(request, f"Enrollment & Fee Structure for {admission.session.name} ({admission.standard}) updated successfully!")
+        return redirect(f"/students/{student.id}/?admission_id={admission.id}")
+
+
 def batch_promote_modal_view(request):
     """
     Renders batch promotion modal with live selection preview and aggregate dues.
@@ -3340,6 +3652,8 @@ def fee_collect_view(request):
                 payment.is_reversed = True
                 payment.reversal_reason = reversal_reason or "Cancelled by administrator"
                 payment.reversed_at = timezone.now()
+                payment.reversed_by = current_user
+                payment.updated_by = current_user
                 payment.save()
 
                 # If towards previous due, restore collected amount
@@ -3432,6 +3746,8 @@ def fee_collect_view(request):
                         payment_date=parsed_payment_date,
                         reference_number=reference_number,
                         notes=notes or f"Payment towards carried-forward dues from {prev_due.original_session.name}",
+                        received_by=current_user,
+                        created_by=current_user,
                     )
                     prev_due.collected_amount += amount
                     prev_due.save()
@@ -3541,6 +3857,8 @@ def fee_collect_view(request):
                     payment_date=parsed_payment_date,
                     reference_number=reference_number,
                     notes=notes,
+                    received_by=current_user,
+                    created_by=current_user,
                 )
 
                 # Allocate payment across installments using FIFO
@@ -3745,7 +4063,7 @@ def fee_collect_view(request):
 
     # History Tab Assembly
     payments_qs = Payment.objects.select_related(
-        'student', 'branch', 'session', 'admission', 'previous_due'
+        'student', 'branch', 'session', 'admission', 'previous_due', 'received_by', 'created_by', 'reversed_by'
     ).prefetch_related('allocations__installment').order_by('-payment_date', '-created_at')
 
     # Filters with Scope Isolation
@@ -4021,6 +4339,12 @@ def collect_fee_modal_view(request, student_id):
             }
             return render(request, 'modals/collect_fee_modal.html', context)
 
+        current_user = getattr(request, 'current_user', None)
+        if not current_user:
+            user_id = request.session.get('user_id')
+            if user_id:
+                current_user = User.objects.filter(id=user_id, is_active=True).first()
+
         with transaction.atomic():
             receipt_no = generate_sequential_receipt_number(target_adm.branch, target_adm.session)
             payment = Payment.objects.create(
@@ -4034,6 +4358,8 @@ def collect_fee_modal_view(request, student_id):
                 payment_date=parsed_payment_date,
                 reference_number=reference_number,
                 notes=notes,
+                received_by=current_user,
+                created_by=current_user,
             )
 
             # Allocate across installments using FIFO
@@ -4210,7 +4536,7 @@ def payment_receipt_modal_view(request, payment_id):
     Matches React FeeReceiptModal.tsx.
     """
     payment = get_object_or_404(
-        Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due'),
+        Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due', 'received_by', 'created_by', 'reversed_by'),
         id=payment_id
     )
 
@@ -4262,7 +4588,7 @@ def payment_receipt_print_view(request, payment_id):
     Matches React FeeReceiptModal print output.
     """
     payment = get_object_or_404(
-        Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due'),
+        Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due', 'received_by', 'created_by', 'reversed_by'),
         id=payment_id
     )
     allocations = payment.allocations.select_related('installment').all()
@@ -4343,6 +4669,8 @@ def payment_receipt_void_view(request, payment_id):
             payment.is_reversed = True
             payment.reversal_reason = reversal_reason
             payment.reversed_at = timezone.now()
+            payment.reversed_by = current_user
+            payment.updated_by = current_user
             payment.save()
 
             if payment.previous_due:
@@ -4879,6 +5207,7 @@ def expenses_list_view(request):
                 payment_mode=payment_mode,
                 vendor=vendor,
                 reference_number=reference_number,
+                created_by=current_user,
             )
 
             # Handle File Attachment
@@ -4946,6 +5275,7 @@ def expenses_list_view(request):
                 except Exception:
                     pass
 
+            expense.updated_by = current_user
             expense.save()
 
             # Handle new attachment upload if provided
@@ -5150,7 +5480,7 @@ def expenses_list_view(request):
     export_type = request.GET.get('export', '').lower()
 
     # 3. Base Queryset
-    qs = Expense.objects.select_related('branch', 'category').prefetch_related('attachments').all()
+    qs = Expense.objects.select_related('branch', 'category', 'created_by', 'updated_by').prefetch_related('attachments').all()
 
     # In-page Branch filter
     if branch_filter and branch_filter != 'ALL':

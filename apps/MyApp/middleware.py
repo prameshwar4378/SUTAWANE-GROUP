@@ -1,7 +1,30 @@
+import threading
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from .models import User
 from .auth_utils import get_license_status
+
+_thread_locals = threading.local()
+
+
+def get_current_authenticated_user():
+    """
+    Returns the currently authenticated User instance for the current request thread, or None.
+    Used by confidential models (.save hooks) to automatically record audit stamps
+    (e.g., received_by, created_by, updated_by) without requiring manual parameter passing.
+    """
+    return getattr(_thread_locals, 'current_user', None)
+
+
+def set_current_authenticated_user(user):
+    """Binds the authenticated User to the current thread."""
+    _thread_locals.current_user = user
+
+
+def clear_current_authenticated_user():
+    """Cleans up the thread-local reference at request termination."""
+    if hasattr(_thread_locals, 'current_user'):
+        del _thread_locals.current_user
 
 EXEMPT_PREFIXES = (
     '/login/',
@@ -27,7 +50,8 @@ class SoftwareLicenseAndAuthMiddleware:
     """
     Middleware ensuring:
     1. Authentication: Non-public routes require a valid logged-in session.
-    2. License Guard: If software license is inactive or expired, blocks non-developer access
+    2. Automatic Audit Binding: Binds request.current_user to thread-local storage for confidential data auditing.
+    3. License Guard: If software license is inactive or expired, blocks non-developer access
        and renders the SoftwareLockScreen.
     """
 
@@ -60,15 +84,21 @@ class SoftwareLicenseAndAuthMiddleware:
         # Attach current_user to request
         request.current_user = current_user
 
-        # 3. Check License Guard
-        # Developers are exempt from license expiration block so they can renew/manage license
-        if not current_user.is_developer:
-            license_info = get_license_status()
-            if not license_info['isActive'] or license_info['isExpired']:
-                context = {
-                    'license': license_info,
-                    'current_user': current_user,
-                }
-                return render(request, 'errors/403_locked.html', context, status=403)
+        # Bind to thread-local context for automatic model-level audit tracking
+        set_current_authenticated_user(current_user)
 
-        return self.get_response(request)
+        try:
+            # 3. Check License Guard
+            # Developers are exempt from license expiration block so they can renew/manage license
+            if not current_user.is_developer:
+                license_info = get_license_status()
+                if not license_info['isActive'] or license_info['isExpired']:
+                    context = {
+                        'license': license_info,
+                        'current_user': current_user,
+                    }
+                    return render(request, 'errors/403_locked.html', context, status=403)
+
+            return self.get_response(request)
+        finally:
+            clear_current_authenticated_user()

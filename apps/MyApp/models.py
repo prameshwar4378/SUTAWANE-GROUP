@@ -330,6 +330,8 @@ class FeePlan(models.Model):
     total_fees = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), db_column='totalFees', validators=[MinValueValidator(0)])
     total_discount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), db_column='totalDiscount', validators=[MinValueValidator(0)])
     net_payable = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), db_column='netPayable', validators=[MinValueValidator(0)])
+    created_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_fee_plans', db_column='createdById', help_text='User who configured the agreed fee plan')
+    updated_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='updated_fee_plans', db_column='updatedById', help_text='User who last modified the fee plan')
     created_at = models.DateTimeField(default=timezone.now, db_column='createdAt')
     updated_at = models.DateTimeField(auto_now=True, db_column='updatedAt')
 
@@ -347,6 +349,18 @@ class FeePlan(models.Model):
     def __str__(self):
         return f"FeePlan: {self.admission} - Net: ₹{self.net_payable}"
 
+    def save(self, *args, **kwargs):
+        from .middleware import get_current_authenticated_user
+        current_u = get_current_authenticated_user()
+        is_new = not self.pk or not FeePlan.objects.filter(pk=self.pk).exists()
+        if is_new:
+            if not self.created_by and current_u:
+                self.created_by = current_u
+        else:
+            if current_u:
+                self.updated_by = current_u
+        super().save(*args, **kwargs)
+
 
 class FeeDiscount(models.Model):
     id = models.CharField(primary_key=True, max_length=36, default=generate_uuid, editable=False)
@@ -355,6 +369,7 @@ class FeeDiscount(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     approved_date = models.DateTimeField(default=timezone.now, db_column='approvedDate')
     notes = models.TextField(null=True, blank=True)
+    created_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_discounts', db_column='createdById', help_text='User who granted/authorized this discount')
     created_at = models.DateTimeField(default=timezone.now, db_column='createdAt')
 
     class Meta:
@@ -365,6 +380,14 @@ class FeeDiscount(models.Model):
 
     def __str__(self):
         return f"Discount ₹{self.amount} ({self.reason})"
+
+    def save(self, *args, **kwargs):
+        from .middleware import get_current_authenticated_user
+        current_u = get_current_authenticated_user()
+        if not self.pk or not FeeDiscount.objects.filter(pk=self.pk).exists():
+            if not self.created_by and current_u:
+                self.created_by = current_u
+        super().save(*args, **kwargs)
 
 
 class Installment(models.Model):
@@ -490,6 +513,10 @@ class Payment(models.Model):
     is_reversed = models.BooleanField(default=False, db_column='isReversed')
     reversal_reason = models.TextField(null=True, blank=True, db_column='reversalReason')
     reversed_at = models.DateTimeField(null=True, blank=True, db_column='reversedAt')
+    received_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='received_payments', db_column='receivedById', help_text='Staff/User who collected/received this fee payment')
+    created_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_payments', db_column='createdById', help_text='User who initiated the payment record')
+    updated_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='updated_payments', db_column='updatedById', help_text='User who last updated this payment')
+    reversed_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='reversed_payments', db_column='reversedById', help_text='User who voided/reversed this payment')
     created_at = models.DateTimeField(default=timezone.now, db_column='createdAt')
     updated_at = models.DateTimeField(auto_now=True, db_column='updatedAt')
 
@@ -506,6 +533,7 @@ class Payment(models.Model):
             models.Index(fields=['is_reversed', 'payment_date']),
             models.Index(fields=['session', 'is_reversed', 'payment_date']),
             models.Index(fields=['branch', 'is_reversed', 'payment_date']),
+            models.Index(fields=['received_by']),
         ]
         constraints = [
             models.CheckConstraint(condition=models.Q(total_amount__gte=0), name='payment_total_non_negative'),
@@ -513,6 +541,46 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Receipt #{self.receipt_number} - ₹{self.total_amount} ({self.student.full_name})"
+
+    @property
+    def received_by_display(self):
+        if self.received_by:
+            return self.received_by.name
+        if self.created_by:
+            return self.created_by.name
+        return "Staff"
+
+    @property
+    def received_by_role_display(self):
+        if self.received_by:
+            return self.received_by.get_role_display()
+        if self.created_by:
+            return self.created_by.get_role_display()
+        return "Staff"
+
+    @property
+    def reversed_by_display(self):
+        if self.reversed_by:
+            return self.reversed_by.name
+        return "Administrator"
+
+    def save(self, *args, **kwargs):
+        from .middleware import get_current_authenticated_user
+        current_u = get_current_authenticated_user()
+        is_new = not self.pk or not Payment.objects.filter(pk=self.pk).exists()
+
+        if is_new:
+            if not self.received_by and current_u:
+                self.received_by = current_u
+            if not self.created_by and current_u:
+                self.created_by = current_u
+        else:
+            if current_u:
+                self.updated_by = current_u
+            if self.is_reversed and not self.reversed_by and current_u:
+                self.reversed_by = current_u
+
+        super().save(*args, **kwargs)
 
 
 class PaymentAllocation(models.Model):
@@ -590,6 +658,8 @@ class Expense(models.Model):
     payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_CHOICES, db_column='paymentMode')
     vendor = models.CharField(max_length=200, null=True, blank=True)
     reference_number = models.CharField(max_length=100, null=True, blank=True, db_column='referenceNumber')
+    created_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_expenses', db_column='createdById', help_text='User who recorded this expense')
+    updated_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='updated_expenses', db_column='updatedById', help_text='User who last updated this expense')
     created_at = models.DateTimeField(default=timezone.now, db_column='createdAt')
     updated_at = models.DateTimeField(auto_now=True, db_column='updatedAt')
 
@@ -601,6 +671,7 @@ class Expense(models.Model):
             models.Index(fields=['expense_date']),
             models.Index(fields=['branch', 'expense_date']),
             models.Index(fields=['category', 'expense_date']),
+            models.Index(fields=['created_by']),
         ]
         constraints = [
             models.CheckConstraint(condition=models.Q(amount__gte=0), name='expense_amount_non_negative'),
@@ -608,6 +679,36 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"Expense: ₹{self.amount} - {self.category.name} ({self.description[:30]})"
+
+    @property
+    def created_by_display(self):
+        if self.created_by:
+            return self.created_by.name
+        return "Staff"
+
+    @property
+    def created_by_role_display(self):
+        if self.created_by:
+            return self.created_by.get_role_display()
+        return "Staff"
+
+    @property
+    def updated_by_display(self):
+        if self.updated_by:
+            return self.updated_by.name
+        return None
+
+    def save(self, *args, **kwargs):
+        from .middleware import get_current_authenticated_user
+        current_u = get_current_authenticated_user()
+        is_new = not self.pk or not Expense.objects.filter(pk=self.pk).exists()
+        if is_new:
+            if not self.created_by and current_u:
+                self.created_by = current_u
+        else:
+            if current_u:
+                self.updated_by = current_u
+        super().save(*args, **kwargs)
 
 
 class ExpenseAttachment(models.Model):

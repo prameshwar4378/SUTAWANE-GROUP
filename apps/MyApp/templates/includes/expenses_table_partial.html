@@ -105,6 +105,9 @@
           </a>
         </th>
 
+        <!-- Recorded By -->
+        <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-recordedBy">Recorded By</th>
+
         <!-- Actions -->
         <th class="py-3 px-4 text-right text-xs font-semibold whitespace-nowrap pr-4 col-actions">Actions</th>
       </tr>
@@ -183,6 +186,28 @@
           ₹{{ exp.amount|floatformat:0 }}
         </td>
 
+        <!-- Recorded By -->
+        <td class="py-3 px-3 text-xs col-recordedBy whitespace-nowrap">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-primary/10 text-primary font-black flex items-center justify-center text-[10px] flex-shrink-0">
+              {{ exp.created_by_display|slice:":1"|upper }}
+            </div>
+            <div class="min-w-0">
+              <span class="font-bold text-foreground block text-xs truncate max-w-[120px] leading-tight" title="{{ exp.created_by_display }}">
+                {{ exp.created_by_display }}
+              </span>
+              <span class="text-[10px] text-muted-foreground block leading-tight">
+                {{ exp.created_by_role_display }}
+              </span>
+            </div>
+          </div>
+          {% if exp.updated_by %}
+          <span class="text-[9.5px] text-muted-foreground/80 block mt-0.5" title="Edited by {{ exp.updated_by_display }}">
+            Edited by: {{ exp.updated_by_display }}
+          </span>
+          {% endif %}
+        </td>
+
         <!-- Actions Toolbar -->
         <td class="py-3 px-4 text-right whitespace-nowrap pr-4 col-actions">
           <div class="flex items-center justify-end gap-1">
@@ -207,7 +232,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="11" class="py-16 text-center text-muted-foreground">
+        <td colspan="12" class="py-16 text-center text-muted-foreground">
           <div class="max-w-md mx-auto space-y-3">
             <div class="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
               <i data-lucide="receipt" class="w-6 h-6"></i>

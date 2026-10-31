@@ -1,0 +1,390 @@
+<div id="editAdmissionModalBackdrop" onclick="if (event.target === this) closeEditAdmissionModal();" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+  <div class="bg-card text-card-foreground border border-border rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+    
+    <!-- Modal Header -->
+    <div class="p-4 sm:p-5 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+          <i data-lucide="settings-2" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-foreground">
+            Update Enrollment & Fee Structure
+          </h2>
+          <p class="text-xs text-muted-foreground">
+            {{ student.full_name }} • {{ admission.session.name }} ({{ admission.standard }})
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onclick="closeEditAdmissionModal()"
+        class="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent transition-colors"
+        title="Close dialog"
+      >
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    {% if success %}
+    <!-- Success Feedback View -->
+    <div class="p-6 space-y-4">
+      <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-xl space-y-2">
+        <div class="flex items-center gap-2 font-bold text-sm">
+          <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i>
+          Enrollment & Fees Updated Successfully!
+        </div>
+        <p class="text-xs leading-relaxed">
+          The enrollment record for <strong>{{ student.full_name }}</strong> in academic session <strong>{{ admission.session.name }}</strong> has been updated.
+        </p>
+        <div class="grid grid-cols-2 gap-2 text-xs pt-1.5 border-t border-emerald-500/20 font-medium">
+          <div>Class / Standard: <strong>{{ admission.standard }}</strong></div>
+          <div>Roll Number: <code class="font-mono font-bold">{{ admission.roll_number }}</code></div>
+          <div>Campus Branch: <strong>{{ admission.branch.name }}</strong></div>
+          <div>Total Tuition Fees: <strong>₹{{ fee_plan.net_payable|floatformat:0 }}</strong></div>
+          <div>Enrollment Status: <strong>{% if admission.is_active %}Active{% else %}Archived{% endif %}</strong></div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onclick="location.reload()"
+          class="inline-flex items-center justify-center rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white h-10 px-5 cursor-pointer shadow-sm transition-colors"
+        >
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1.5"></i>
+          Done & Refresh Page
+        </button>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- Edit Enrollment & Fees Form -->
+    <form
+      id="editAdmissionForm"
+      hx-post="{% url 'update_admission' student.id admission.id %}"
+      hx-target="#editAdmissionModalContainer"
+      class="p-4 sm:p-6 space-y-4"
+    >
+      {% csrf_token %}
+
+      {% if form_error %}
+      <div class="p-3 bg-destructive/10 border border-destructive/30 text-destructive text-xs rounded-xl flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
+        <span>{{ form_error }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Current Financial Overview Pill -->
+      <div class="bg-muted/40 border border-border rounded-xl p-3.5 space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-foreground flex items-center gap-1.5">
+            <i data-lucide="receipt" class="w-4 h-4 text-primary"></i>
+            Current Financial Snapshot
+          </span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold {% if admission.is_active %}bg-emerald-500/10 text-emerald-700 border border-emerald-500/20{% else %}bg-slate-500/10 text-slate-700 border border-slate-500/20{% endif %}">
+            Status: {% if admission.is_active %}Active Enrollment{% else %}Archived{% endif %}
+          </span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+          <div class="p-2 rounded-lg bg-background border border-border">
+            <span class="text-[10px] text-muted-foreground block">Agreed Fees</span>
+            <span class="font-black text-sm text-foreground">₹{{ fee_plan.net_payable|default:fee_plan.total_fees|floatformat:0 }}</span>
+          </div>
+          <div class="p-2 rounded-lg bg-emerald-50/50 border border-emerald-200/60 dark:bg-emerald-950/20">
+            <span class="text-[10px] text-emerald-700 dark:text-emerald-400 block">Already Paid</span>
+            <span class="font-black text-sm text-emerald-700 dark:text-emerald-400">₹{{ already_paid|floatformat:0 }}</span>
+          </div>
+          <div class="p-2 rounded-lg {% if pending_amount > 0 %}bg-rose-50/50 border border-rose-200/60 dark:bg-rose-950/20{% else %}bg-background border border-border{% endif %}">
+            <span class="text-[10px] {% if pending_amount > 0 %}text-rose-700 dark:text-rose-400{% else %}text-muted-foreground{% endif %} block">Current Dues</span>
+            <span class="font-black text-sm {% if pending_amount > 0 %}text-rose-700 dark:text-rose-400{% else %}text-emerald-600{% endif %}">
+              {% if pending_amount > 0 %}₹{{ pending_amount|floatformat:0 }}{% else %}Cleared ✓{% endif %}
+            </span>
+          </div>
+        </div>
+
+        {% if already_paid > 0 %}
+        <p class="text-[11px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1.5 pt-0.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 flex-shrink-0"></i>
+          <span>₹{{ already_paid|floatformat:0 }} has already been collected across {{ payments_count }} receipt{{ payments_count|pluralize }}. New total fees cannot be set lower than ₹{{ already_paid|floatformat:0 }}.</span>
+        </p>
+        {% endif %}
+      </div>
+
+      <!-- Section 1: Academic Enrollment Fields -->
+      <div class="space-y-3">
+        <h3 class="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <i data-lucide="book-open" class="w-3.5 h-3.5 text-primary"></i>
+          Academic Details
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Session -->
+          <div class="space-y-1">
+            <label class="font-bold text-xs text-foreground flex items-center gap-1">
+              Academic Session *
+            </label>
+            <select
+              name="session_id"
+              class="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+              required
+            >
+              {% for s in sessions %}
+              <option value="{{ s.id }}" {% if s.id == admission.session_id %}selected{% endif %}>
+                {{ s.name }} {% if s.is_current %}(Current){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Branch -->
+          <div class="space-y-1">
+            <label class="font-bold text-xs text-foreground flex items-center gap-1">
+              Campus Branch *
+            </label>
+            <select
+              name="branch_id"
+              class="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+              required
+            >
+              {% for b in branches %}
+              <option value="{{ b.id }}" {% if b.id == admission.branch_id %}selected{% endif %}>
+                {{ b.name }} ({{ b.code }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Class / Course -->
+          <div class="space-y-1">
+            <label class="font-bold text-xs text-foreground flex items-center gap-1">
+              Class / Course Standard *
+            </label>
+            <select
+              name="standard"
+              class="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+              required
+            >
+              {% for c in courses %}
+              <option value="{{ c.name }}" {% if c.name == admission.standard %}selected{% endif %}>
+                {{ c.name }}
+              </option>
+              {% endfor %}
+              <!-- Fallback if standard is not in courses -->
+              {% if admission.standard %}
+              <option value="{{ admission.standard }}" selected>{{ admission.standard }} (Current)</option>
+              {% endif %}
+            </select>
+          </div>
+
+          <!-- Roll Number -->
+          <div class="space-y-1">
+            <label class="font-bold text-xs text-foreground flex items-center gap-1">
+              Roll Number *
+            </label>
+            <input
+              type="text"
+              name="roll_number"
+              value="{{ admission.roll_number }}"
+              placeholder="e.g. KPG-4"
+              class="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+              required
+            />
+          </div>
+
+          <!-- Admission Date -->
+          <div class="space-y-1 sm:col-span-2">
+            <label class="font-bold text-xs text-foreground flex items-center gap-1">
+              Enrollment / Admission Date *
+            </label>
+            <input
+              type="date"
+              name="admission_date"
+              value="{{ adm_date_str }}"
+              class="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Tuition Fees & Installments -->
+      <div class="space-y-3 pt-2 border-t border-border/70">
+        <h3 class="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <i data-lucide="indian-rupee" class="w-3.5 h-3.5 text-primary"></i>
+          Tuition Fees & Installment Due Date
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Total Agreed Fees -->
+          <div class="space-y-1">
+            <label class="font-bold text-xs text-foreground flex items-center justify-between">
+              <span>Total Agreed Fees (₹) *</span>
+              {% if already_paid > 0 %}
+              <span class="text-[10px] text-muted-foreground">Min: ₹{{ already_paid|floatformat:0 }}</span>
+              {% endif %}
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">₹</span>
+              <input
+                type="number"
+                name="total_fees"
+                value="{{ fee_plan.net_payable|default:fee_plan.total_fees|floatformat:0 }}"
+                min="{{ already_paid|floatformat:0 }}"
+                step="500"
+                class="w-full h-9 pl-7 pr-3 rounded-xl border border-input bg-background text-xs font-black text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                required
+              />
+            </div>
+            <p class="text-[10px] text-muted-foreground">
+              Total tuition fee commitment for this session.
+            </p>
+          </div>
+
+          <!-- Next Due Date -->
+          <div class="space-y-1">
+            <label class="font-bold text-xs text-foreground flex items-center gap-1">
+              Fee Due Date
+            </label>
+            <input
+              type="date"
+              name="installment_due_date"
+              value="{{ inst_due_date_str }}"
+              class="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <p class="text-[10px] text-muted-foreground">
+              Scheduled due date for pending installments.
+            </p>
+          </div>
+        </div>
+
+        <!-- Active / Archive Checkbox -->
+        <div class="p-3 rounded-xl bg-muted/40 border border-border flex items-start gap-2.5 mt-2">
+          <input
+            type="checkbox"
+            name="is_active"
+            id="edit_admission_is_active"
+            value="true"
+            {% if admission.is_active %}checked{% endif %}
+            class="w-4 h-4 rounded text-primary border-input focus:ring-primary mt-0.5 cursor-pointer"
+          />
+          <label for="edit_admission_is_active" class="text-xs cursor-pointer select-none">
+            <span class="font-bold text-foreground block">Active Enrollment Status</span>
+            <span class="text-muted-foreground text-[11px] block mt-0.5">
+              Keep checked for ongoing batches. Uncheck to archive without deleting academic records.
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- In-Modal Deletion Confirmation Box (Hidden by default) -->
+      <div id="deleteEnrollmentWarningBox" class="hidden p-4 rounded-xl bg-rose-50 border-2 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800 space-y-3">
+        <div class="flex items-start gap-2.5 text-rose-800 dark:text-rose-200">
+          <i data-lucide="alert-octagon" class="w-5 h-5 flex-shrink-0 text-rose-600 mt-0.5"></i>
+          <div>
+            <h4 class="font-black text-xs sm:text-sm">Permanently Delete This Enrollment?</h4>
+            <p class="text-[11px] sm:text-xs mt-1 text-rose-700 dark:text-rose-300">
+              Are you sure you want to delete the enrollment for <strong>{{ admission.session.name }} ({{ admission.standard }})</strong>?
+              {% if payments_count > 0 %}
+              <br/><span class="font-bold">⚠️ Warning:</span> {{ payments_count }} fee payment receipt(s) totaling ₹{{ already_paid|floatformat:0 }} are linked to this session and will also be permanently removed.
+              {% endif %}
+              This action cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onclick="hideDeleteWarning()"
+            class="px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-semibold text-muted-foreground hover:bg-accent cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            name="action"
+            value="delete_enrollment"
+            class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Yes, Permanently Delete</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Footer Toolbar -->
+      <div class="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <!-- Destructive & Archive Actions -->
+        <div class="flex items-center gap-2">
+          {% if can_delete %}
+          <button
+            type="button"
+            onclick="showDeleteWarning()"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+            title="Permanently remove this academic session enrollment"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i>
+            <span>Remove Permanent</span>
+          </button>
+          {% endif %}
+
+          <button
+            type="submit"
+            name="action"
+            value="toggle_archive"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs
+              {% if admission.is_active %}
+                bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200
+              {% else %}
+                bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200
+              {% endif %}"
+            title="Toggle between Active and Archived status"
+          >
+            <i data-lucide="archive" class="w-3.5 h-3.5"></i>
+            <span>{% if admission.is_active %}Archive Enrollment{% else %}Reactivate Enrollment{% endif %}</span>
+          </button>
+        </div>
+
+        <!-- Main Save CTA -->
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            type="button"
+            onclick="closeEditAdmissionModal()"
+            class="px-4 py-2 rounded-xl border border-border bg-background text-xs font-semibold text-muted-foreground hover:bg-accent cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            name="action"
+            value="update_enrollment"
+            class="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
+          >
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Save & Update</span>
+          </button>
+        </div>
+      </div>
+    </form>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  function showDeleteWarning() {
+    const box = document.getElementById('deleteEnrollmentWarningBox');
+    if (box) {
+      box.classList.remove('hidden');
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  function hideDeleteWarning() {
+    const box = document.getElementById('deleteEnrollmentWarningBox');
+    if (box) box.classList.add('hidden');
+  }
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+</script>

@@ -88,6 +88,17 @@
       <span>Mode: {{ payment.payment_mode }} {% if payment.reference_number %}({{ payment.reference_number }}){% endif %}</span>
     </div>
 
+    <div style="display: flex; justify-content: space-between; font-size: 9px; margin-top: 2px;">
+      <span>Received By:</span>
+      <span style="font-weight: bold;">{{ payment.received_by_display }} {% if payment.received_by %}({{ payment.received_by.get_role_display }}){% endif %}</span>
+    </div>
+
+    {% if payment.is_reversed %}
+    <div style="font-size: 8.5px; color: #dc2626; font-weight: bold; margin-top: 3px; text-align: center; border: 1px dashed #dc2626; padding: 2px;">
+      ** VOIDED BY: {{ payment.reversed_by_display }} **
+    </div>
+    {% endif %}
+
     <div style="display: flex; justify-content: space-between; font-size: 9.5px; font-weight: bold; margin-top: 3px;">
       <span>Remaining Dues:</span>
       <span>{% if remaining_balance > 0 %}₹{{ remaining_balance|floatformat:0 }}{% else %}NIL (Cleared){% endif %}</span>
@@ -116,7 +127,7 @@
     
     {% if payment.is_reversed %}
     <div class="bg-rose-100 text-rose-800 border border-rose-300 px-3 py-1 rounded text-center font-bold text-xs uppercase tracking-wider">
-      ⚠️ THIS RECEIPT HAS BEEN VOIDED / REVERSED ({{ payment.reversal_reason|default:"Transaction reversed" }})
+      ⚠️ THIS RECEIPT HAS BEEN VOIDED / REVERSED by {{ payment.reversed_by_display }}{% if payment.reversed_at %} on {{ payment.reversed_at|date:"d-M-Y H:i" }}{% endif %} (Reason: {{ payment.reversal_reason|default:"Transaction reversed" }})
     </div>
     {% endif %}
 
@@ -277,9 +288,14 @@
           <p class="text-slate-400 text-[8.5px] mt-0.5 leading-tight">Computer generated authentic official receipt • Valid without physical stamp</p>
         </div>
       </div>
-      <div class="text-center flex-shrink-0">
-        <div class="w-32 border-b-1.5 border-slate-800 mb-0.5"></div>
+      <div class="text-center flex-shrink-0 min-w-[130px]">
+        <div class="w-36 border-b-1.5 border-slate-800 mb-0.5 text-center">
+          <span class="text-[9.5px] font-bold text-slate-800 block truncate">{{ payment.received_by_display }}</span>
+        </div>
         <p class="font-extrabold text-slate-900 uppercase tracking-wider text-[8.5px]">Authorized Signatory</p>
+        <p class="text-[8px] text-slate-500 font-medium leading-tight mt-0.5">
+          Received By: <span class="font-semibold text-slate-700">{{ payment.received_by_display }}</span> ({{ payment.received_by_role_display }})
+        </p>
       </div>
     </div>
   </div>
@@ -304,7 +320,7 @@
     
     {% if payment.is_reversed %}
     <div class="bg-rose-100 text-rose-800 border border-rose-300 px-3 py-1 rounded text-center font-bold text-xs uppercase tracking-wider">
-      ⚠️ THIS RECEIPT HAS BEEN VOIDED / REVERSED ({{ payment.reversal_reason|default:"Transaction reversed" }})
+      ⚠️ THIS RECEIPT HAS BEEN VOIDED / REVERSED by {{ payment.reversed_by_display }}{% if payment.reversed_at %} on {{ payment.reversed_at|date:"d-M-Y H:i" }}{% endif %} (Reason: {{ payment.reversal_reason|default:"Transaction reversed" }})
     </div>
     {% endif %}
 
@@ -465,9 +481,14 @@
           <p class="text-slate-400 text-[8.5px] mt-0.5 leading-tight">Academic Session: {{ payment.session.name }} • Center accounts slip for internal compliance</p>
         </div>
       </div>
-      <div class="text-center flex-shrink-0">
-        <div class="w-32 border-b-1.5 border-slate-800 mb-0.5"></div>
+      <div class="text-center flex-shrink-0 min-w-[130px]">
+        <div class="w-36 border-b-1.5 border-slate-800 mb-0.5 text-center">
+          <span class="text-[9.5px] font-bold text-slate-800 block truncate">{{ payment.received_by_display }}</span>
+        </div>
         <p class="font-extrabold text-slate-900 uppercase tracking-wider text-[8.5px]">Center Cashier / Receiver</p>
+        <p class="text-[8px] text-slate-500 font-medium leading-tight mt-0.5">
+          Recorded By: <span class="font-semibold text-slate-700">{{ payment.received_by_display }}</span> ({{ payment.received_by_role_display }})
+        </p>
       </div>
     </div>
   </div>

@@ -173,7 +173,7 @@ def invalidate_financial_cache():
     invalidate_namespace('dues')
 
 
-def invalidate_student_cache():
+def invalidate_student_cache(*args, **kwargs):
     """
     Purges student dues, search autocomplete, and admission summaries.
     """
