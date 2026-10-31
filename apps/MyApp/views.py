@@ -101,10 +101,17 @@ def parse_form_date(value, *, default=None):
     value = (value or '').strip()
     if not value:
         return default
-    try:
-        return timezone.make_aware(datetime.strptime(value, '%Y-%m-%d'))
-    except (TypeError, ValueError):
-        raise ValueError('Enter a valid date in YYYY-MM-DD format.')
+    if len(value) > 10 and ' ' in value:
+        value = value.split(' ')[0]
+    elif len(value) > 10 and 'T' in value:
+        value = value.split('T')[0]
+
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d', '%d/%m/%Y'):
+        try:
+            return timezone.make_aware(datetime.strptime(value, fmt))
+        except (TypeError, ValueError):
+            continue
+    raise ValueError('Enter a valid date in YYYY-MM-DD or DD-MM-YYYY format.')
 
 
 def get_payment_point_in_time_balance(payment, admission_payments=None):
@@ -2935,6 +2942,16 @@ def update_admission_view(request, student_id, admission_id):
         if not has_permission(current_user, 'can_delete_students'):
             messages.error(request, "Access Denied: You do not have permission to delete student enrollments.")
             return redirect(f"/students/{student.id}/?admission_id={admission.id}")
+
+        confirm_delete = request.POST.get('confirm_delete')
+        if confirm_delete != 'true':
+            messages.error(request, "Deletion aborted: Explicit confirmation is required to delete this enrollment.")
+            target_url = f"/students/{student.id}/?admission_id={admission.id}"
+            if request.headers.get('HX-Request'):
+                response = HttpResponse(status=204)
+                response['HX-Redirect'] = target_url
+                return response
+            return redirect(target_url)
 
         sess_name = admission.session.name if admission.session else 'Session'
         std_name = admission.standard or 'Course'
