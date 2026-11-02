@@ -1,0 +1,3317 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Website Management — Sutawane Classes{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js" defer></script>
+<style>
+  .ql-toolbar.ql-snow {
+    border-color: #E2E8F0 !important;
+    border-radius: 8px 8px 0 0 !important;
+    background: #F8FAFC !important;
+  }
+  .ql-container.ql-snow {
+    border-color: #E2E8F0 !important;
+    border-radius: 0 0 8px 8px !important;
+    background: #FFFFFF !important;
+    font-size: 0.875rem !important;
+    font-family: inherit !important;
+  }
+  .ql-editor {
+    min-height: 130px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Page Header -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="globe" class="w-6 h-6 text-indigo-500"></i>
+        <span>Website Management Control System</span>
+      </h1>
+      <p class="text-sm text-muted-foreground mt-0.5">
+        Manage dynamic website content (Announcements, Toppers, Active Batches, Gallery, and SEO Meta Tags) with 100% search crawler compliance.
+      </p>
+    </div>
+
+    <!-- Quick Preview Buttons -->
+    <div class="flex items-center gap-2">
+      <a
+        href="{% url 'landing' %}"
+        target="_blank"
+        class="inline-flex items-center gap-1.5 text-xs h-9 px-3.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+        title="View Live Public Website"
+      >
+        <i data-lucide="external-link" class="w-4 h-4 text-primary"></i>
+        <span>View Live Website</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Tabbed Navigation Ribbon -->
+  <div class="border-b border-border bg-card rounded-t-xl px-4 pt-2 flex items-center gap-1 overflow-x-auto shadow-xs">
+    <!-- Tab 1: Home Page -->
+    <a
+      href="?tab=home"
+      class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap {% if active_tab == 'home' %}border-primary text-primary{% else %}border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30{% endif %}"
+    >
+      <i data-lucide="home" class="w-4 h-4"></i>
+      <span>Home &amp; Hero Section</span>
+    </a>
+
+    <!-- Tab 2: Batches Page -->
+    <a
+      href="?tab=batches"
+      class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap {% if active_tab == 'batches' %}border-primary text-primary{% else %}border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30{% endif %}"
+    >
+      <i data-lucide="book-open" class="w-4 h-4"></i>
+      <span>Batches &amp; Programs</span>
+    </a>
+
+    <!-- Tab 3: Gallery Page -->
+    <a
+      href="?tab=gallery"
+      class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap {% if active_tab == 'gallery' %}border-primary text-primary{% else %}border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30{% endif %}"
+    >
+      <i data-lucide="image" class="w-4 h-4"></i>
+      <span>Campus Gallery</span>
+    </a>
+
+    <!-- Tab 4: Contact & Campuses -->
+    <a
+      href="?tab=contact"
+      class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap {% if active_tab == 'contact' %}border-primary text-primary{% else %}border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30{% endif %}"
+    >
+      <i data-lucide="building-2" class="w-4 h-4"></i>
+      <span>Campuses &amp; Directory</span>
+    </a>
+
+    <!-- Tab 5: SEO & Search Rankings -->
+    <a
+      href="?tab=seo"
+      class="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap {% if active_tab == 'seo' %}border-primary text-primary{% else %}border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30{% endif %}"
+    >
+      <i data-lucide="search" class="w-4 h-4"></i>
+      <span>SEO &amp; Google Metadata</span>
+    </a>
+  </div>
+
+  <!-- TAB CONTENT CONTAINERS -->
+  <div class="space-y-6">
+
+    <!-- ====================================================================
+         TAB 1: HOME & HERO SECTION
+         ==================================================================== -->
+    {% if active_tab == 'home' %}
+    <!-- Announcements & Notice Board Management (FAQ Style) -->
+    <div class="rounded-2xl border border-border bg-card shadow-sm p-6 space-y-5 relative">
+      
+      <!-- Top Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+        <div>
+          <h2 class="text-base font-bold text-foreground flex items-center gap-2">
+            <i data-lucide="megaphone" class="w-5 h-5 text-indigo-600"></i>
+            <span>Top Announcements &amp; Notice Board (FAQ Accordion)</span>
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Publish multiple announcements with rich formatted detail messages and downloadable document attachments. Displayed on the website home page as a modern FAQ-style notice accordion.
+          </p>
+        </div>
+        
+        <div class="flex items-center gap-2.5">
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-muted border border-border text-foreground">
+            {{ notifications|length }} {% if notifications|length == 1 %}Notice{% else %}Notices{% endif %} Total
+          </span>
+          <button
+            type="button"
+            onclick="openAddNoticeModal()"
+            class="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Publish New Notice</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Guidance Bar -->
+      <div class="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/80 text-xs text-muted-foreground">
+        <div class="flex items-center gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-indigo-500 shrink-0"></i>
+          <span>
+            <strong>Clean &amp; Easy:</strong> Visitors see Title &amp; Date, then expand to read your formatted text and download attached files (PDFs, circulars, etc.). If all notices are deleted or inactive, this section automatically hides from the website.
+          </span>
+        </div>
+      </div>
+
+      <!-- Notices Cards List -->
+      <div class="space-y-3" id="adminNoticesList">
+        {% for notif in notifications %}
+        <div class="p-4 rounded-xl border border-border bg-card shadow-2xs hover:shadow-xs hover:border-primary/40 transition-all space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b pb-2.5">
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <span class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
+                #{{ forloop.counter }}
+              </span>
+              <h3 class="font-bold text-sm text-foreground">{{ notif.title }}</h3>
+              <span class="text-[11px] font-medium text-muted-foreground px-2 py-0.5 rounded-md bg-muted/50 border">
+                📅 {{ notif.created_at|date:"d M Y, h:i A" }}
+              </span>
+              {% if notif.is_pinned %}
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200">
+                📌 Pinned
+              </span>
+              {% endif %}
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {% if notif.is_active %}bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400{% else %}bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400{% endif %}">
+                {% if notif.is_active %}● Active on Website{% else %}○ Hidden{% endif %}
+              </span>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <!-- Quick Toggle Form -->
+              <form method="POST" action="{% url 'website_management' %}?tab=home" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_notification">
+                <input type="hidden" name="notification_id" value="{{ notif.id }}">
+                <button
+                  type="submit"
+                  class="h-8 px-2.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+                  title="Toggle visibility"
+                >
+                  {% if notif.is_active %}Hide{% else %}Activate{% endif %}
+                </button>
+              </form>
+
+              <!-- Edit Button -->
+              <button
+                type="button"
+                onclick="openEditNoticeModal('{{ notif.id }}')"
+                class="h-8 px-2.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted text-foreground transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                <span>Edit</span>
+              </button>
+
+              <!-- Delete Button -->
+              <button
+                type="button"
+                onclick="openDeleteNoticeModal('{{ notif.id }}', '{{ notif.title|escapejs }}')"
+                class="h-8 w-8 text-xs font-semibold rounded-lg border border-destructive/20 bg-destructive/5 hover:bg-destructive/15 text-destructive transition-colors flex items-center justify-center cursor-pointer"
+                title="Delete Notice"
+              >
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview Content -->
+          <div class="text-xs text-muted-foreground line-clamp-2 pl-9">
+            {{ notif.content|striptags|truncatewords:40 }}
+          </div>
+
+          <!-- Attached Documents Strip -->
+          <div class="pl-9 flex flex-wrap items-center gap-2 pt-1">
+            <span class="text-[11px] font-semibold text-foreground flex items-center gap-1">
+              <i data-lucide="paperclip" class="w-3 h-3 text-indigo-500"></i>
+              <span>Documents ({{ notif.documents.all|length }}):</span>
+            </span>
+            {% if notif.documents.all %}
+              {% for doc in notif.documents.all %}
+              <a
+                href="{{ doc.file.url }}"
+                target="_blank"
+                download="{{ doc.file_name }}"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-white dark:bg-card border border-slate-200 dark:border-slate-800 text-foreground hover:text-primary hover:border-primary/50 transition-colors shadow-2xs"
+                title="Download {{ doc.file_name }}"
+              >
+                <i data-lucide="file-text" class="w-3 h-3 text-indigo-500"></i>
+                <span class="max-w-[150px] truncate">{{ doc.file_name }}</span>
+                <span class="text-muted-foreground text-[10px]">({{ doc.file_size }})</span>
+              </a>
+              {% endfor %}
+            {% else %}
+              <span class="text-[11px] text-muted-foreground italic">No attached files</span>
+            {% endif %}
+          </div>
+
+          <!-- Hidden JSON storage for prefilling edit modal -->
+          <script type="application/json" id="notif-raw-{{ notif.id }}">
+            {
+              "id": "{{ notif.id }}",
+              "title": "{{ notif.title|escapejs }}",
+              "content": "{{ notif.content|escapejs }}",
+              "is_active": {% if notif.is_active %}true{% else %}false{% endif %},
+              "is_pinned": {% if notif.is_pinned %}true{% else %}false{% endif %},
+              "sort_order": {{ notif.sort_order|default:0 }},
+              "documents": [
+                {% for doc in notif.documents.all %}
+                {
+                  "id": "{{ doc.id }}",
+                  "file_name": "{{ doc.file_name|escapejs }}",
+                  "file_size": "{{ doc.file_size|default:''|escapejs }}",
+                  "url": "{{ doc.file.url|escapejs }}"
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+              ]
+            }
+          </script>
+        </div>
+        {% empty %}
+        <div class="text-center py-10 px-4 rounded-xl border border-dashed border-border bg-muted/20 space-y-3">
+          <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center mx-auto">
+            <i data-lucide="bell" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-foreground">No Announcements Published Yet</h4>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto mt-1">
+              Click "+ Publish New Notice" to create an announcement with rich text styling and attached documents. The announcement section is currently cleanly hidden on the public website.
+            </p>
+          </div>
+          <button
+            type="button"
+            onclick="openAddNoticeModal()"
+            class="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Publish First Notice</span>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Toppers & State Rankers Management -->
+    <div class="bg-card rounded-xl border shadow-sm p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+        <div>
+          <h2 class="text-base font-bold text-foreground flex items-center gap-2">
+            <i data-lucide="award" class="w-5 h-5 text-amber-500"></i>
+            <span>Toppers &amp; State Rankers Slider Section</span>
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Manage student rank cards rendered inside the 3D Trophy &amp; Golden Celebration showcase on the home page.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onclick="openAddTopperModal()"
+          class="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+        >
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Add Topper</span>
+        </button>
+      </div>
+
+      <!-- Toppers Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% for topper in toppers %}
+        <div class="p-4 rounded-xl border bg-muted/10 hover:border-amber-400/60 hover:shadow-md transition-all flex flex-col justify-between space-y-3">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="w-9 h-9 rounded-full font-bold text-xs flex items-center justify-center text-white shadow-xs {{ topper.avatar_color|default:'avatar-blue' }}">
+                {{ topper.avatar_initials|default:'ST' }}
+              </span>
+              <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <span>{{ topper.score_icon|default:'⚡' }}</span>
+                <span>{{ topper.score_text }}</span>
+              </span>
+            </div>
+
+            <h3 class="font-bold text-foreground text-sm mt-3">{{ topper.student_name }}</h3>
+            <p class="text-xs text-primary font-semibold">{{ topper.exam_stream }}</p>
+            <p class="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+              <span>🏆</span>
+              <span class="truncate">{{ topper.achievement_badge }}</span>
+            </p>
+
+            {% if topper.quote %}
+            <p class="text-[11px] text-muted-foreground/80 italic mt-2 line-clamp-2">
+              "{{ topper.quote }}"
+            </p>
+            {% endif %}
+          </div>
+
+          <div class="pt-3 border-t flex items-center justify-between text-xs">
+            <span class="text-muted-foreground text-[11px]">
+              Order: {{ topper.sort_order }} {% if not topper.is_active %}<span class="text-rose-500 font-semibold">(Hidden)</span>{% endif %}
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                onclick="openEditTopperModal('{{ topper.id }}', '{{ topper.student_name|escapejs }}', '{{ topper.exam_stream|escapejs }}', '{{ topper.score_text|escapejs }}', '{{ topper.score_icon|escapejs }}', '{{ topper.achievement_badge|escapejs }}', '{{ topper.quote|escapejs }}', '{{ topper.avatar_initials|escapejs }}', '{{ topper.avatar_color|escapejs }}', '{{ topper.sort_order }}', {{ topper.is_active|yesno:'true,false' }})"
+                class="p-1 rounded text-muted-foreground hover:text-primary hover:bg-accent cursor-pointer"
+                title="Edit Topper"
+              >
+                <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+              </button>
+
+              <form method="POST" action="{% url 'website_management' %}?tab=home" onsubmit="return confirm('Delete this topper?');" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_topper">
+                <input type="hidden" name="topper_id" value="{{ topper.id }}">
+                <button
+                  type="submit"
+                  class="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                  title="Delete Topper"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-10 px-4 rounded-xl border border-dashed border-amber-300 bg-amber-50/40 dark:bg-amber-950/20 text-center space-y-3">
+          <div class="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
+            <i data-lucide="award" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-foreground">No Toppers or Rankers Added Yet</h4>
+            <p class="text-xs text-muted-foreground max-w-md mx-auto mt-1">
+              Feature your student achievers, MHT-CET/NEET/JEE toppers, and rankers on the 3D Golden Celebration home slider. The slider is currently cleanly hidden on the public site until records are added.
+            </p>
+          </div>
+          <button
+            type="button"
+            onclick="openAddTopperModal()"
+            class="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add First Topper</span>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ====================================================================
+         TAB 2: BATCHES & PROGRAMS
+         ==================================================================== -->
+    {% if active_tab == 'batches' %}
+    <div class="bg-card rounded-xl border shadow-sm p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+        <div>
+          <h2 class="text-base font-bold text-foreground flex items-center gap-2">
+            <i data-lucide="book-open" class="w-5 h-5 text-indigo-500"></i>
+            <span>Public Academic Batch Cards</span>
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Cards displayed on the `/batches/` page with syllabus breakdown, seat badges, and lecture timings.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onclick="openAddBatchModal()"
+          class="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors"
+        >
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Add Batch Card</span>
+        </button>
+      </div>
+
+      <!-- Decoupled Isolation Notice -->
+      <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+        <i data-lucide="shield-alert" class="w-4 h-4 shrink-0 text-amber-600 mt-0.5"></i>
+        <div>
+          <strong>100% Isolated Website Batches:</strong> Website batch cards are dedicated solely to marketing display for website visitors. They are completely independent of the internal software's Classes &amp; Courses enrollment, fee plans, and student ledger modules.
+        </div>
+      </div>
+
+      <!-- Batch Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {% for b in batches %}
+        <div class="p-5 rounded-xl border bg-muted/10 hover:border-primary/50 transition-all flex flex-col justify-between space-y-4">
+          <div>
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {{ b.stream_tag }}
+                </span>
+                <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground border">
+                  #{{ b.sort_order }}
+                </span>
+                {% if b.is_featured %}
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                  ★ {{ b.featured_tag|default:'Popular' }}
+                </span>
+                {% endif %}
+              </div>
+
+              <!-- Quick Status Toggle -->
+              <form method="POST" action="{% url 'website_management' %}?tab=batches" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_batch_active">
+                <input type="hidden" name="batch_id" value="{{ b.id }}">
+                <button
+                  type="submit"
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold {% if b.is_active %}bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20{% else %}bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20 hover:bg-zinc-500/20{% endif %} cursor-pointer transition-colors"
+                  title="Click to {% if b.is_active %}hide from{% else %}publish to{% endif %} website"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full {% if b.is_active %}bg-emerald-600 dark:bg-emerald-400{% else %}bg-zinc-400{% endif %}"></span>
+                  <span>{% if b.is_active %}Active{% else %}Hidden{% endif %}</span>
+                </button>
+              </form>
+            </div>
+
+            <h3 class="font-bold text-foreground text-base mt-2.5">{{ b.title }}</h3>
+            <p class="text-xs text-muted-foreground mt-1">{{ b.target_text }}</p>
+
+            <ul class="text-xs text-foreground/80 mt-3 space-y-1.5 list-disc list-inside">
+              {% for feat in b.get_features_list|slice:":3" %}
+              <li class="line-clamp-1">{{ feat }}</li>
+              {% endfor %}
+            </ul>
+
+            <div class="text-[11px] text-muted-foreground mt-3 pt-2 border-t flex items-center justify-between">
+              <span><strong>Timings:</strong> {{ b.timing_text }}</span>
+              {% if b.seats_badge %}
+              <span class="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                ● {{ b.seats_badge }}
+              </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="pt-3 border-t flex items-center justify-between text-xs">
+            <span class="text-muted-foreground text-[11px]">Category: {{ b.get_category_display }}</span>
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                onclick="openEditBatchModal('{{ b.id }}', '{{ b.title|escapejs }}', '{{ b.category|escapejs }}', '{{ b.stream_tag|escapejs }}', '{{ b.seats_badge|escapejs }}', '{{ b.target_text|escapejs }}', '{{ b.features|escapejs }}', '{{ b.timing_text|escapejs }}', '{{ b.sort_order }}', {{ b.is_active|yesno:'true,false' }}, {{ b.is_featured|yesno:'true,false' }}, '{{ b.featured_tag|default:''|escapejs }}')"
+                class="h-8 px-2.5 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                title="Edit Batch"
+              >
+                <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+                <span>Edit</span>
+              </button>
+
+              <form method="POST" action="{% url 'website_management' %}?tab=batches" onsubmit="return confirm('Delete this batch card permanently?');" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_batch">
+                <input type="hidden" name="batch_id" value="{{ b.id }}">
+                <button
+                  type="submit"
+                  class="h-8 px-2 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition-colors inline-flex items-center cursor-pointer shadow-2xs"
+                  title="Delete Batch Card"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-8 text-center text-muted-foreground text-xs">
+          No batch cards created. Click "+ Add Batch Card" above.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ====================================================================
+         TAB 3: CAMPUS GALLERY
+         ==================================================================== -->
+    {% if active_tab == 'gallery' %}
+    <div class="bg-card rounded-xl border shadow-sm p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+        <div>
+          <h2 class="text-base font-bold text-foreground flex items-center gap-2">
+            <i data-lucide="image" class="w-5 h-5 text-emerald-500"></i>
+            <span>Campus Photo &amp; Video Showcase Items</span>
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Add high-resolution photos and video links for campus classrooms, labs, topper awards, and annual events.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick="openManageGalleryCategoriesModal()"
+            class="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-input bg-card hover:bg-accent text-foreground text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Manage Dynamic Gallery Categories"
+          >
+            <i data-lucide="tags" class="w-4 h-4 text-primary"></i>
+            <span>Manage Categories</span>
+          </button>
+          <button
+            type="button"
+            onclick="openAddGalleryModal()"
+            class="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add Gallery Item</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Search & Stats Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-muted-foreground">Recorded Media:</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-muted text-foreground font-mono" id="galleryItemsCountBadge">
+            {{ gallery_items|length }}
+          </span>
+          <span class="text-xs text-muted-foreground">item{{ gallery_items|length|pluralize }}</span>
+        </div>
+        <div class="relative w-full sm:w-72 flex items-center">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+          <input
+            type="text"
+            id="galleryTableSearchInput"
+            oninput="filterGalleryTable(this.value)"
+            placeholder="Search title, category, caption..."
+            class="w-full pl-9 pr-3 h-8.5 text-xs rounded-lg border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs font-medium"
+          />
+        </div>
+      </div>
+
+      <!-- Gallery Items Tabular Table -->
+      <div class="border border-border rounded-xl overflow-hidden shadow-2xs bg-card">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-muted/60 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b">
+              <tr>
+                <th class="py-3 px-3.5 w-12 text-center">#</th>
+                <th class="py-3 px-3 w-20 text-center">Thumbnail</th>
+                <th class="py-3 px-4 text-left">Title &amp; Description</th>
+                <th class="py-3 px-3 text-center">Type</th>
+                <th class="py-3 px-3 text-left">Category</th>
+                <th class="py-3 px-3 text-center">Sort Order</th>
+                <th class="py-3 px-3 text-center">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="galleryItemsTableBody" class="divide-y divide-border">
+              {% for item in gallery_items %}
+              <tr
+                id="gallery-item-row-{{ item.id }}"
+                data-title="{{ item.title|lower }}"
+                data-category="{{ item.category_display|lower }}"
+                data-caption="{{ item.caption|default:''|lower }}"
+                class="hover:bg-muted/30 transition-colors gallery-item-row"
+              >
+                <!-- # Index -->
+                <td class="py-3 px-3.5 text-center font-mono text-muted-foreground text-[11px] gallery-item-index">
+                  {{ forloop.counter }}
+                </td>
+
+                <!-- Small Thumbnail Image (Compact & Small Size) -->
+                <td class="py-2.5 px-3 text-center">
+                  <div class="inline-block relative">
+                    <a
+                      href="{% if item.media_type == 'VIDEO' %}{{ item.effective_watch_url }}{% else %}{{ item.file_url }}{% endif %}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="block w-14 h-10 rounded-lg overflow-hidden border border-border/70 bg-muted hover:opacity-90 transition-opacity shadow-2xs group relative"
+                      title="{% if item.media_type == 'VIDEO' %}Watch on Official YouTube ({{ item.title }}){% else %}Click to view full photo ({{ item.title }}){% endif %}"
+                    >
+                      <img
+                        src="{{ item.effective_thumbnail_url|default:item.file_url }}"
+                        alt="{{ item.title }}"
+                        class="w-full h-full object-cover"
+                        onerror="this.src='/static/images/default-course.png';"
+                        loading="lazy"
+                      />
+                      {% if item.media_type == 'VIDEO' %}
+                      <span class="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] group-hover:scale-110 transition-transform">
+                        ▶
+                      </span>
+                      {% endif %}
+                    </a>
+                  </div>
+                </td>
+
+                <!-- Title & Caption / Description -->
+                <td class="py-3 px-4">
+                  <div class="font-bold text-foreground text-xs line-clamp-1">{{ item.title }}</div>
+                  {% if item.caption %}
+                  <div class="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{{ item.caption }}</div>
+                  {% endif %}
+                </td>
+
+                <!-- Media Type -->
+                <td class="py-3 px-3 text-center whitespace-nowrap">
+                  {% if item.media_type == 'IMAGE' %}
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
+                    <i data-lucide="camera" class="w-3 h-3"></i>
+                    <span>Photo</span>
+                  </span>
+                  {% else %}
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                    <i data-lucide="video" class="w-3 h-3"></i>
+                    <span>Video</span>
+                  </span>
+                  {% endif %}
+                </td>
+
+                <!-- Category -->
+                <td class="py-3 px-3 whitespace-nowrap">
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                    <i data-lucide="tag" class="w-3 h-3"></i>
+                    <span>{{ item.category_display }}</span>
+                  </span>
+                </td>
+
+                <!-- Sort Order -->
+                <td class="py-3 px-3 text-center font-mono text-xs font-semibold text-muted-foreground">
+                  #{{ item.sort_order }}
+                </td>
+
+                <!-- Status -->
+                <td class="py-3 px-3 text-center whitespace-nowrap">
+                  {% if item.is_active %}
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
+                    <span>Active</span>
+                  </span>
+                  {% else %}
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20">
+                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+                    <span>Hidden</span>
+                  </span>
+                  {% endif %}
+                </td>
+
+                <!-- Actions -->
+                <td class="py-3 px-4 text-right whitespace-nowrap">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onclick="openEditGalleryModal('{{ item.id }}', '{{ item.title|escapejs }}', '{{ item.media_type|escapejs }}', '{{ item.category_display|escapejs }}', '{% if item.media_type == 'VIDEO' %}{{ item.effective_watch_url|escapejs }}{% else %}{{ item.file_url|escapejs }}{% endif %}', '{{ item.caption|default:''|escapejs }}', '{{ item.sort_order }}', {{ item.is_active|yesno:'true,false' }})"
+                      class="h-8 px-2.5 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                      title="Edit Item"
+                    >
+                      <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+                      <span>Edit</span>
+                    </button>
+                    <form method="POST" action="{% url 'website_management' %}?tab=gallery" onsubmit="return confirm('Delete this gallery item permanently?');" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_gallery">
+                      <input type="hidden" name="item_id" value="{{ item.id }}">
+                      <button
+                        type="submit"
+                        class="h-8 px-2.5 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="Delete Item"
+                      >
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        <span>Delete</span>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr id="noGalleryItemsTableRow">
+                <td colspan="8" class="py-10 text-center text-xs text-muted-foreground">
+                  <div class="flex flex-col items-center justify-center gap-2">
+                    <div class="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                      <i data-lucide="image" class="w-5 h-5"></i>
+                    </div>
+                    <span class="font-medium">No gallery items found.</span>
+                    <button type="button" onclick="openAddGalleryModal()" class="text-primary hover:underline font-semibold text-xs mt-1 cursor-pointer">
+                      + Add your first campus photo or video
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ====================================================================
+         TAB 4: CAMPUSES & DIRECTORY (100% DECOUPLED FROM SOFTWARE BRANCHES)
+         ==================================================================== -->
+    {% if active_tab == 'contact' %}
+    <div class="bg-card rounded-xl border shadow-sm p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+        <div>
+          <h2 class="text-base font-bold text-foreground flex items-center gap-2">
+            <i data-lucide="building-2" class="w-5 h-5 text-sky-500"></i>
+            <span>Public Campus Directory &amp; Locators</span>
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Manage public website campuses, Google Maps links, and counselor contact details.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onclick="openAddCampusModal()"
+          class="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors"
+        >
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Add Website Campus</span>
+        </button>
+      </div>
+
+      <!-- Decoupled Isolation Notice -->
+      <div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
+        <i data-lucide="shield-check" class="w-4 h-4 shrink-0 text-blue-600 mt-0.5"></i>
+        <div>
+          <strong>100% Isolated Website Campuses:</strong> Website campuses are dedicated solely to the public website, Google Maps locators, and visitor counseling requests. They are completely independent of the internal software's Branches accounting and financial ledger modules.
+        </div>
+      </div>
+
+      <!-- Campuses Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {% for c in campuses %}
+        <div class="p-5 rounded-xl border bg-muted/10 hover:border-primary/50 transition-all flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-2xl">{{ c.icon|default:'🏢' }}</span>
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {{ c.badge|default:'Active Campus' }}
+              </span>
+            </div>
+
+            <div>
+              <h3 class="font-bold text-foreground text-base">{{ c.name }}</h3>
+              <p class="text-xs text-muted-foreground mt-0.5">Key: <code class="text-[11px] font-mono bg-muted px-1 py-0.5 rounded">{{ c.campus_key }}</code></p>
+            </div>
+
+            <p class="text-xs text-foreground/80 leading-relaxed">{{ c.address }}{% if c.district %}, {{ c.district }}{% endif %}</p>
+
+            <div class="text-xs space-y-1 pt-2 border-t">
+              <div class="font-semibold text-primary">📞 {{ c.phone }}</div>
+              <div class="text-muted-foreground text-[11px]"><strong>Mentor / Lead:</strong> {{ c.person_name }} ({{ c.person_role }})</div>
+              <div class="text-muted-foreground text-[11px]"><strong>Hours:</strong> {{ c.hours }}{% if c.hours_sub %} · {{ c.hours_sub }}{% endif %}</div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t flex items-center justify-between text-xs">
+            <span class="text-muted-foreground text-[11px]">Order: {{ c.sort_order }}</span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                onclick="openEditCampusModal('{{ c.id }}', '{{ c.campus_key|escapejs }}', '{{ c.name|escapejs }}', '{{ c.badge|escapejs }}', '{{ c.icon|escapejs }}', '{{ c.person_name|escapejs }}', '{{ c.person_role|escapejs }}', '{{ c.address|escapejs }}', '{{ c.district|escapejs }}', '{{ c.phone|escapejs }}', '{{ c.hours|escapejs }}', '{{ c.hours_sub|escapejs }}', '{{ c.map_embed_url|default:''|escapejs }}', '{{ c.map_direct_url|default:''|escapejs }}', '{{ c.sort_order }}', {{ c.is_active|yesno:'true,false' }})"
+                class="p-1 rounded text-muted-foreground hover:text-primary hover:bg-accent"
+                title="Edit Campus"
+              >
+                <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+              </button>
+
+              <form method="POST" action="{% url 'website_management' %}?tab=contact" onsubmit="return confirm('Delete this website campus?');" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_campus">
+                <input type="hidden" name="campus_id" value="{{ c.id }}">
+                <button
+                  type="submit"
+                  class="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50"
+                  title="Delete Campus"
+                >
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-8 text-center text-muted-foreground text-xs">
+          No website campuses configured. Click "+ Add Campus" above to create campus locators.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ====================================================================
+         TAB 5: SEO & GOOGLE METADATA
+         ==================================================================== -->
+    {% if active_tab == 'seo' %}
+    <div class="bg-card rounded-xl border shadow-sm p-6 space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+        <div>
+          <h2 class="text-base font-bold text-foreground flex items-center gap-2">
+            <i data-lucide="search" class="w-5 h-5 text-blue-500"></i>
+            <span>Per-Page SEO &amp; Google Search Metadata</span>
+          </h2>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Optimize HTML Title tags, Meta Descriptions, and Social Share previews for search crawlers without losing SSR ranking.
+          </p>
+        </div>
+
+        <!-- Page Selector Dropdown -->
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold text-foreground">Select Page:</label>
+          <select
+            onchange="window.location.href='?tab=seo&page=' + this.value"
+            class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-input bg-background"
+          >
+            <option value="home" {% if selected_seo_page == 'home' %}selected{% endif %}>🏠 Home / Landing Page</option>
+            <option value="batches" {% if selected_seo_page == 'batches' %}selected{% endif %}>📚 Batches &amp; Programs</option>
+            <option value="gallery" {% if selected_seo_page == 'gallery' %}selected{% endif %}>🖼️ Photo &amp; Video Gallery</option>
+            <option value="contact" {% if selected_seo_page == 'contact' %}selected{% endif %}>🏢 Contact &amp; Campuses</option>
+            <option value="about" {% if selected_seo_page == 'about' %}selected{% endif %}>ℹ️ About Us &amp; Heritage</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Live Google Search Preview Card (SERP Simulator) -->
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Live Google Search Preview (SERP)</label>
+        <div class="p-4 rounded-xl border border-border bg-background max-w-2xl space-y-1">
+          <div class="flex items-center gap-2 text-xs text-muted-foreground">
+            <div class="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">🌐</div>
+            <span class="truncate">https://sutawanegroup.com/{{ selected_seo_page|default:'' }}</span>
+          </div>
+          <h3 class="text-base font-semibold text-[#1a0dab] hover:underline cursor-pointer truncate" id="serpTitlePreview">
+            {{ current_seo_meta.meta_title|default:'Sutawane Classes · Premier Coaching Institute' }}
+          </h3>
+          <p class="text-xs text-[#4d5156] line-clamp-2 leading-relaxed" id="serpDescPreview">
+            {{ current_seo_meta.meta_desc|default:'Sutawane Classes - Premier Coaching Institute in Vaijapur for 8th-10th State Board, 11th-12th Science (PCB/PCM), MHT-CET, NEET & JEE.' }}
+          </p>
+        </div>
+      </div>
+
+      <!-- SEO Edit Form -->
+      <form method="POST" action="{% url 'website_management' %}?tab=seo" class="space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_seo_meta">
+        <input type="hidden" name="page_key" value="{{ current_seo_meta.page_key|default:'home' }}">
+
+        <!-- Meta Title -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-foreground">SEO Meta Title *</label>
+            <span class="text-[11px] text-muted-foreground" id="titleCharCount">Recommended: 50–60 characters</span>
+          </div>
+          <input
+            type="text"
+            id="seo_meta_title"
+            name="meta_title"
+            value="{{ current_seo_meta.meta_title }}"
+            required
+            oninput="document.getElementById('serpTitlePreview').textContent = this.value || 'Title';"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+
+        <!-- Meta Description -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-foreground">SEO Meta Description *</label>
+            <span class="text-[11px] text-muted-foreground">Recommended: 140–160 characters</span>
+          </div>
+          <textarea
+            id="seo_meta_desc"
+            name="meta_desc"
+            rows="3"
+            required
+            oninput="document.getElementById('serpDescPreview').textContent = this.value || 'Description';"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >{{ current_seo_meta.meta_desc }}</textarea>
+        </div>
+
+        <!-- Search Keywords -->
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Search Keywords (Comma Separated)</label>
+          <input
+            type="text"
+            name="meta_keywords"
+            value="{{ current_seo_meta.meta_keywords }}"
+            placeholder="e.g. Sutawane Classes, MHT-CET Coaching Vaijapur, NEET Classes Kopargaon"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- OG Title -->
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1">Social Sharing Title (OpenGraph)</label>
+            <input
+              type="text"
+              name="og_title"
+              value="{{ current_seo_meta.og_title|default:'' }}"
+              placeholder="e.g. Sutawane Classes · Excellence in Academic Coaching"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <!-- OG Description -->
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1">Social Sharing Summary</label>
+            <input
+              type="text"
+              name="og_desc"
+              value="{{ current_seo_meta.og_desc|default:'' }}"
+              placeholder="Summary for WhatsApp / Facebook previews"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+        </div>
+
+        <div class="pt-3 border-t flex justify-end">
+          <button
+            type="submit"
+            class="h-9 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors"
+          >
+            Save SEO Metadata for {{ current_seo_meta.page_name }}
+          </button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- ==========================================================================
+     MODALS FOR WEBSITE MANAGEMENT
+     ========================================================================== -->
+
+<!-- Add Notice Modal -->
+<div id="addNoticeModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20">
+      <h3 class="text-base font-bold text-foreground flex items-center gap-2">
+        <i data-lucide="megaphone" class="w-5 h-5 text-indigo-600"></i>
+        <span>Publish New Announcement</span>
+      </h3>
+      <button type="button" onclick="closeAddNoticeModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'website_management' %}?tab=home" enctype="multipart/form-data" id="addNoticeForm" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_notification">
+      <input type="hidden" name="content" id="add_notice_content">
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">
+          Notification Title <span class="text-destructive">*</span>
+        </label>
+        <input
+          type="text"
+          name="title"
+          required
+          placeholder="e.g. Annual Exam Schedule &amp; Comprehensive Test Timetable"
+          class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+        />
+      </div>
+
+      <!-- Rich Text Content Editor -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs font-semibold text-foreground">
+            Notification Detail / Description
+          </label>
+          <span class="text-[11px] text-muted-foreground">Customize text with bold, colors &amp; lists</span>
+        </div>
+        <div id="addNoticeQuillEditor" style="height: 150px;"></div>
+      </div>
+
+      <!-- Multiple Documents Upload -->
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">
+          Attach Documents &amp; Circulars <span class="text-muted-foreground font-normal">(Multiple files allowed)</span>
+        </label>
+        <input
+          type="file"
+          name="documents"
+          multiple
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
+          class="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+        />
+        <p class="text-[11px] text-muted-foreground mt-1">
+          Select one or more files (PDF, Circular, Timetable, Images). Students can click to download directly.
+        </p>
+      </div>
+
+      <!-- Settings / Toggles -->
+      <div class="flex flex-wrap items-center gap-6 pt-1 border-t">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" name="is_active" checked class="w-4 h-4 text-primary rounded border-input focus:ring-primary/20 cursor-pointer">
+          <span class="text-xs font-semibold text-foreground">Active (Publish on website immediately)</span>
+        </label>
+
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" name="is_pinned" class="w-4 h-4 text-primary rounded border-input focus:ring-primary/20 cursor-pointer">
+          <span class="text-xs font-semibold text-foreground">Pin to top</span>
+        </label>
+      </div>
+
+      <div class="pt-3 border-t flex justify-end gap-2">
+        <button
+          type="button"
+          onclick="closeAddNoticeModal()"
+          class="h-9 px-4 rounded-lg border border-input hover:bg-muted text-xs font-medium transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="h-9 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+        >
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Publish Notice</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Notice Modal -->
+<div id="editNoticeModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20">
+      <h3 class="text-base font-bold text-foreground flex items-center gap-2">
+        <i data-lucide="edit-2" class="w-5 h-5 text-indigo-600"></i>
+        <span>Edit Announcement</span>
+      </h3>
+      <button type="button" onclick="closeEditNoticeModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'website_management' %}?tab=home" enctype="multipart/form-data" id="editNoticeForm" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_notification">
+      <input type="hidden" name="notification_id" id="edit_notice_id">
+      <input type="hidden" name="content" id="edit_notice_content">
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">
+          Notification Title <span class="text-destructive">*</span>
+        </label>
+        <input
+          type="text"
+          name="title"
+          id="edit_notice_title"
+          required
+          class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+        />
+      </div>
+
+      <!-- Rich Text Content Editor -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs font-semibold text-foreground">
+            Notification Detail / Description
+          </label>
+          <span class="text-[11px] text-muted-foreground">Customize text with bold, colors &amp; lists</span>
+        </div>
+        <div id="editNoticeQuillEditor" style="height: 150px;"></div>
+      </div>
+
+      <!-- Existing Attached Documents -->
+      <div id="editNoticeDocsSection" class="space-y-2">
+        <label class="block text-xs font-semibold text-foreground">
+          Existing Attached Documents
+        </label>
+        <div id="editNoticeDocsList" class="space-y-1.5">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Upload Additional Documents -->
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">
+          Attach Additional Documents <span class="text-muted-foreground font-normal">(Optional)</span>
+        </label>
+        <input
+          type="file"
+          name="documents"
+          multiple
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
+          class="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+        />
+      </div>
+
+      <!-- Settings / Toggles -->
+      <div class="flex flex-wrap items-center gap-6 pt-1 border-t">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" name="is_active" id="edit_notice_active" class="w-4 h-4 text-primary rounded border-input focus:ring-primary/20 cursor-pointer">
+          <span class="text-xs font-semibold text-foreground">Active (Publish on website)</span>
+        </label>
+
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" name="is_pinned" id="edit_notice_pinned" class="w-4 h-4 text-primary rounded border-input focus:ring-primary/20 cursor-pointer">
+          <span class="text-xs font-semibold text-foreground">Pin to top</span>
+        </label>
+      </div>
+
+      <div class="pt-3 border-t flex justify-end gap-2">
+        <button
+          type="button"
+          onclick="closeEditNoticeModal()"
+          class="h-9 px-4 rounded-lg border border-input hover:bg-muted text-xs font-medium transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="h-9 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+        >
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Save Changes</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Notice Modal -->
+<div id="deleteNoticeModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-md rounded-2xl border shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+    <div class="flex items-center gap-3 text-destructive">
+      <div class="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-foreground">Delete Notice</h3>
+        <p class="text-xs text-muted-foreground mt-0.5">This will permanently remove the announcement and its files.</p>
+      </div>
+    </div>
+
+    <p class="text-xs text-foreground bg-muted/40 p-3 rounded-lg border" id="deleteNoticeTitleText">
+      Notice Title
+    </p>
+
+    <form method="POST" action="{% url 'website_management' %}?tab=home" class="flex justify-end gap-2 pt-2">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete_notification">
+      <input type="hidden" name="notification_id" id="delete_notice_id" value="">
+
+      <button
+        type="button"
+        onclick="closeDeleteNoticeModal()"
+        class="h-9 px-4 rounded-lg border border-input hover:bg-muted text-xs font-medium transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        class="h-9 px-4 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+      >
+        Delete Notice
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Notice Attachment Document Form (submitted via JS) -->
+<form id="deleteNoticeDocForm" method="POST" action="{% url 'website_management' %}?tab=home" style="display: none;">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="delete_notification_doc">
+  <input type="hidden" name="document_id" id="delete_doc_id" value="">
+</form>
+
+<!-- Add / Edit Topper Modal -->
+<div
+  id="topperModal"
+  onclick="if(event.target === this) closeTopperModal()"
+  class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+  style="display: none;"
+>
+  <div class="bg-card w-full max-w-xl rounded-2xl border shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20 shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-sm">
+          🏆
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-foreground" id="topperModalTitle">Add New Student Topper</h3>
+          <p class="text-[11px] text-muted-foreground">Feature student rank card on the public website Golden Trophy slider</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onclick="closeTopperModal()"
+        class="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors cursor-pointer"
+      >
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Modal Form -->
+    <form method="POST" action="{% url 'website_management' %}?tab=home" class="flex flex-col flex-1 overflow-hidden">
+      {% csrf_token %}
+      <input type="hidden" id="topper_action" name="action" value="add_topper">
+      <input type="hidden" id="topper_id" name="topper_id" value="">
+      <input type="hidden" id="t_score_icon" name="score_icon" value="⚡">
+      <input type="hidden" id="t_avatar_color" name="avatar_color" value="avatar-blue">
+
+      <div class="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+        <!-- Live Preview Card Banner -->
+        <div class="p-3.5 rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50/70 via-amber-50/30 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+              <span>✨</span>
+              <span>Live Website Slider Preview</span>
+            </span>
+            <span class="text-[10px] text-amber-700 dark:text-amber-300 font-medium">Updates in real-time</span>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-border bg-card shadow-sm flex flex-col space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div id="prevAvatarBox" class="w-10 h-10 rounded-full font-bold text-xs flex items-center justify-center text-white shadow-sm relative avatar-blue">
+                  <span class="absolute -top-1.5 -right-1 text-[11px]">👑</span>
+                  <span id="prevInitials">ST</span>
+                </div>
+                <div>
+                  <h4 id="prevStudentName" class="font-bold text-sm text-foreground leading-tight">Student Name</h4>
+                  <p id="prevStream" class="text-xs text-primary font-medium">Exam Stream / Class</p>
+                </div>
+              </div>
+              <div class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1">
+                <span id="prevScoreIcon">⚡</span>
+                <span id="prevScoreText">Score / %ile</span>
+              </div>
+            </div>
+
+            <div class="text-xs text-muted-foreground flex items-center gap-1.5 pt-1 border-t">
+              <span>🏆</span>
+              <span id="prevBadge" class="font-medium text-foreground/90">Achievement / Rank Badge</span>
+            </div>
+
+            <p id="prevQuote" class="text-[11px] text-muted-foreground italic line-clamp-2 bg-muted/20 p-2 rounded-lg">
+              "Student feedback / quote will be highlighted here..."
+            </p>
+          </div>
+        </div>
+
+        <!-- Student Name & Initials -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-foreground mb-1">Student Full Name *</label>
+            <input
+              type="text"
+              id="t_name"
+              name="student_name"
+              required
+              placeholder="e.g. Omkar Ramesh Patil"
+              oninput="onTopperNameInput(this.value)"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1">Avatar Initials</label>
+            <input
+              type="text"
+              id="t_initials"
+              name="avatar_initials"
+              maxlength="4"
+              placeholder="e.g. OP"
+              oninput="updateTopperPreview()"
+              class="w-full px-3 py-2 text-sm uppercase rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold tracking-wider"
+            />
+          </div>
+        </div>
+
+        <!-- Score & Exam Stream -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1">Score / Percentile *</label>
+            <input
+              type="text"
+              id="t_score"
+              name="score_text"
+              required
+              placeholder="e.g. 99.84 %ile or 685/720"
+              oninput="updateTopperPreview()"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1">Exam Stream / Class *</label>
+            <input
+              type="text"
+              id="t_stream"
+              name="exam_stream"
+              required
+              placeholder="e.g. 12th Science · MHT-CET PCM"
+              oninput="updateTopperPreview()"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+        </div>
+
+        <!-- Score Icon & Avatar Color Options -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1.5">Score Icon</label>
+            <div class="flex items-center gap-1.5 flex-wrap" id="scoreIconContainer">
+              <button type="button" onclick="setTopperScoreIcon('⚡')" class="topper-icon-pill h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition-all bg-primary/10 border-primary text-primary" data-icon="⚡">
+                <span>⚡</span>
+                <span class="text-[10px]">CET/JEE</span>
+              </button>
+              <button type="button" onclick="setTopperScoreIcon('🏆')" class="topper-icon-pill h-8 px-2.5 rounded-lg border border-border text-xs font-bold flex items-center gap-1 transition-all hover:bg-muted" data-icon="🏆">
+                <span>🏆</span>
+                <span class="text-[10px]">Rank</span>
+              </button>
+              <button type="button" onclick="setTopperScoreIcon('🥇')" class="topper-icon-pill h-8 px-2.5 rounded-lg border border-border text-xs font-bold flex items-center gap-1 transition-all hover:bg-muted" data-icon="🥇">
+                <span>🥇</span>
+                <span class="text-[10px]">Gold</span>
+              </button>
+              <button type="button" onclick="setTopperScoreIcon('🌟')" class="topper-icon-pill h-8 px-2.5 rounded-lg border border-border text-xs font-bold flex items-center gap-1 transition-all hover:bg-muted" data-icon="🌟">
+                <span>🌟</span>
+                <span class="text-[10px]">Star</span>
+              </button>
+              <button type="button" onclick="setTopperScoreIcon('🎯')" class="topper-icon-pill h-8 px-2.5 rounded-lg border border-border text-xs font-bold flex items-center gap-1 transition-all hover:bg-muted" data-icon="🎯">
+                <span>🎯</span>
+                <span class="text-[10px]">NEET</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1.5">Avatar Color Theme</label>
+            <div class="flex items-center gap-2 flex-wrap" id="avatarColorContainer">
+              <button
+                type="button"
+                onclick="setTopperAvatarColor('avatar-blue')"
+                class="topper-color-dot w-7 h-7 rounded-full border-2 border-primary ring-2 ring-primary/30 transition-all avatar-blue cursor-pointer"
+                data-color="avatar-blue"
+                title="Royal Blue"
+              ></button>
+              <button
+                type="button"
+                onclick="setTopperAvatarColor('avatar-amber')"
+                class="topper-color-dot w-7 h-7 rounded-full border-2 border-transparent transition-all avatar-amber cursor-pointer hover:scale-110"
+                data-color="avatar-amber"
+                title="Golden Amber"
+              ></button>
+              <button
+                type="button"
+                onclick="setTopperAvatarColor('avatar-emerald')"
+                class="topper-color-dot w-7 h-7 rounded-full border-2 border-transparent transition-all avatar-emerald cursor-pointer hover:scale-110"
+                data-color="avatar-emerald"
+                title="Emerald Green"
+              ></button>
+              <button
+                type="button"
+                onclick="setTopperAvatarColor('avatar-purple')"
+                class="topper-color-dot w-7 h-7 rounded-full border-2 border-transparent transition-all avatar-purple cursor-pointer hover:scale-110"
+                data-color="avatar-purple"
+                title="Royal Purple"
+              ></button>
+              <button
+                type="button"
+                onclick="setTopperAvatarColor('avatar-rose')"
+                class="topper-color-dot w-7 h-7 rounded-full border-2 border-transparent transition-all avatar-rose cursor-pointer hover:scale-110"
+                data-color="avatar-rose"
+                title="Rose Red"
+              ></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Achievement Badge -->
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Achievement / College Badge *</label>
+          <input
+            type="text"
+            id="t_badge"
+            name="achievement_badge"
+            required
+            placeholder="e.g. Taluka 1st Ranker · COEP Pune Selected"
+            oninput="updateTopperPreview()"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+
+        <!-- Student Quote -->
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Student Quote / Feedback</label>
+          <textarea
+            id="t_quote"
+            name="quote"
+            rows="2"
+            placeholder="e.g. Daily DPP drills and faculty doubt clearing were the secret to my score..."
+            oninput="updateTopperPreview()"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          ></textarea>
+        </div>
+
+        <!-- Sort Order and Visibility -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-2 border-t">
+          <div>
+            <label class="block text-xs font-semibold text-foreground mb-1">Sort Order</label>
+            <input
+              type="number"
+              id="t_order"
+              name="sort_order"
+              value="1"
+              min="0"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div class="flex items-center gap-2 pt-1 sm:pt-4">
+            <input
+              type="checkbox"
+              id="t_active"
+              name="is_active"
+              checked
+              class="w-4 h-4 text-primary rounded border-input focus:ring-primary/20 cursor-pointer"
+            />
+            <label for="t_active" class="text-xs font-semibold text-foreground cursor-pointer select-none">
+              Visible on Website Golden Slider
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky Footer -->
+      <div class="px-6 py-3.5 border-t bg-muted/10 flex items-center justify-end gap-2 shrink-0">
+        <button
+          type="button"
+          onclick="closeTopperModal()"
+          class="h-9 px-4 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          id="topperSubmitBtn"
+          class="h-9 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer"
+        >
+          Save Topper
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add / Edit Batch Modal -->
+<div id="batchModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20">
+      <h3 class="text-base font-bold text-foreground" id="batchModalTitle">Add Academic Batch</h3>
+      <button type="button" onclick="closeBatchModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'website_management' %}?tab=batches" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" id="batch_action" name="action" value="add_batch">
+      <input type="hidden" id="batch_id" name="batch_id" value="">
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Batch Title *</label>
+        <input type="text" id="b_title" name="title" required placeholder="e.g. 11th & 12th Integrated Science" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Category *</label>
+          <select id="b_cat" name="category" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+            <option value="science">11th & 12th Science</option>
+            <option value="entrance">MHT-CET / NEET Target</option>
+            <option value="foundation">8th–10th State Board</option>
+            <option value="commerce">Commerce Stream</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Stream Tag *</label>
+          <input type="text" id="b_stream" name="stream_tag" required placeholder="e.g. Higher Secondary · Science" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Seat Status Badge</label>
+          <input type="text" id="b_seat" name="seats_badge" placeholder="e.g. Limited 30 Seats" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Lecture Timings *</label>
+          <input type="text" id="b_time" name="timing_text" required placeholder="e.g. Morning 7:30 AM – 11:30 AM" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Target Description *</label>
+        <input type="text" id="b_target" name="target_text" required placeholder="e.g. Complete 2-Year State Board + Competitive Orientation" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Bullet Features (One per line) *</label>
+        <textarea id="b_features" name="features" rows="3" required placeholder="In-depth concept lectures&#10;Weekly DPPs and tests&#10;Faculty doubt sessions" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Display Sort Order</label>
+          <input type="number" id="b_order" name="sort_order" value="1" min="0" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+          <p class="text-[10px] text-muted-foreground mt-0.5">Lower numbers display first (e.g. 1, 2, 3).</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Featured Ribbon (Optional)</label>
+          <input type="text" id="b_featured_tag" name="featured_tag" placeholder="e.g. ★ MOST POPULAR · RANKER PREFERRED" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+          <p class="text-[10px] text-muted-foreground mt-0.5">Golden badge text shown on card.</p>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2.5">
+        <label class="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-foreground">
+          <input type="checkbox" id="b_active" name="is_active" class="rounded text-primary focus:ring-primary/20 w-4 h-4 cursor-pointer">
+          <span>Publish &amp; Display on Public Website (Active)</span>
+        </label>
+        <p class="text-[11px] text-muted-foreground pl-6.5">When unchecked, this batch remains safely preserved in management but is hidden from public website visitors.</p>
+
+        <label class="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-foreground pt-2 border-t border-border/60">
+          <input type="checkbox" id="b_featured" name="is_featured" class="rounded text-primary focus:ring-primary/20 w-4 h-4 cursor-pointer">
+          <span>Highlight with Golden "Featured / Popular" Border &amp; Ribbon</span>
+        </label>
+      </div>
+
+      <div class="pt-3 border-t flex justify-end gap-2">
+        <button type="button" onclick="closeBatchModal()" class="h-9 px-4 rounded-lg border border-border text-xs font-medium cursor-pointer">Cancel</button>
+        <button type="submit" class="h-9 px-5 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs hover:bg-primary/90 cursor-pointer">Save Batch Card</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add / Edit Gallery Item Modal -->
+<div id="galleryModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20 shrink-0">
+      <h3 class="text-base font-bold text-foreground" id="galleryModalTitle">Add Campus Gallery Item</h3>
+      <button type="button" onclick="closeGalleryModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'website_management' %}?tab=gallery" enctype="multipart/form-data" class="p-6 space-y-4 overflow-y-auto" id="galleryItemForm">
+      {% csrf_token %}
+      <input type="hidden" id="gallery_action" name="action" value="add_gallery">
+      <input type="hidden" id="gallery_item_id" name="item_id" value="">
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Item Title *</label>
+        <input type="text" id="g_title" name="title" required placeholder="e.g. Annual Toppers Felicitation Ceremony" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Media Type</label>
+          <select id="g_media_type" name="media_type" onchange="handleGalleryMediaTypeChange(this.value)" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
+            <option value="IMAGE">📷 Photo</option>
+            <option value="VIDEO">🎥 Video</option>
+          </select>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-semibold text-foreground">Category *</label>
+            <button
+              type="button"
+              onclick="openManageGalleryCategoriesModal()"
+              class="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+              title="Add or edit categories"
+            >
+              <i data-lucide="settings-2" class="w-3 h-3"></i>
+              <span>Manage</span>
+            </button>
+          </div>
+          <select id="g_category" name="category" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
+            {% for cat in gallery_categories %}
+            <option value="{{ cat.name }}">{{ cat.name }}</option>
+            {% empty %}
+            <option value="Campus Infrastructure">Campus Infrastructure</option>
+            <option value="Topper Felicitation">Topper Felicitation</option>
+            <option value="Science Labs &amp; Classrooms">Science Labs &amp; Classrooms</option>
+            <option value="Workshops &amp; Seminars">Workshops &amp; Seminars</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- IMAGE UPLOAD SECTION (Shown when Media Type is Photo) -->
+      <div id="galleryImageSection" class="space-y-2">
+        <label class="block text-xs font-semibold text-foreground">Upload Campus Photo *</label>
+
+        <!-- Hidden Native File Input -->
+        <input
+          type="file"
+          id="galleryImageFileInput"
+          name="image_file"
+          accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+          class="hidden"
+          onchange="handleGalleryImageSelect(this)"
+        />
+
+        <!-- Drag & Drop Dropzone Box -->
+        <div
+          id="galleryDropZone"
+          ondragover="handleGalleryDragOver(event)"
+          ondragleave="handleGalleryDragLeave(event)"
+          ondrop="handleGalleryDrop(event)"
+          onclick="document.getElementById('galleryImageFileInput').click()"
+          class="border-2 border-dashed border-input hover:border-primary/60 rounded-xl p-5 text-center cursor-pointer transition-all bg-muted/10 hover:bg-muted/20 group"
+        >
+          <div class="flex flex-col items-center justify-center space-y-2">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+              <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-foreground">
+                <span class="text-primary hover:underline">Click to upload photo</span> or drag and drop
+              </p>
+              <p class="text-[11px] text-muted-foreground mt-0.5">PNG, JPG, JPEG, WEBP or GIF up to 15 MB</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Image Preview Box -->
+        <div id="galleryPreviewContainer" class="hidden rounded-xl border bg-muted/10 p-3 space-y-2">
+          <div class="relative aspect-video w-full rounded-lg overflow-hidden bg-black/5 flex items-center justify-center">
+            <img id="galleryPreviewImg" src="" alt="Photo Preview" class="w-full h-full object-contain">
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <div class="truncate max-w-[240px]">
+              <p id="galleryPreviewFileName" class="font-semibold text-foreground truncate text-xs"></p>
+              <p id="galleryPreviewFileSize" class="text-[11px] text-muted-foreground"></p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                onclick="document.getElementById('galleryImageFileInput').click()"
+                class="px-2.5 py-1 rounded bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold"
+              >
+                Change Photo
+              </button>
+              <button
+                type="button"
+                onclick="clearGalleryImageSelection()"
+                class="p-1 text-muted-foreground hover:text-rose-600 rounded"
+                title="Remove photo"
+              >
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional External Image URL Fallback -->
+        <div class="pt-1">
+          <button
+            type="button"
+            onclick="toggleImageUrlFallback()"
+            class="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+          >
+            <i data-lucide="link" class="w-3 h-3"></i>
+            <span id="urlFallbackToggleText">Or enter external image URL instead</span>
+          </button>
+          <div id="galleryUrlFallbackBox" class="hidden mt-2">
+            <input
+              type="text"
+              id="g_file_url_fallback"
+              name="file_url_fallback"
+              placeholder="https://... or /static/images/..."
+              class="w-full px-3 py-2 text-xs rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              oninput="handleUrlFallbackInput(this.value)"
+            />
+            <p class="text-[10px] text-muted-foreground mt-1">If a file is uploaded above, it takes precedence over this URL.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIDEO SECTION (Shown when Media Type is Video) -->
+      <div id="galleryVideoSection" class="hidden space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Video Watch / Embed URL *</label>
+          <input
+            type="text"
+            id="g_video_url"
+            name="video_url"
+            oninput="handleVideoUrlInput(this.value)"
+            placeholder="e.g. https://www.youtube.com/watch?v=... or https://youtu.be/..."
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <p class="text-[11px] text-muted-foreground mt-1">Accepts any YouTube link (watch, youtu.be, shorts), Vimeo, or direct MP4 URL.</p>
+        </div>
+
+        <!-- Real-Time Auto YouTube Thumbnail Preview Box -->
+        <div id="ytThumbnailPreviewContainer" class="hidden p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span>YouTube Video Detected · Thumbnail Auto-Fetched</span>
+            </span>
+            <span class="text-[10px] font-mono text-muted-foreground" id="ytVideoIdBadge"></span>
+          </div>
+          <div class="aspect-video w-full max-w-xs rounded-lg overflow-hidden border bg-black/40 relative shadow-xs">
+            <img id="ytAutoThumbImg" src="" alt="YouTube Thumbnail Preview" class="w-full h-full object-cover">
+            <span class="absolute inset-0 flex items-center justify-center text-white/90 text-2xl pointer-events-none drop-shadow">▶</span>
+          </div>
+          <input type="hidden" id="g_auto_thumbnail_url" name="auto_thumbnail_url" value="">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Custom Video Thumbnail (Optional Override)</label>
+          <input
+            type="file"
+            name="thumbnail_file"
+            accept="image/*"
+            class="w-full text-xs rounded-lg border border-input bg-background p-1.5 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+          />
+          <p class="text-[10px] text-muted-foreground mt-0.5">Leave blank to use the auto-fetched YouTube thumbnail.</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Caption / Description</label>
+        <input type="text" id="g_caption" name="caption" placeholder="e.g. Honoring State &amp; Taluka Rankers · Main Campus Hall" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20">
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 items-center">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Sort Order</label>
+          <input type="number" id="g_sort_order" name="sort_order" value="1" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div class="flex items-center gap-2 pt-4">
+          <input type="checkbox" id="g_active" name="is_active" checked class="w-4 h-4 text-primary rounded">
+          <label for="g_active" class="text-xs font-semibold text-foreground cursor-pointer">Visible in Public Gallery</label>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t flex justify-end gap-2 shrink-0">
+        <button type="button" onclick="closeGalleryModal()" class="h-9 px-4 rounded-lg border border-border text-xs font-medium">Cancel</button>
+        <button type="submit" id="gallerySubmitBtn" class="h-9 px-5 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs hover:bg-primary/90 transition-colors">Save Gallery Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add / Edit Campus Modal -->
+<div id="campusModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20">
+      <h3 class="text-base font-bold text-foreground" id="campusModalTitle">Add Website Campus</h3>
+      <button type="button" onclick="closeCampusModal()" class="text-muted-foreground hover:text-foreground">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'website_management' %}?tab=contact" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" id="campus_action" name="action" value="add_campus">
+      <input type="hidden" id="campus_id" name="campus_id" value="">
+
+      <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold text-foreground mb-1">Campus Name *</label>
+          <input type="text" id="c_name" name="name" required placeholder="e.g. Vaijapur Main Campus" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Campus Key *</label>
+          <input type="text" id="c_key" name="campus_key" required placeholder="vaijapur" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background font-mono">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Badge / Subtitle *</label>
+          <input type="text" id="c_badge" name="badge" required placeholder="e.g. Head Office & Central Wing" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Icon (Emoji) *</label>
+          <input type="text" id="c_icon" name="icon" required placeholder="🏢" value="🏢" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Person Name *</label>
+          <input type="text" id="c_person" name="person_name" required placeholder="e.g. Prof. Sutawane Sir" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Person Role *</label>
+          <input type="text" id="c_role" name="person_role" required placeholder="e.g. Academic Director" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Address *</label>
+        <textarea id="c_addr" name="address" rows="2" required placeholder="Campus street address..." class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">District / Pincode *</label>
+          <input type="text" id="c_dist" name="district" required placeholder="e.g. Dist. Chhatrapati Sambhajinagar - 423701" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Helpline Phone *</label>
+          <input type="text" id="c_phone" name="phone" required placeholder="+91 98814 65883" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Office Hours *</label>
+          <input type="text" id="c_hours" name="hours" required placeholder="Monday to Saturday: 7:30 AM – 8:00 PM" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Sunday / Holiday Hours</label>
+          <input type="text" id="c_hourssub" name="hours_sub" placeholder="Sunday: 8:00 AM – 1:00 PM" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Google Maps Embed URL</label>
+        <input type="text" id="c_embed" name="map_embed_url" placeholder="https://maps.google.com/maps?q=...&output=embed" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Google Maps Direct Link</label>
+        <input type="text" id="c_direct" name="map_direct_url" placeholder="https://maps.google.com/?q=..." class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 items-center">
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Sort Order</label>
+          <input type="number" id="c_order" name="sort_order" value="1" class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background">
+        </div>
+        <div class="flex items-center gap-2 pt-4">
+          <input type="checkbox" id="c_active" name="is_active" checked class="w-4 h-4 text-primary rounded">
+          <label for="c_active" class="text-xs font-semibold text-foreground cursor-pointer">Active on Website</label>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t flex justify-end gap-2">
+        <button type="button" onclick="closeCampusModal()" class="h-9 px-4 rounded-lg border border-border text-xs font-medium">Cancel</button>
+        <button type="submit" class="h-9 px-5 rounded-lg bg-primary text-primary-foreground text-xs font-bold">Save Campus</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     MANAGE GALLERY CATEGORIES MODAL (Identical styling to Manage Expense Categories)
+     ========================================================================== -->
+<div id="manageGalleryCategoriesModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeManageGalleryCategoriesModal();">
+  <div class="bg-background border rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+    <!-- Modal Header -->
+    <div class="py-4 px-6 bg-muted/30 border-b flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+          <i data-lucide="tags" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-foreground">Manage Gallery Categories</h3>
+          <p class="text-xs text-muted-foreground mt-0.5">Add new categories, inline-edit existing names, or view recorded media usage.</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeManageGalleryCategoriesModal()" class="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer" title="Close modal">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Alert / Toast Message Banner in Modal -->
+    <div id="galleryCatModalAlert" class="mx-6 mt-4 p-3 rounded-xl text-xs font-semibold hidden"></div>
+
+    <!-- Quick Add Category Form -->
+    <div class="p-6 pb-4 border-b flex-shrink-0 bg-card">
+      <label class="block text-xs font-bold text-foreground mb-2">Create New Category</label>
+      <form id="addNewGalleryCategoryForm" onsubmit="handleAddNewGalleryCategory(event)" class="flex items-center gap-2.5">
+        <div class="relative flex-1 flex items-center">
+          <i data-lucide="tag" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+          <input
+            type="text"
+            id="modalNewGalleryCategoryInput"
+            placeholder="Type new category name (e.g. Science Labs, Annual Sports, Award Nights)..."
+            required
+            autocomplete="off"
+            class="w-full pl-9 pr-3.5 h-10 text-xs rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-xs font-medium"
+          />
+        </div>
+        <button
+          type="submit"
+          id="modalAddGalleryCategoryBtn"
+          class="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+        >
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Add Category</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Search / Filter & Categories List Table (Scrollable) -->
+    <div class="p-6 pt-4 overflow-y-auto space-y-3.5 flex-1">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Existing Categories</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground font-mono" id="galleryCatTotalCountBadge">
+            {{ gallery_categories|length }}
+          </span>
+        </div>
+        <div class="relative w-64 flex items-center">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+          <input
+            type="text"
+            id="galleryCatSearchFilterInput"
+            oninput="filterGalleryCategoriesTable(this.value)"
+            placeholder="Search categories..."
+            class="w-full pl-9 pr-3 h-8.5 text-xs rounded-lg border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+          />
+        </div>
+      </div>
+
+      <!-- Categories Table -->
+      <div class="border border-border rounded-xl overflow-hidden shadow-2xs bg-card">
+        <table class="w-full text-xs text-left">
+          <thead class="bg-muted/60 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b">
+            <tr>
+              <th class="py-3 px-3.5 w-12 text-center">#</th>
+              <th class="py-3 px-4 text-left">Category Name</th>
+              <th class="py-3 px-4 text-center">Recorded Media Items</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="manageGalleryCategoriesTableBody" class="divide-y divide-border">
+            {% for c in gallery_categories %}
+            <tr id="gallery-cat-row-{{ c.id }}" data-id="{{ c.id }}" data-name="{{ c.name }}" data-count="{{ c.item_count }}" class="hover:bg-muted/30 transition-colors">
+              <td class="py-3 px-3.5 text-center font-mono text-muted-foreground text-[11px] gallery-cat-row-index">{{ forloop.counter }}</td>
+              <td class="py-3 px-4" id="gallery-cat-name-cell-{{ c.id }}">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-semibold text-foreground text-xs gallery-cat-display-name">{{ c.name }}</span>
+                </div>
+              </td>
+              <td class="py-3 px-4 text-center" id="gallery-cat-count-cell-{{ c.id }}">
+                {% if c.item_count > 0 %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20" title="Protected: Category cannot be deleted while media items exist">
+                  <i data-lucide="image" class="w-3.5 h-3.5"></i>
+                  <span>{{ c.item_count }} item{{ c.item_count|pluralize }}</span>
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium text-muted-foreground bg-muted/60 border border-border/60">
+                  0 items (Unused)
+                </span>
+                {% endif %}
+              </td>
+              <td class="py-3 px-4 text-right" id="gallery-cat-actions-cell-{{ c.id }}">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onclick="startEditGalleryCategory('{{ c.id }}')"
+                    class="h-8 px-3 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Inline Edit / Rename Category"
+                  >
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+                    <span>Edit</span>
+                  </button>
+
+                  {% if c.item_count > 0 %}
+                  <button
+                    type="button"
+                    onclick="showCannotDeleteGalleryCatWarning('{{ c.name|escapejs }}', {{ c.item_count }}, '{{ c.id }}')"
+                    class="h-8 px-3 text-xs font-semibold rounded-lg border border-border/50 bg-muted/40 text-muted-foreground/60 cursor-not-allowed inline-flex items-center gap-1.5 shadow-2xs"
+                    title="Protected: Cannot delete category with recorded media items"
+                  >
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500"></i>
+                    <span>Delete</span>
+                  </button>
+                  {% else %}
+                  <button
+                    type="button"
+                    onclick="openGalleryCatDeleteConfirmModal('{{ c.id }}', '{{ c.name|escapejs }}')"
+                    class="h-8 px-3 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Delete unused category"
+                  >
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <span>Delete</span>
+                  </button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr id="noGalleryCategoriesRow">
+              <td colspan="4" class="py-8 text-center text-xs text-muted-foreground">
+                No gallery categories found. Add your first category using the form above.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="py-3.5 px-6 bg-muted/20 border-t flex items-center justify-between flex-shrink-0 text-xs text-muted-foreground">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+        <span>Categories with recorded media items are protected from deletion to maintain gallery integrity.</span>
+      </div>
+      <button
+        type="button"
+        onclick="closeManageGalleryCategoriesModal()"
+        class="h-9 px-5 rounded-lg border bg-background hover:bg-muted text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Cannot Delete Gallery Category Warning Modal Dialog -->
+<div id="galleryCatDeleteWarningModal" class="fixed inset-0 z-70 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="z-index: 70 !important; background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeGalleryCatDeleteWarningModal();">
+  <div class="bg-background border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-6 space-y-4">
+    <div class="flex items-start gap-3.5">
+      <div class="w-11 h-11 rounded-2xl bg-amber-500/15 text-amber-600 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-base font-bold text-foreground">Cannot Delete Category</h3>
+        <p class="text-xs text-muted-foreground leading-relaxed" id="galleryWarningModalBody">
+          This category has recorded gallery media items and cannot be removed.
+        </p>
+      </div>
+    </div>
+
+    <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-300 space-y-1.5">
+      <div class="font-bold flex items-center gap-1.5">
+        <i data-lucide="info" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+        <span>Gallery Integrity Requirement</span>
+      </div>
+      <p class="text-[11px] leading-relaxed">
+        Deleting an in-use category would break public photo and video galleries. You may freely <strong>rename or update</strong> this category using the inline <strong>Edit</strong> button.
+      </p>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 pt-2 border-t">
+      <button
+        type="button"
+        onclick="closeGalleryCatDeleteWarningModal()"
+        class="h-9 px-4 rounded-lg border border-input bg-card hover:bg-accent text-xs font-semibold cursor-pointer transition-colors"
+      >
+        I Understand
+      </button>
+      <button
+        type="button"
+        id="galleryWarningModalRenameBtn"
+        class="h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+      >
+        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+        <span>Rename Category</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Gallery Category Delete Confirmation Dialog -->
+<div id="galleryCatDeleteConfirmModal" class="fixed inset-0 z-70 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 hidden" style="z-index: 70 !important; background-color: rgba(0, 0, 0, 0.65); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);" onclick="if(event.target === this) closeGalleryCatDeleteConfirmModal();">
+  <div class="bg-background border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-6 space-y-4">
+    <div class="flex items-start gap-3.5">
+      <div class="w-11 h-11 rounded-2xl bg-rose-500/15 text-rose-600 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="trash-2" class="w-6 h-6"></i>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-base font-bold text-foreground">Delete Gallery Category</h3>
+        <p class="text-xs text-muted-foreground leading-relaxed">
+          Are you sure you want to permanently delete category <strong id="confirmDeleteGalleryCatName" class="text-foreground font-bold"></strong>?
+        </p>
+      </div>
+    </div>
+
+    <div class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-900 dark:text-rose-300 space-y-1.5">
+      <div class="font-bold flex items-center gap-1.5">
+        <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 flex-shrink-0"></i>
+        <span>Permanent Removal</span>
+      </div>
+      <p class="text-[11px] leading-relaxed">
+        This unused category will be permanently removed from category selectors and filters.
+      </p>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 pt-2 border-t">
+      <button
+        type="button"
+        onclick="closeGalleryCatDeleteConfirmModal()"
+        class="h-9 px-4 rounded-lg border border-input bg-card hover:bg-accent text-xs font-semibold cursor-pointer transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        id="confirmDeleteGalleryCatSubmitBtn"
+        onclick="executeDeleteGalleryCategory()"
+        class="h-9 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+      >
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        <span>Delete Category</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // =========================================================================
+  // Toppers & State Rankers Modal Controls (Rock-solid & globally exposed)
+  // =========================================================================
+
+  function setTopperScoreIcon(icon) {
+    const input = document.getElementById('t_score_icon');
+    if (input) input.value = icon;
+    const prevIcon = document.getElementById('prevScoreIcon');
+    if (prevIcon) prevIcon.textContent = icon;
+
+    // Highlight selected pill
+    const pills = document.querySelectorAll('.topper-icon-pill');
+    pills.forEach(p => {
+      if (p.getAttribute('data-icon') === icon) {
+        p.className = 'topper-icon-pill h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition-all bg-primary/10 border-primary text-primary';
+      } else {
+        p.className = 'topper-icon-pill h-8 px-2.5 rounded-lg border border-border text-xs font-bold flex items-center gap-1 transition-all hover:bg-muted text-muted-foreground';
+      }
+    });
+  }
+
+  function setTopperAvatarColor(colorClass) {
+    const input = document.getElementById('t_avatar_color');
+    if (input) input.value = colorClass;
+    const avatarBox = document.getElementById('prevAvatarBox');
+    if (avatarBox) {
+      avatarBox.className = `w-10 h-10 rounded-full font-bold text-xs flex items-center justify-center text-white shadow-sm relative ${colorClass}`;
+    }
+
+    // Highlight selected color dot
+    const dots = document.querySelectorAll('.topper-color-dot');
+    dots.forEach(d => {
+      if (d.getAttribute('data-color') === colorClass) {
+        d.className = `topper-color-dot w-7 h-7 rounded-full border-2 border-primary ring-2 ring-primary/40 transition-all cursor-pointer scale-110 ${colorClass}`;
+      } else {
+        d.className = `topper-color-dot w-7 h-7 rounded-full border-2 border-transparent transition-all cursor-pointer hover:scale-105 ${colorClass}`;
+      }
+    });
+  }
+
+  function onTopperNameInput(name) {
+    const initialsInput = document.getElementById('t_initials');
+    if (initialsInput && (!initialsInput.dataset.manual || initialsInput.dataset.manual === 'false')) {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      let inits = '';
+      if (parts.length === 1) {
+        inits = parts[0].substring(0, 2).toUpperCase();
+      } else if (parts.length >= 2) {
+        inits = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      initialsInput.value = inits || 'ST';
+    }
+    updateTopperPreview();
+  }
+
+  function updateTopperPreview() {
+    const name = document.getElementById('t_name')?.value?.trim() || 'Student Name';
+    const initials = document.getElementById('t_initials')?.value?.trim() || 'ST';
+    const score = document.getElementById('t_score')?.value?.trim() || 'Score / %ile';
+    const stream = document.getElementById('t_stream')?.value?.trim() || 'Exam Stream / Class';
+    const badge = document.getElementById('t_badge')?.value?.trim() || 'Achievement / Rank Badge';
+    const quote = document.getElementById('t_quote')?.value?.trim() || 'Student feedback / quote will be highlighted here...';
+
+    const pName = document.getElementById('prevStudentName');
+    if (pName) pName.textContent = name;
+    const pInit = document.getElementById('prevInitials');
+    if (pInit) pInit.textContent = initials;
+    const pScore = document.getElementById('prevScoreText');
+    if (pScore) pScore.textContent = score;
+    const pStream = document.getElementById('prevStream');
+    if (pStream) pStream.textContent = stream;
+    const pBadge = document.getElementById('prevBadge');
+    if (pBadge) pBadge.textContent = badge;
+    const pQuote = document.getElementById('prevQuote');
+    if (pQuote) pQuote.textContent = `"${quote}"`;
+  }
+
+  window.openAddTopperModal = function() {
+    const modal = document.getElementById('topperModal');
+    if (!modal) {
+      console.error('topperModal not found in DOM');
+      return;
+    }
+
+    const safeSet = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    const safeText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    const safeChecked = (id, bool) => { const el = document.getElementById(id); if (el) el.checked = bool; };
+
+    safeText('topperModalTitle', 'Add New Student Topper & Ranker');
+    safeSet('topper_action', 'add_topper');
+    safeSet('topper_id', '');
+    safeSet('t_name', '');
+    safeSet('t_initials', '');
+    safeSet('t_score', '');
+    safeSet('t_stream', '');
+    safeSet('t_badge', '');
+    safeSet('t_quote', '');
+    safeSet('t_order', '1');
+    safeChecked('t_active', true);
+
+    const initInput = document.getElementById('t_initials');
+    if (initInput) initInput.dataset.manual = 'false';
+
+    setTopperScoreIcon('⚡');
+    setTopperAvatarColor('avatar-blue');
+    updateTopperPreview();
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.style.display = 'flex';
+    document.body.classList.add('overflow-hidden');
+
+    // Focus on first input
+    setTimeout(() => {
+      const nameInput = document.getElementById('t_name');
+      if (nameInput) nameInput.focus();
+    }, 50);
+
+    if (window.renderIcons) {
+      window.renderIcons();
+    } else if (window.lucide && window.lucide.createIcons) {
+      window.lucide.createIcons();
+    }
+  };
+
+  window.openEditTopperModal = function(id, name, stream, score, icon, badge, quote, initials, color, order, active) {
+    const modal = document.getElementById('topperModal');
+    if (!modal) return;
+
+    const safeSet = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    const safeText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    const safeChecked = (id, bool) => { const el = document.getElementById(id); if (el) el.checked = bool; };
+
+    safeText('topperModalTitle', `Edit Topper: ${name || 'Student'}`);
+    safeSet('topper_action', 'edit_topper');
+    safeSet('topper_id', id || '');
+    safeSet('t_name', name || '');
+    safeSet('t_initials', initials || '');
+    safeSet('t_score', score || '');
+    safeSet('t_stream', stream || '');
+    safeSet('t_badge', badge || '');
+    safeSet('t_quote', quote || '');
+    safeSet('t_order', order || '1');
+    safeChecked('t_active', active === true || active === 'true');
+
+    const initInput = document.getElementById('t_initials');
+    if (initInput) initInput.dataset.manual = 'true';
+
+    const scoreIcon = icon || '⚡';
+    const avatarColor = color || 'avatar-blue';
+    setTopperScoreIcon(scoreIcon);
+    setTopperAvatarColor(avatarColor);
+    updateTopperPreview();
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.style.display = 'flex';
+    document.body.classList.add('overflow-hidden');
+
+    if (window.renderIcons) {
+      window.renderIcons();
+    } else if (window.lucide && window.lucide.createIcons) {
+      window.lucide.createIcons();
+    }
+  };
+
+  window.closeTopperModal = function() {
+    const modal = document.getElementById('topperModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      modal.style.display = 'none';
+    }
+    document.body.classList.remove('overflow-hidden');
+  };
+
+  // Mark initials as manually edited when user touches initials field
+  document.addEventListener('DOMContentLoaded', function() {
+    const initInput = document.getElementById('t_initials');
+    if (initInput) {
+      initInput.addEventListener('input', function() {
+        this.dataset.manual = 'true';
+      });
+    }
+  });
+
+  // Batch Modal Controls
+  function openAddBatchModal() {
+    document.getElementById('batchModalTitle').textContent = 'Add Academic Batch';
+    document.getElementById('batch_action').value = 'add_batch';
+    document.getElementById('batch_id').value = '';
+    document.getElementById('b_title').value = '';
+    document.getElementById('b_cat').value = 'science';
+    document.getElementById('b_stream').value = '';
+    document.getElementById('b_seat').value = '';
+    document.getElementById('b_time').value = '';
+    document.getElementById('b_target').value = '';
+    document.getElementById('b_features').value = '';
+    document.getElementById('b_order').value = '1';
+    document.getElementById('b_active').checked = true;
+    document.getElementById('b_featured').checked = false;
+    document.getElementById('b_featured_tag').value = '';
+    document.getElementById('batchModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function openEditBatchModal(id, title, cat, stream, seat, target, features, time, order, active, featured, featured_tag) {
+    document.getElementById('batchModalTitle').textContent = `Edit Batch: ${title}`;
+    document.getElementById('batch_action').value = 'edit_batch';
+    document.getElementById('batch_id').value = id;
+    document.getElementById('b_title').value = title;
+    document.getElementById('b_cat').value = cat;
+    document.getElementById('b_stream').value = stream;
+    document.getElementById('b_seat').value = seat;
+    document.getElementById('b_time').value = time;
+    document.getElementById('b_target').value = target;
+    document.getElementById('b_features').value = features;
+    document.getElementById('b_order').value = order || '1';
+    document.getElementById('b_active').checked = (active === true || active === 'true');
+    document.getElementById('b_featured').checked = (featured === true || featured === 'true');
+    document.getElementById('b_featured_tag').value = featured_tag || '';
+    document.getElementById('batchModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeBatchModal() {
+    document.getElementById('batchModal').classList.add('hidden');
+  }
+
+  // Gallery Modal Controls & Dynamic Image Upload Handling
+  function openAddGalleryModal() {
+    document.getElementById('galleryModalTitle').textContent = 'Add Campus Gallery Item';
+    document.getElementById('gallerySubmitBtn').textContent = 'Save Gallery Item';
+    document.getElementById('gallery_action').value = 'add_gallery';
+    document.getElementById('gallery_item_id').value = '';
+    document.getElementById('g_title').value = '';
+    document.getElementById('g_media_type').value = 'IMAGE';
+    const catSelect = document.getElementById('g_category');
+    if (catSelect && catSelect.options.length > 0) {
+      catSelect.selectedIndex = 0;
+    }
+    document.getElementById('g_caption').value = '';
+    document.getElementById('g_sort_order').value = '1';
+    document.getElementById('g_active').checked = true;
+    document.getElementById('g_video_url').value = '';
+    handleVideoUrlInput('');
+    document.getElementById('g_file_url_fallback').value = '';
+
+    clearGalleryImageSelection();
+    handleGalleryMediaTypeChange('IMAGE');
+
+    document.getElementById('galleryModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function extractYouTubeId(url) {
+    if (!url) return null;
+    const s = String(url).trim();
+    const patterns = [
+      /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/|live\/)([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:m\.)?youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/i,
+      /[?&]v=([a-zA-Z0-9_-]{11})/i,
+      /^([a-zA-Z0-9_-]{11})$/
+    ];
+    for (const p of patterns) {
+      const match = s.match(p);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  }
+
+  function handleVideoUrlInput(val) {
+    const previewBox = document.getElementById('ytThumbnailPreviewContainer');
+    const thumbImg = document.getElementById('ytAutoThumbImg');
+    const badge = document.getElementById('ytVideoIdBadge');
+    const autoHidden = document.getElementById('g_auto_thumbnail_url');
+    if (!previewBox || !thumbImg) return;
+
+    const ytId = extractYouTubeId(val);
+    if (ytId) {
+      const thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      thumbImg.src = thumbUrl;
+      if (badge) badge.textContent = `ID: ${ytId}`;
+      if (autoHidden) autoHidden.value = thumbUrl;
+      previewBox.classList.remove('hidden');
+    } else {
+      previewBox.classList.add('hidden');
+      thumbImg.src = '';
+      if (autoHidden) autoHidden.value = '';
+      if (badge) badge.textContent = '';
+    }
+  }
+
+  function openEditGalleryModal(id, title, media_type, category, file_url, caption, order, active) {
+    document.getElementById('galleryModalTitle').textContent = `Edit Gallery Item: ${title}`;
+    document.getElementById('gallerySubmitBtn').textContent = 'Update Gallery Item';
+    document.getElementById('gallery_action').value = 'edit_gallery';
+    document.getElementById('gallery_item_id').value = id;
+    document.getElementById('g_title').value = title;
+    document.getElementById('g_media_type').value = media_type;
+
+    const catSelect = document.getElementById('g_category');
+    if (catSelect && category) {
+      const exists = Array.from(catSelect.options).some(o => o.value.toLowerCase() === category.toLowerCase());
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = category;
+        opt.textContent = category;
+        catSelect.appendChild(opt);
+      }
+      catSelect.value = category;
+    }
+
+    document.getElementById('g_caption').value = caption || '';
+    document.getElementById('g_sort_order').value = order || '1';
+    document.getElementById('g_active').checked = active;
+
+    handleGalleryMediaTypeChange(media_type);
+
+    if (media_type === 'IMAGE') {
+      if (file_url) {
+        showGalleryPreview(file_url, file_url.split('/').pop(), 'Current saved image');
+      } else {
+        clearGalleryImageSelection();
+      }
+      handleVideoUrlInput('');
+    } else {
+      document.getElementById('g_video_url').value = file_url || '';
+      handleVideoUrlInput(file_url || '');
+      clearGalleryImageSelection();
+    }
+
+    document.getElementById('galleryModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeGalleryModal() {
+    document.getElementById('galleryModal').classList.add('hidden');
+    clearGalleryImageSelection();
+  }
+
+  function filterGalleryTable(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#galleryItemsTableBody tr.gallery-item-row');
+    let visibleCount = 0;
+    rows.forEach(r => {
+      const title = r.getAttribute('data-title') || '';
+      const cat = r.getAttribute('data-category') || '';
+      const caption = r.getAttribute('data-caption') || '';
+      if (!q || title.includes(q) || cat.includes(q) || caption.includes(q)) {
+        r.style.display = '';
+        visibleCount++;
+      } else {
+        r.style.display = 'none';
+      }
+    });
+    const badge = document.getElementById('galleryItemsCountBadge');
+    if (badge) badge.textContent = visibleCount;
+  }
+
+  function handleGalleryMediaTypeChange(val) {
+    const imgSection = document.getElementById('galleryImageSection');
+    const vidSection = document.getElementById('galleryVideoSection');
+    const vidInput = document.getElementById('g_video_url');
+
+    if (val === 'IMAGE') {
+      if (imgSection) imgSection.classList.remove('hidden');
+      if (vidSection) vidSection.classList.add('hidden');
+      if (vidInput) vidInput.removeAttribute('required');
+    } else {
+      if (imgSection) imgSection.classList.add('hidden');
+      if (vidSection) vidSection.classList.remove('hidden');
+      if (vidInput) vidInput.setAttribute('required', 'required');
+    }
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function handleGalleryImageSelect(input) {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const sizeFormatted = file.size > 1024 * 1024
+          ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+          : (file.size / 1024).toFixed(1) + ' KB';
+        showGalleryPreview(e.target.result, file.name, sizeFormatted);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function showGalleryPreview(src, name, meta) {
+    const previewContainer = document.getElementById('galleryPreviewContainer');
+    const dropZone = document.getElementById('galleryDropZone');
+    const previewImg = document.getElementById('galleryPreviewImg');
+    const fileNameEl = document.getElementById('galleryPreviewFileName');
+    const fileSizeEl = document.getElementById('galleryPreviewFileSize');
+
+    if (previewImg) previewImg.src = src;
+    if (fileNameEl) fileNameEl.textContent = name || 'Uploaded Photo';
+    if (fileSizeEl) fileSizeEl.textContent = meta || '';
+
+    if (previewContainer) previewContainer.classList.remove('hidden');
+    if (dropZone) dropZone.classList.add('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function clearGalleryImageSelection() {
+    const fileInput = document.getElementById('galleryImageFileInput');
+    if (fileInput) fileInput.value = '';
+    const previewContainer = document.getElementById('galleryPreviewContainer');
+    const dropZone = document.getElementById('galleryDropZone');
+    const previewImg = document.getElementById('galleryPreviewImg');
+
+    if (previewImg) previewImg.src = '';
+    if (previewContainer) previewContainer.classList.add('hidden');
+    if (dropZone) dropZone.classList.remove('hidden');
+  }
+
+  function handleGalleryDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const dropZone = document.getElementById('galleryDropZone');
+    if (dropZone) dropZone.classList.add('border-primary', 'bg-primary/5');
+  }
+
+  function handleGalleryDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const dropZone = document.getElementById('galleryDropZone');
+    if (dropZone) dropZone.classList.remove('border-primary', 'bg-primary/5');
+  }
+
+  function handleGalleryDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const dropZone = document.getElementById('galleryDropZone');
+    if (dropZone) dropZone.classList.remove('border-primary', 'bg-primary/5');
+
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files[0]) {
+      const fileInput = document.getElementById('galleryImageFileInput');
+      fileInput.files = dt.files;
+      handleGalleryImageSelect(fileInput);
+    }
+  }
+
+  function toggleImageUrlFallback() {
+    const box = document.getElementById('galleryUrlFallbackBox');
+    const text = document.getElementById('urlFallbackToggleText');
+    if (!box) return;
+    if (box.classList.contains('hidden')) {
+      box.classList.remove('hidden');
+      if (text) text.textContent = 'Hide external image URL option';
+    } else {
+      box.classList.add('hidden');
+      if (text) text.textContent = 'Or enter external image URL instead';
+    }
+  }
+
+  function handleUrlFallbackInput(val) {
+    if (val && val.trim().startsWith('http')) {
+      showGalleryPreview(val.trim(), 'External Image', 'Remote URL');
+    }
+  }
+
+  // Campus Modal Controls
+  function openAddCampusModal() {
+    document.getElementById('campusModalTitle').textContent = 'Add Website Campus';
+    document.getElementById('campus_action').value = 'add_campus';
+    document.getElementById('campus_id').value = '';
+    document.getElementById('c_name').value = '';
+    document.getElementById('c_key').value = '';
+    document.getElementById('c_key').readOnly = false;
+    document.getElementById('c_badge').value = '';
+    document.getElementById('c_icon').value = '🏢';
+    document.getElementById('c_person').value = 'Prof. Sutawane Sir';
+    document.getElementById('c_role').value = 'Academic Director';
+    document.getElementById('c_addr').value = '';
+    document.getElementById('c_dist').value = '';
+    document.getElementById('c_phone').value = '+91 98814 65883';
+    document.getElementById('c_hours').value = 'Monday to Saturday: 8:00 AM – 7:30 PM';
+    document.getElementById('c_hourssub').value = 'Sunday: 8:30 AM – 12:30 PM';
+    document.getElementById('c_embed').value = '';
+    document.getElementById('c_direct').value = '';
+    document.getElementById('c_order').value = '1';
+    document.getElementById('c_active').checked = true;
+    document.getElementById('campusModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function openEditCampusModal(id, key, name, badge, icon, person, role, addr, dist, phone, hours, hourssub, embed, direct, order, active) {
+    document.getElementById('campusModalTitle').textContent = `Edit Campus: ${name}`;
+    document.getElementById('campus_action').value = 'edit_campus';
+    document.getElementById('campus_id').value = id;
+    document.getElementById('c_name').value = name;
+    document.getElementById('c_key').value = key;
+    document.getElementById('c_key').readOnly = true;
+    document.getElementById('c_badge').value = badge;
+    document.getElementById('c_icon').value = icon;
+    document.getElementById('c_person').value = person;
+    document.getElementById('c_role').value = role;
+    document.getElementById('c_addr').value = addr;
+    document.getElementById('c_dist').value = dist;
+    document.getElementById('c_phone').value = phone;
+    document.getElementById('c_hours').value = hours;
+    document.getElementById('c_hourssub').value = hourssub;
+    document.getElementById('c_embed').value = embed;
+    document.getElementById('c_direct').value = direct;
+    document.getElementById('c_order').value = order;
+    document.getElementById('c_active').checked = active;
+    document.getElementById('campusModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeCampusModal() {
+    document.getElementById('campusModal').classList.add('hidden');
+  }
+
+  // --- Dynamic Gallery Categories Management Logic ---
+  let activeGalleryCategoryEditState = { currentId: null };
+  let pendingDeleteGalleryCatId = null;
+
+  function openManageGalleryCategoriesModal() {
+    const modal = document.getElementById('manageGalleryCategoriesModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    hideGalleryCatModalAlert();
+    const input = document.getElementById('modalNewGalleryCategoryInput');
+    if (input) {
+      setTimeout(() => input.focus(), 100);
+    }
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeManageGalleryCategoriesModal() {
+    const modal = document.getElementById('manageGalleryCategoriesModal');
+    if (modal) modal.classList.add('hidden');
+    if (activeGalleryCategoryEditState.currentId) {
+      cancelEditGalleryCategory(activeGalleryCategoryEditState.currentId);
+    }
+    hideGalleryCatModalAlert();
+  }
+
+  function showGalleryCatModalAlert(msg, type = 'success') {
+    const el = document.getElementById('galleryCatModalAlert');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('hidden', 'bg-emerald-500/10', 'text-emerald-700', 'border-emerald-500/20', 'bg-rose-500/10', 'text-rose-700', 'border-rose-500/20', 'border');
+    if (type === 'success') {
+      el.classList.add('bg-emerald-500/10', 'text-emerald-700', 'border', 'border-emerald-500/20');
+    } else {
+      el.classList.add('bg-rose-500/10', 'text-rose-700', 'border', 'border-rose-500/20');
+    }
+  }
+
+  function hideGalleryCatModalAlert() {
+    const el = document.getElementById('galleryCatModalAlert');
+    if (el) el.classList.add('hidden');
+  }
+
+  async function handleAddNewGalleryCategory(e) {
+    e.preventDefault();
+    const input = document.getElementById('modalNewGalleryCategoryInput');
+    const name = input ? input.value.trim() : '';
+    if (!name) return;
+
+    const btn = document.getElementById('modalAddGalleryCategoryBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Adding...</span>`;
+    if (window.lucide) lucide.createIcons();
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('action', 'create_gallery_category');
+    formData.append('category_name', name);
+
+    try {
+      const resp = await fetch("{% url 'website_management' %}?tab=gallery", {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      });
+      const data = await resp.json();
+
+      if (data.success) {
+        input.value = '';
+        showGalleryCatModalAlert(data.message, 'success');
+        addGalleryCategoryRowToTable(data.category);
+        addGalleryCategoryOptionToDropdowns(data.category.id, data.category.name);
+        updateGalleryCategoryCountBadge();
+      } else {
+        showGalleryCatModalAlert(data.error || 'Failed to create category.', 'error');
+      }
+    } catch (err) {
+      showGalleryCatModalAlert('A network error occurred while adding the category.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i><span>Add Category</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function addGalleryCategoryRowToTable(cat) {
+    const tbody = document.getElementById('manageGalleryCategoriesTableBody');
+    const noRow = document.getElementById('noGalleryCategoriesRow');
+    if (noRow) noRow.remove();
+
+    const tr = document.createElement('tr');
+    tr.id = 'gallery-cat-row-' + cat.id;
+    tr.setAttribute('data-id', cat.id);
+    tr.setAttribute('data-name', cat.name);
+    tr.setAttribute('data-count', '0');
+    tr.className = 'hover:bg-muted/30 transition-colors animate-in fade-in duration-200';
+
+    tr.innerHTML = `
+      <td class="py-3 px-3.5 text-center font-mono text-muted-foreground text-[11px] gallery-cat-row-index">1</td>
+      <td class="py-3 px-4" id="gallery-cat-name-cell-${cat.id}">
+        <div class="flex items-center gap-2.5">
+          <span class="font-semibold text-foreground text-xs gallery-cat-display-name">${escapeGalleryHtml(cat.name)}</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">New</span>
+        </div>
+      </td>
+      <td class="py-3 px-4 text-center" id="gallery-cat-count-cell-${cat.id}">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium text-muted-foreground bg-muted/60 border border-border/60">
+          0 items (Unused)
+        </span>
+      </td>
+      <td class="py-3 px-4 text-right" id="gallery-cat-actions-cell-${cat.id}">
+        <div class="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onclick="startEditGalleryCategory('${cat.id}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Inline Edit / Rename Category"
+          >
+            <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+            <span>Edit</span>
+          </button>
+          <button
+            type="button"
+            onclick="openGalleryCatDeleteConfirmModal('${cat.id}', '${escapeGalleryJs(cat.name)}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Delete unused category"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Delete</span>
+          </button>
+        </div>
+      </td>
+    `;
+
+    tbody.prepend(tr);
+    renumberGalleryTableRows();
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function startEditGalleryCategory(catId) {
+    const row = document.getElementById('gallery-cat-row-' + catId);
+    if (!row) return;
+
+    if (activeGalleryCategoryEditState.currentId && activeGalleryCategoryEditState.currentId !== catId) {
+      cancelEditGalleryCategory(activeGalleryCategoryEditState.currentId);
+    }
+    activeGalleryCategoryEditState.currentId = catId;
+
+    const currentName = row.getAttribute('data-name');
+    const count = parseInt(row.getAttribute('data-count') || '0', 10);
+
+    const nameCell = document.getElementById('gallery-cat-name-cell-' + catId);
+    const actionsCell = document.getElementById('gallery-cat-actions-cell-' + catId);
+
+    nameCell.innerHTML = `
+      <div class="space-y-1">
+        <input
+          type="text"
+          id="gallery-cat-edit-input-${catId}"
+          value="${escapeGalleryHtml(currentName)}"
+          class="w-full h-8 px-3 text-xs font-semibold border-2 border-primary rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
+          onkeydown="handleGalleryCatEditKey(event, '${catId}')"
+        />
+        ${count > 0 ? `
+          <p class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+            <i data-lucide="alert-circle" class="w-3 h-3 flex-shrink-0"></i>
+            <span>Warning: Renaming updates across all ${count} recorded media item(s).</span>
+          </p>
+        ` : ''}
+      </div>
+    `;
+
+    actionsCell.innerHTML = `
+      <div class="flex items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onclick="saveEditGalleryCategory('${catId}')"
+          class="h-8 px-3 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+          title="Save changes"
+        >
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Save</span>
+        </button>
+        <button
+          type="button"
+          onclick="cancelEditGalleryCategory('${catId}')"
+          class="h-8 px-3 text-xs font-medium rounded-lg border border-input bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+          title="Cancel editing"
+        >
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <span>Cancel</span>
+        </button>
+      </div>
+    `;
+
+    if (window.lucide) lucide.createIcons();
+    const input = document.getElementById('gallery-cat-edit-input-' + catId);
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function handleGalleryCatEditKey(e, catId) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEditGalleryCategory(catId);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEditGalleryCategory(catId);
+    }
+  }
+
+  async function saveEditGalleryCategory(catId) {
+    const input = document.getElementById('gallery-cat-edit-input-' + catId);
+    if (!input) return;
+    const newName = input.value.trim();
+    if (!newName) {
+      showGalleryCatModalAlert('Category name cannot be empty.', 'error');
+      input.focus();
+      return;
+    }
+
+    const row = document.getElementById('gallery-cat-row-' + catId);
+    const count = parseInt(row.getAttribute('data-count') || '0', 10);
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('action', 'update_gallery_category');
+    formData.append('category_id', catId);
+    formData.append('category_name', newName);
+
+    try {
+      const resp = await fetch("{% url 'website_management' %}?tab=gallery", {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      });
+      const data = await resp.json();
+
+      if (data.success) {
+        row.setAttribute('data-name', data.category.name);
+        activeGalleryCategoryEditState.currentId = null;
+        renderGalleryCatRowView(catId, data.category.name, count);
+        syncGalleryCategoryOptionInDropdowns(catId, data.category.name);
+        showGalleryCatModalAlert(data.message, 'success');
+      } else {
+        showGalleryCatModalAlert(data.error || 'Failed to update category.', 'error');
+      }
+    } catch (err) {
+      showGalleryCatModalAlert('A network error occurred while updating the category.', 'error');
+    }
+  }
+
+  function cancelEditGalleryCategory(catId) {
+    const row = document.getElementById('gallery-cat-row-' + catId);
+    if (!row) return;
+    const name = row.getAttribute('data-name');
+    const count = parseInt(row.getAttribute('data-count') || '0', 10);
+    activeGalleryCategoryEditState.currentId = null;
+    renderGalleryCatRowView(catId, name, count);
+  }
+
+  function renderGalleryCatRowView(catId, name, count) {
+    const nameCell = document.getElementById('gallery-cat-name-cell-' + catId);
+    const actionsCell = document.getElementById('gallery-cat-actions-cell-' + catId);
+    if (!nameCell || !actionsCell) return;
+
+    nameCell.innerHTML = `
+      <div class="flex items-center gap-2.5">
+        <span class="font-semibold text-foreground text-xs gallery-cat-display-name">${escapeGalleryHtml(name)}</span>
+      </div>
+    `;
+
+    actionsCell.innerHTML = `
+      <div class="flex items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onclick="startEditGalleryCategory('${catId}')"
+          class="h-8 px-3 text-xs font-semibold rounded-lg border border-input bg-card hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          title="Inline Edit / Rename Category"
+        >
+          <i data-lucide="edit-3" class="w-3.5 h-3.5 text-primary"></i>
+          <span>Edit</span>
+        </button>
+        ${count > 0 ? `
+          <button
+            type="button"
+            onclick="showCannotDeleteGalleryCatWarning('${escapeGalleryJs(name)}', ${count}, '${catId}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-border/50 bg-muted/40 text-muted-foreground/60 cursor-not-allowed inline-flex items-center gap-1.5 shadow-2xs"
+            title="Protected: Cannot delete category with recorded media items"
+          >
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500"></i>
+            <span>Delete</span>
+          </button>
+        ` : `
+          <button
+            type="button"
+            onclick="openGalleryCatDeleteConfirmModal('${catId}', '${escapeGalleryJs(name)}')"
+            class="h-8 px-3 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Delete unused category"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Delete</span>
+          </button>
+        `}
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function showCannotDeleteGalleryCatWarning(name, count, catId) {
+    const modal = document.getElementById('galleryCatDeleteWarningModal');
+    const body = document.getElementById('galleryWarningModalBody');
+    const renameBtn = document.getElementById('galleryWarningModalRenameBtn');
+
+    if (body) {
+      body.innerHTML = `Category <strong class="text-foreground">${escapeGalleryHtml(name)}</strong> currently has <strong class="text-foreground">${count} recorded gallery media item(s)</strong> and cannot be removed.`;
+    }
+
+    if (renameBtn) {
+      renameBtn.onclick = function() {
+        closeGalleryCatDeleteWarningModal();
+        startEditGalleryCategory(catId);
+      };
+    }
+
+    if (modal) modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeGalleryCatDeleteWarningModal() {
+    const modal = document.getElementById('galleryCatDeleteWarningModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function openGalleryCatDeleteConfirmModal(catId, catName) {
+    pendingDeleteGalleryCatId = catId;
+    const nameEl = document.getElementById('confirmDeleteGalleryCatName');
+    if (nameEl) nameEl.textContent = `"${catName}"`;
+    const modal = document.getElementById('galleryCatDeleteConfirmModal');
+    if (modal) modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeGalleryCatDeleteConfirmModal() {
+    pendingDeleteGalleryCatId = null;
+    const modal = document.getElementById('galleryCatDeleteConfirmModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function executeDeleteGalleryCategory() {
+    if (!pendingDeleteGalleryCatId) return;
+    const catId = pendingDeleteGalleryCatId;
+    const btn = document.getElementById('confirmDeleteGalleryCatSubmitBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Deleting...</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('action', 'delete_gallery_category');
+    formData.append('category_id', catId);
+
+    try {
+      const resp = await fetch("{% url 'website_management' %}?tab=gallery", {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      });
+      const data = await resp.json();
+
+      if (data.success) {
+        closeGalleryCatDeleteConfirmModal();
+        const row = document.getElementById('gallery-cat-row-' + catId);
+        if (row) row.remove();
+        removeGalleryCategoryOptionFromDropdowns(catId);
+        renumberGalleryTableRows();
+        updateGalleryCategoryCountBadge();
+        showGalleryCatModalAlert(data.message, 'success');
+      } else {
+        closeGalleryCatDeleteConfirmModal();
+        showGalleryCatModalAlert(data.error || 'Failed to delete category.', 'error');
+      }
+    } catch (err) {
+      closeGalleryCatDeleteConfirmModal();
+      showGalleryCatModalAlert('A network error occurred while deleting the category.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span>Delete Category</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  }
+
+  function filterGalleryCategoriesTable(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#manageGalleryCategoriesTableBody tr[id^="gallery-cat-row-"]');
+    rows.forEach(r => {
+      const name = (r.getAttribute('data-name') || '').toLowerCase();
+      if (!q || name.includes(q)) {
+        r.style.display = '';
+      } else {
+        r.style.display = 'none';
+      }
+    });
+  }
+
+  function updateGalleryCategoryCountBadge() {
+    const rows = document.querySelectorAll('#manageGalleryCategoriesTableBody tr[id^="gallery-cat-row-"]');
+    const badge = document.getElementById('galleryCatTotalCountBadge');
+    if (badge) badge.textContent = rows.length;
+  }
+
+  function renumberGalleryTableRows() {
+    const indices = document.querySelectorAll('#manageGalleryCategoriesTableBody .gallery-cat-row-index');
+    indices.forEach((el, i) => {
+      el.textContent = i + 1;
+    });
+  }
+
+  function addGalleryCategoryOptionToDropdowns(id, name) {
+    const select = document.getElementById('g_category');
+    if (!select) return;
+    const exists = Array.from(select.options).some(o => o.value.toLowerCase() === name.toLowerCase());
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+  }
+
+  function syncGalleryCategoryOptionInDropdowns(id, newName) {
+    const select = document.getElementById('g_category');
+    if (!select) return;
+    const row = document.getElementById('gallery-cat-row-' + id);
+    const oldName = row ? row.getAttribute('data-name') : null;
+    Array.from(select.options).forEach(opt => {
+      if (opt.value === oldName || opt.value === newName) {
+        opt.value = newName;
+        opt.textContent = newName;
+      }
+    });
+  }
+
+  function removeGalleryCategoryOptionFromDropdowns(id) {
+    const row = document.getElementById('gallery-cat-row-' + id);
+    const name = row ? row.getAttribute('data-name') : null;
+    const select = document.getElementById('g_category');
+    if (!select || !name) return;
+    Array.from(select.options).forEach(opt => {
+      if (opt.value.toLowerCase() === name.toLowerCase()) {
+        opt.remove();
+      }
+    });
+  }
+
+  function escapeGalleryHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeGalleryJs(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '');
+  }
+
+  // =========================================================================
+  // Announcements & Notice Board Management (FAQ Style)
+  // =========================================================================
+  let addNoticeQuill = null;
+  let editNoticeQuill = null;
+
+  const quillToolbarConfig = [
+    ['bold', 'italic', 'underline'],
+    [{ 'color': [] }, { 'background': [] }],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    [{ 'header': [2, 3, false] }],
+    ['clean']
+  ];
+
+  function initNoticeQuillEditors() {
+    if (typeof Quill === 'undefined') return;
+
+    if (!addNoticeQuill && document.getElementById('addNoticeQuillEditor')) {
+      addNoticeQuill = new Quill('#addNoticeQuillEditor', {
+        theme: 'snow',
+        placeholder: 'Write the announcement details, exam schedules, instructions, or bullet points...',
+        modules: { toolbar: quillToolbarConfig }
+      });
+    }
+
+    if (!editNoticeQuill && document.getElementById('editNoticeQuillEditor')) {
+      editNoticeQuill = new Quill('#editNoticeQuillEditor', {
+        theme: 'snow',
+        placeholder: 'Edit the announcement details...',
+        modules: { toolbar: quillToolbarConfig }
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    initNoticeQuillEditors();
+
+    const addForm = document.getElementById('addNoticeForm');
+    if (addForm) {
+      addForm.addEventListener('submit', function() {
+        if (addNoticeQuill) {
+          const isBlank = addNoticeQuill.getText().trim().length === 0;
+          document.getElementById('add_notice_content').value = isBlank ? '' : addNoticeQuill.root.innerHTML;
+        }
+      });
+    }
+
+    const editForm = document.getElementById('editNoticeForm');
+    if (editForm) {
+      editForm.addEventListener('submit', function() {
+        if (editNoticeQuill) {
+          const isBlank = editNoticeQuill.getText().trim().length === 0;
+          document.getElementById('edit_notice_content').value = isBlank ? '' : editNoticeQuill.root.innerHTML;
+        }
+      });
+    }
+  });
+
+  function openAddNoticeModal() {
+    initNoticeQuillEditors();
+    if (addNoticeQuill) {
+      addNoticeQuill.setText('');
+    }
+    const modal = document.getElementById('addNoticeModal');
+    if (modal) modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeAddNoticeModal() {
+    const modal = document.getElementById('addNoticeModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function openEditNoticeModal(id) {
+    initNoticeQuillEditors();
+    const rawScript = document.getElementById('notif-raw-' + id);
+    if (!rawScript) return;
+
+    try {
+      const data = JSON.parse(rawScript.textContent);
+      document.getElementById('edit_notice_id').value = data.id;
+      document.getElementById('edit_notice_title').value = data.title;
+      document.getElementById('edit_notice_active').checked = !!data.is_active;
+      document.getElementById('edit_notice_pinned').checked = !!data.is_pinned;
+
+      if (editNoticeQuill) {
+        editNoticeQuill.root.innerHTML = data.content || '';
+      }
+
+      // Populate existing docs list
+      const docsList = document.getElementById('editNoticeDocsList');
+      if (docsList) {
+        if (data.documents && data.documents.length > 0) {
+          docsList.innerHTML = data.documents.map(doc => `
+            <div class="flex items-center justify-between p-2 rounded-lg bg-muted/40 border text-xs">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+                <span class="font-medium text-foreground truncate">${doc.file_name}</span>
+                <span class="text-muted-foreground text-[10px]">(${doc.file_size || ''})</span>
+              </div>
+              <button
+                type="button"
+                onclick="deleteNoticeDocument('${doc.id}', '${doc.file_name.replace(/'/g, "\\'")}')"
+                class="text-destructive hover:text-destructive/80 text-[11px] font-semibold px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors shrink-0 cursor-pointer"
+              >
+                Remove
+              </button>
+            </div>
+          `).join('');
+          if (window.lucide) lucide.createIcons();
+        } else {
+          docsList.innerHTML = '<p class="text-xs text-muted-foreground italic">No documents attached.</p>';
+        }
+      }
+
+      const modal = document.getElementById('editNoticeModal');
+      if (modal) modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    } catch (err) {
+      console.error("Error parsing notice data:", err);
+    }
+  }
+
+  function closeEditNoticeModal() {
+    const modal = document.getElementById('editNoticeModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function deleteNoticeDocument(docId, docName) {
+    if (confirm(`Are you sure you want to remove the document "${docName}"?`)) {
+      document.getElementById('delete_doc_id').value = docId;
+      document.getElementById('deleteNoticeDocForm').submit();
+    }
+  }
+
+  function openDeleteNoticeModal(id, title) {
+    document.getElementById('delete_notice_id').value = id;
+    document.getElementById('deleteNoticeTitleText').textContent = title;
+    const modal = document.getElementById('deleteNoticeModal');
+    if (modal) modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeDeleteNoticeModal() {
+    const modal = document.getElementById('deleteNoticeModal');
+    if (modal) modal.classList.add('hidden');
+  }
+</script>
+{% endblock %}

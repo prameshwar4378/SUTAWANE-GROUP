@@ -206,6 +206,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = os.getenv('DJANGO_X_FRAME_OPTIONS', 'SAMEORIGIN')
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # HTTPS / SSL Hardening (Enabled when DJANGO_SECURE_SSL=True in production environment)
 SECURE_SSL = os.getenv('DJANGO_SECURE_SSL', 'False').lower() in ('true', '1', 'yes')

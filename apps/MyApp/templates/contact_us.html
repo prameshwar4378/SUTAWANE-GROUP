@@ -428,12 +428,12 @@
       <!-- Page Title -->
       <h1 class="modern-page-title">
         Connect with Our Campuses.<br>
-        <span class="gradient-text-indigo">Direct Guidance by Prof. Sutawane Sir.</span>
+        <span class="gradient-text-indigo">Direct Guidance by {% if website_campuses.0 %}{{ website_campuses.0.person_name }}{% else %}Prof. Sutawane Sir{% endif %}.</span>
       </h1>
 
       <!-- Subtitle Description -->
       <p class="modern-page-desc">
-        Personalized counseling for 8th–10th Board, 11th–12th Science (PCB/PCM), MHT-CET, NEET &amp; JEE across our <strong>Vaijapur</strong>, <strong>Kopargaon</strong>, and <strong>Yeola</strong> campuses. Central helpline: <strong>+91 98814 65883</strong>.
+        Personalized counseling for 8th–10th Board, 11th–12th Science (PCB/PCM), MHT-CET, NEET &amp; JEE across our {% if website_campuses %}{% for c in website_campuses %}<strong>{{ c.name }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}<strong>Vaijapur</strong>, <strong>Kopargaon</strong>, and <strong>Yeola</strong>{% endif %} campuses. Central helpline: <strong>{% if website_campuses.0 %}{{ website_campuses.0.phone }}{% else %}+91 98814 65883{% endif %}</strong>.
       </p>
 
     </div>
@@ -448,33 +448,42 @@
 
     <!-- Branch Selection Tabs -->
     <div class="branch-switcher-strip" role="tablist" aria-label="Branch Selector">
-      <button type="button" class="branch-tab-btn active" id="tab-vaijapur" onclick="switchBranch('vaijapur')">
-        <span>🏛️ Vaijapur</span>
-        <span class="tab-badge">Main Campus</span>
-      </button>
-      <button type="button" class="branch-tab-btn" id="tab-kopargaon" onclick="switchBranch('kopargaon')">
-        <span>🏢 Kopargaon</span>
-        <span class="tab-badge">Science Center</span>
-      </button>
-      <button type="button" class="branch-tab-btn" id="tab-yeola" onclick="switchBranch('yeola')">
-        <span>🏢 Yeola</span>
-        <span class="tab-badge">Academic Wing</span>
-      </button>
+      {% if website_campuses %}
+        {% for c in website_campuses %}
+        <button type="button" class="branch-tab-btn {% if forloop.first %}active{% endif %}" id="tab-{{ c.campus_key }}" onclick="switchBranch('{{ c.campus_key }}')">
+          <span>{{ c.icon|default:'🏢' }} {{ c.name }}</span>
+          <span class="tab-badge">{{ c.badge }}</span>
+        </button>
+        {% endfor %}
+      {% else %}
+        <button type="button" class="branch-tab-btn active" id="tab-vaijapur" onclick="switchBranch('vaijapur')">
+          <span>🏛️ Vaijapur</span>
+          <span class="tab-badge">Main Campus</span>
+        </button>
+        <button type="button" class="branch-tab-btn" id="tab-kopargaon" onclick="switchBranch('kopargaon')">
+          <span>🏢 Kopargaon</span>
+          <span class="tab-badge">Science Center</span>
+        </button>
+        <button type="button" class="branch-tab-btn" id="tab-yeola" onclick="switchBranch('yeola')">
+          <span>🏢 Yeola</span>
+          <span class="tab-badge">Academic Wing</span>
+        </button>
+      {% endif %}
     </div>
 
     <div class="contact-split-grid">
       
       <!-- Left Column: Active Branch Spotlight -->
       <div class="contact-info-column">
-        
+        {% with first_campus=website_campuses.0 %}
         <div class="branch-spotlight-card" id="branchCard">
           <!-- Card Header -->
           <div class="branch-spotlight-head">
             <div class="branch-title-group">
-              <div class="branch-icon-box" id="spotlightIcon">🏛️</div>
+              <div class="branch-icon-box" id="spotlightIcon">{% if first_campus %}{{ first_campus.icon|default:'🏛️' }}{% else %}🏛️{% endif %}</div>
               <div>
-                <h2 class="branch-name-text" id="spotlightName">Vaijapur Main Campus</h2>
-                <div class="branch-subtitle-text" id="spotlightBadge">Head Office &amp; Central Learning Center</div>
+                <h2 class="branch-name-text" id="spotlightName">{% if first_campus %}{{ first_campus.name }}{% else %}Vaijapur Main Campus{% endif %}</h2>
+                <div class="branch-subtitle-text" id="spotlightBadge">{% if first_campus %}{{ first_campus.badge }}{% else %}Head Office &amp; Central Learning Center{% endif %}</div>
               </div>
             </div>
             <span class="branch-open-pill">
@@ -486,13 +495,13 @@
           <!-- Academic Mentor Person Banner -->
           <div class="mentor-highlight-box">
             <div class="mentor-left-details">
-              <div class="mentor-avatar-badge">PS</div>
+              <div class="mentor-avatar-badge" id="spotlightAvatar">{% if first_campus %}{{ first_campus.mentor_initials|default:'SC' }}{% else %}PS{% endif %}</div>
               <div>
-                <div class="mentor-title-name" id="spotlightPerson">Prof. Sutawane Sir</div>
-                <div class="mentor-subtitle" id="spotlightRole">Founder &amp; Chief Academic Director</div>
+                <div class="mentor-title-name" id="spotlightPerson">{% if first_campus %}{{ first_campus.person_name }}{% else %}Prof. Sutawane Sir{% endif %}</div>
+                <div class="mentor-subtitle" id="spotlightRole">{% if first_campus %}{{ first_campus.person_role }}{% else %}Founder &amp; Chief Academic Director{% endif %}</div>
               </div>
             </div>
-            <a href="tel:+919881465883" class="btn-branch-call" style="padding:0.45rem 0.85rem;font-size:0.8rem;border-radius:8px;">
+            <a href="tel:{% if first_campus %}{{ first_campus.phone_clean|default:first_campus.phone }}{% else %}+919881465883{% endif %}" id="spotlightCallDirectBtn" class="btn-branch-call" style="padding:0.45rem 0.85rem;font-size:0.8rem;border-radius:8px;">
               <span>📞 Call Direct</span>
             </a>
           </div>
@@ -504,8 +513,8 @@
               <div class="info-icon-badge">📍</div>
               <div class="info-text-group">
                 <span class="info-label">Campus Address</span>
-                <span class="info-value-main" id="spotlightAddress">Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur</span>
-                <span class="info-value-sub" id="spotlightDistrict">Dist. Chhatrapati Sambhajinagar - 423701</span>
+                <span class="info-value-main" id="spotlightAddress">{% if first_campus %}{{ first_campus.address }}{% else %}Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur{% endif %}</span>
+                <span class="info-value-sub" id="spotlightDistrict">{% if first_campus %}{{ first_campus.district }}{% else %}Dist. Chhatrapati Sambhajinagar - 423701{% endif %}</span>
               </div>
             </div>
 
@@ -513,12 +522,12 @@
             <div class="branch-info-row">
               <div class="info-icon-badge">📞</div>
               <div class="info-text-group">
-                <span class="info-label">Admissions &amp; Inquiry Helpline (All Branches)</span>
-                <a href="tel:+919881465883" class="info-phone-link" id="spotlightPhoneLink">
-                  <span>+91 98814 65883</span>
+                <span class="info-label">Admissions &amp; Inquiry Helpline</span>
+                <a href="tel:{% if first_campus %}{{ first_campus.phone_clean|default:first_campus.phone }}{% else %}+919881465883{% endif %}" class="info-phone-link" id="spotlightPhoneLink">
+                  <span id="spotlightPhoneText">{% if first_campus %}{{ first_campus.phone }}{% else %}+91 98814 65883{% endif %}</span>
                   <span style="font-size:0.75rem;color:#16A34A;font-weight:700;">(Tap to Call)</span>
                 </a>
-                <span class="info-value-sub">One unified direct helpline for Vaijapur, Kopargaon &amp; Yeola</span>
+                <span class="info-value-sub" id="spotlightPhoneSub">Direct helpline for <span id="spotlightPhoneBranchName">{% if first_campus %}{{ first_campus.name }}{% else %}Vaijapur{% endif %}</span></span>
               </div>
             </div>
 
@@ -527,49 +536,60 @@
               <div class="info-icon-badge">⏰</div>
               <div class="info-text-group">
                 <span class="info-label">Campus Office Hours</span>
-                <span class="info-value-main" id="spotlightHours">Monday to Saturday: 7:30 AM – 8:00 PM</span>
-                <span class="info-value-sub">Sunday: 8:00 AM – 1:00 PM</span>
+                <span class="info-value-main" id="spotlightHours">{% if first_campus %}{{ first_campus.hours }}{% else %}Monday to Saturday: 7:30 AM – 8:00 PM{% endif %}</span>
+                <span class="info-value-sub" id="spotlightHoursSub">{% if first_campus and first_campus.hours_sub %}{{ first_campus.hours_sub }}{% else %}Sunday: 8:00 AM – 1:00 PM{% endif %}</span>
               </div>
             </div>
           </div>
 
           <!-- Quick Action Buttons -->
           <div class="branch-action-buttons">
-            <a href="tel:+919881465883" class="btn-branch-call">
-              <span>📞 Call: +91 98814 65883</span>
+            <a href="tel:{% if first_campus %}{{ first_campus.phone_clean|default:first_campus.phone }}{% else %}+919881465883{% endif %}" id="spotlightCallBottomBtn" class="btn-branch-call">
+              <span id="spotlightCallBottomText">📞 Call: {% if first_campus %}{{ first_campus.phone }}{% else %}+91 98814 65883{% endif %}</span>
             </a>
-            <a href="https://wa.me/919881465883?text=Hello%20Prof.%20Sutawane%20Sir,%20I%20want%20to%20inquire%20about%20admissions%20for%20Vaijapur%20branch." id="spotlightWaLink" target="_blank" rel="noopener noreferrer" class="btn-branch-wa">
+            <a href="https://wa.me/{% if first_campus %}{{ first_campus.phone_whatsapp|default:'919881465883' }}{% else %}919881465883{% endif %}?text=Hello%20{% if first_campus %}{{ first_campus.person_name|urlencode }}{% else %}Prof.%20Sutawane%20Sir{% endif %},%20I%20want%20to%20inquire%20about%20admissions%20for%20{% if first_campus %}{{ first_campus.name|urlencode }}{% else %}Vaijapur{% endif %}." id="spotlightWaLink" target="_blank" rel="noopener noreferrer" class="btn-branch-wa">
               <span>💬 WhatsApp Inquiry</span>
               <span>↗</span>
             </a>
           </div>
         </div>
+        {% endwith %}
 
         <!-- 3-Campus Quick Access Cards Strip -->
         <div class="three-campuses-strip">
-          <div class="mini-campus-card active" id="mini-vaijapur" onclick="switchBranch('vaijapur')">
-            <div>
-              <div class="mini-campus-name">🏛️ Vaijapur (Main)</div>
-              <div class="mini-campus-addr">Ladgaon Rd, Niwara Nagari, Near Dongare Hospital</div>
+          {% if website_campuses %}
+            {% for c in website_campuses %}
+            <div class="mini-campus-card {% if forloop.first %}active{% endif %}" id="mini-{{ c.campus_key }}" onclick="switchBranch('{{ c.campus_key }}')">
+              <div>
+                <div class="mini-campus-name">{{ c.icon|default:'🏢' }} {{ c.name }}</div>
+                <div class="mini-campus-addr">{{ c.address }}{% if c.district %}, {{ c.district }}{% endif %}</div>
+              </div>
+              <div class="mini-campus-phone">📞 {{ c.phone }}</div>
             </div>
-            <div class="mini-campus-phone">📞 +91 98814 65883</div>
-          </div>
-
-          <div class="mini-campus-card" id="mini-kopargaon" onclick="switchBranch('kopargaon')">
-            <div>
-              <div class="mini-campus-name">🏢 Kopargaon</div>
-              <div class="mini-campus-addr">Near Shivaji Chowk, Main Road</div>
+            {% endfor %}
+          {% else %}
+            <div class="mini-campus-card active" id="mini-vaijapur" onclick="switchBranch('vaijapur')">
+              <div>
+                <div class="mini-campus-name">🏛️ Vaijapur (Main)</div>
+                <div class="mini-campus-addr">Ladgaon Rd, Niwara Nagari, Near Dongare Hospital</div>
+              </div>
+              <div class="mini-campus-phone">📞 +91 98814 65883</div>
             </div>
-            <div class="mini-campus-phone">📞 +91 98814 65883</div>
-          </div>
-
-          <div class="mini-campus-card" id="mini-yeola" onclick="switchBranch('yeola')">
-            <div>
-              <div class="mini-campus-name">🏢 Yeola</div>
-              <div class="mini-campus-addr">Near Civil Court, Main Road</div>
+            <div class="mini-campus-card" id="mini-kopargaon" onclick="switchBranch('kopargaon')">
+              <div>
+                <div class="mini-campus-name">🏢 Kopargaon</div>
+                <div class="mini-campus-addr">Near Shivaji Chowk, Main Road</div>
+              </div>
+              <div class="mini-campus-phone">📞 +91 98814 65883</div>
             </div>
-            <div class="mini-campus-phone">📞 +91 98814 65883</div>
-          </div>
+            <div class="mini-campus-card" id="mini-yeola" onclick="switchBranch('yeola')">
+              <div>
+                <div class="mini-campus-name">🏢 Yeola</div>
+                <div class="mini-campus-addr">Near Civil Court, Main Road</div>
+              </div>
+              <div class="mini-campus-phone">📞 +91 98814 65883</div>
+            </div>
+          {% endif %}
         </div>
 
       </div>
@@ -584,12 +604,14 @@
           </p>
         </div>
 
-        <!-- Academic Director Banner -->
+        <!-- Academic Mentor Person Banner -->
         <div class="form-mentor-banner">
           <div>
-            <span>👨‍🏫 <strong>Academic Mentor:</strong> Prof. Sutawane Sir</span>
+            <span>👨‍🏫 <strong>Academic Mentor:</strong> <span id="formMentorName">{% if website_campuses.0 %}{{ website_campuses.0.person_name }}{% else %}Prof. Sutawane Sir{% endif %}</span></span>
           </div>
-          <a href="tel:+919881465883" class="form-mentor-phone">📞 +91 98814 65883</a>
+          <a href="tel:{% if website_campuses.0 %}{{ website_campuses.0.phone_clean|default:website_campuses.0.phone }}{% else %}+919881465883{% endif %}" id="formMentorPhoneLink" class="form-mentor-phone">
+            <span id="formMentorPhone">📞 {% if website_campuses.0 %}{{ website_campuses.0.phone }}{% else %}+91 98814 65883{% endif %}</span>
+          </a>
         </div>
 
         <form id="contactPageForm" onsubmit="handleContactPageSubmit(event)">
@@ -609,9 +631,15 @@
           <div class="modern-form-group">
             <label for="contact_branch">Preferred Campus Branch *</label>
             <select id="contact_branch" class="modern-form-select" required onchange="syncBranchWithForm(this.value)">
-              <option value="Vaijapur (Main Campus)">🏛️ Vaijapur (Main Campus · Ladgaon Road)</option>
-              <option value="Kopargaon Campus">🏢 Kopargaon Campus (Near Shivaji Chowk)</option>
-              <option value="Yeola Campus">🏢 Yeola Campus (Near Civil Court)</option>
+              {% if website_campuses %}
+                {% for c in website_campuses %}
+                <option value="{{ c.campus_key }}" data-name="{{ c.name }}" {% if forloop.first %}selected{% endif %}>{{ c.icon|default:'🏢' }} {{ c.name }}</option>
+                {% endfor %}
+              {% else %}
+                <option value="vaijapur" data-name="Vaijapur (Main Campus)">🏛️ Vaijapur (Main Campus · Ladgaon Road)</option>
+                <option value="kopargaon" data-name="Kopargaon Campus">🏢 Kopargaon Campus (Near Shivaji Chowk)</option>
+                <option value="yeola" data-name="Yeola Campus">🏢 Yeola Campus (Near Civil Court)</option>
+              {% endif %}
             </select>
           </div>
 
@@ -634,7 +662,7 @@
           </div>
 
           <button type="submit" class="btn-taskharbor-primary" style="width:100%;justify-content:center;padding:0.95rem;font-size:1rem;margin-top:0.5rem;">
-            <span>Submit via WhatsApp (+91 98814 65883)</span>
+            <span id="formSubmitBtnText">Submit via WhatsApp ({% if website_campuses.0 %}{{ website_campuses.0.phone }}{% else %}+91 98814 65883{% endif %})</span>
             <span class="btn-pill-arrow">→</span>
           </button>
         </form>
@@ -652,10 +680,10 @@
     <div class="campus-map-section-wrap text-center">
       <span class="modern-badge">✦ INTERACTIVE CAMPUS LOCATOR ✦</span>
       <h3 class="modern-section-title" style="font-size:2.2rem;margin-bottom:0.75rem;" id="mapHeading">
-        Find Our Vaijapur Main Campus
+        {% if website_campuses.0 and website_campuses.0.map_heading %}{{ website_campuses.0.map_heading }}{% elif website_campuses.0 %}Find Our {{ website_campuses.0.name }}{% else %}Find Our Vaijapur Main Campus{% endif %}
       </h3>
       <p class="modern-section-desc mx-auto" style="margin-bottom:1.5rem;" id="mapSubdesc">
-        Located on Ladgaon Road, Niwara Nagari, Near Dongare Hospital in Vaijapur. Peaceful, secure, and accessible learning environment.
+        {% if website_campuses.0 and website_campuses.0.map_subdesc %}{{ website_campuses.0.map_subdesc }}{% elif website_campuses.0 %}Located on {{ website_campuses.0.address }}{% if website_campuses.0.district %}, {{ website_campuses.0.district }}{% endif %}. Peaceful, secure, and accessible learning environment.{% else %}Located on Ladgaon Road, Niwara Nagari, Near Dongare Hospital in Vaijapur. Peaceful, secure, and accessible learning environment.{% endif %}
       </p>
 
       <!-- Map Embed Frame -->
@@ -663,14 +691,14 @@
         <iframe 
           id="campusMapIframe"
           title="Sutawane Classes Campus Location Map"
-          src="https://maps.google.com/maps?q=Ladgaon%20Road,%20Niwara%20Nagari,%20Near%20Dongare%20Hospital,%20Vaijapur,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed"
+          src="{% if website_campuses.0 and website_campuses.0.map_embed_url %}{{ website_campuses.0.map_embed_url }}{% else %}https://maps.google.com/maps?q=Ladgaon%20Road,%20Niwara%20Nagari,%20Near%20Dongare%20Hospital,%20Vaijapur,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed{% endif %}"
           style="width:100%;height:100%;border:0;" 
           loading="lazy">
         </iframe>
       </div>
 
       <div style="margin-top:1.25rem;">
-        <a href="https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur" id="mapDirectLink" target="_blank" rel="noopener noreferrer" class="btn-taskharbor-frosted" style="display:inline-flex;">
+        <a href="{% if website_campuses.0 and website_campuses.0.map_direct_url %}{{ website_campuses.0.map_direct_url }}{% else %}https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur{% endif %}" id="mapDirectLink" target="_blank" rel="noopener noreferrer" class="btn-taskharbor-frosted" style="display:inline-flex;">
           <span>Open Full Directions in Google Maps</span>
           <span>↗</span>
         </a>
@@ -682,65 +710,104 @@
 
 {% block extra_js %}
 <script>
-  // Centralized Branch Configuration
+  // Centralized Dynamic Branch Configuration
   const branchData = {
-    vaijapur: {
-      name: "Vaijapur Main Campus",
-      badge: "Head Office & Central Learning Center",
-      icon: "🏛️",
-      person: "Prof. Sutawane Sir",
-      role: "Founder & Academic Director",
-      address: "Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur",
-      district: "Dist. Chhatrapati Sambhajinagar - 423701",
-      phone: "+91 98814 65883",
-      phoneRaw: "9881465883",
-      hours: "Monday to Saturday: 7:30 AM – 8:00 PM",
-      hoursSub: "Sunday: 8:00 AM – 1:00 PM",
-      mapHeading: "Find Our Vaijapur Main Campus",
-      mapSubdesc: "Located on Ladgaon Road, Niwara Nagari, Near Dongare Hospital in Vaijapur. Peaceful, secure, and accessible learning environment.",
-      mapEmbedUrl: "https://maps.google.com/maps?q=Ladgaon%20Road,%20Niwara%20Nagari,%20Near%20Dongare%20Hospital,%20Vaijapur,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
-      mapDirectUrl: "https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur",
-      formValue: "Vaijapur (Main Campus)"
-    },
-    kopargaon: {
-      name: "Kopargaon Campus",
-      badge: "Premier Science & MHT-CET Wing",
-      icon: "🏢",
-      person: "Prof. Sutawane Sir",
-      role: "Academic Director & Faculty Lead",
-      address: "Near Shivaji Chowk, Main Road, Kopargaon",
-      district: "Dist. Ahmednagar - 423601",
-      phone: "+91 98814 65883",
-      phoneRaw: "9881465883",
-      hours: "Monday to Saturday: 8:00 AM – 7:30 PM",
-      hoursSub: "Sunday: 8:30 AM – 12:30 PM",
-      mapHeading: "Find Our Kopargaon Campus",
-      mapSubdesc: "Located near Shivaji Chowk on Main Road in Kopargaon. Prime central location with modern smart lecture halls.",
-      mapEmbedUrl: "https://maps.google.com/maps?q=Shivaji%20Chowk,%20Kopargaon,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
-      mapDirectUrl: "https://maps.google.com/?q=Shivaji+Chowk+Kopargaon+Maharashtra",
-      formValue: "Kopargaon Campus"
-    },
-    yeola: {
-      name: "Yeola Campus",
-      badge: "Academic Coaching & Foundation Wing",
-      icon: "🏢",
-      person: "Prof. Sutawane Sir",
-      role: "Academic Director & Faculty Lead",
-      address: "Near Civil Court, Main Road, Yeola",
-      district: "Dist. Nashik - 423401",
-      phone: "+91 98814 65883",
-      phoneRaw: "9881465883",
-      hours: "Monday to Saturday: 8:00 AM – 7:30 PM",
-      hoursSub: "Sunday: 8:30 AM – 12:30 PM",
-      mapHeading: "Find Our Yeola Campus",
-      mapSubdesc: "Located near Civil Court on Main Road in Yeola. Dedicated classrooms and personalized academic care.",
-      mapEmbedUrl: "https://maps.google.com/maps?q=Civil%20Court,%20Yeola,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
-      mapDirectUrl: "https://maps.google.com/?q=Civil+Court+Yeola+Maharashtra",
-      formValue: "Yeola Campus"
-    }
+    {% if website_campuses %}
+      {% for c in website_campuses %}
+      "{{ c.campus_key }}": {
+        key: "{{ c.campus_key|escapejs }}",
+        name: "{{ c.name|escapejs }}",
+        badge: "{{ c.badge|escapejs }}",
+        icon: "{{ c.icon|default:'🏢'|escapejs }}",
+        person: "{{ c.person_name|default:'Prof. Sutawane Sir'|escapejs }}",
+        role: "{{ c.person_role|default:'Academic Director'|escapejs }}",
+        initials: "{{ c.mentor_initials|default:'SC'|escapejs }}",
+        address: "{{ c.address|escapejs }}",
+        district: "{{ c.district|escapejs }}",
+        phone: "{{ c.phone|escapejs }}",
+        phoneClean: "{{ c.phone_clean|escapejs }}",
+        phoneRaw: "{{ c.phone_raw|default:'9881465883'|escapejs }}",
+        phoneWhatsApp: "{{ c.phone_whatsapp|default:'919881465883'|escapejs }}",
+        hours: "{{ c.hours|escapejs }}",
+        hoursSub: "{{ c.hours_sub|escapejs }}",
+        mapHeading: "{% if c.map_heading %}{{ c.map_heading|escapejs }}{% else %}Find Our {{ c.name|escapejs }}{% endif %}",
+        mapSubdesc: "{% if c.map_subdesc %}{{ c.map_subdesc|escapejs }}{% else %}Located on {{ c.address|escapejs }}. Peaceful, secure, and accessible learning environment.{% endif %}",
+        mapEmbedUrl: "{{ c.map_embed_url|default:'https://maps.google.com/maps?q=Vaijapur&t=&z=15&ie=UTF8&iwloc=&output=embed'|escapejs }}",
+        mapDirectUrl: "{{ c.map_direct_url|default:'https://maps.google.com/?q=Vaijapur'|escapejs }}",
+        formValue: "{{ c.campus_key|escapejs }}"
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    {% else %}
+      vaijapur: {
+        key: "vaijapur",
+        name: "Vaijapur Main Campus",
+        badge: "Head Office & Central Learning Center",
+        icon: "🏛️",
+        person: "Prof. Sutawane Sir",
+        role: "Founder & Academic Director",
+        initials: "PS",
+        address: "Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur",
+        district: "Dist. Chhatrapati Sambhajinagar - 423701",
+        phone: "+91 98814 65883",
+        phoneClean: "+919881465883",
+        phoneRaw: "9881465883",
+        phoneWhatsApp: "919881465883",
+        hours: "Monday to Saturday: 7:30 AM – 8:00 PM",
+        hoursSub: "Sunday: 8:00 AM – 1:00 PM",
+        mapHeading: "Find Our Vaijapur Main Campus",
+        mapSubdesc: "Located on Ladgaon Road, Niwara Nagari, Near Dongare Hospital in Vaijapur. Peaceful, secure, and accessible learning environment.",
+        mapEmbedUrl: "https://maps.google.com/maps?q=Ladgaon%20Road,%20Niwara%20Nagari,%20Near%20Dongare%20Hospital,%20Vaijapur,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
+        mapDirectUrl: "https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur",
+        formValue: "vaijapur"
+      },
+      kopargaon: {
+        key: "kopargaon",
+        name: "Kopargaon Campus",
+        badge: "Premier Science & MHT-CET Wing",
+        icon: "🏢",
+        person: "Prof. Sutawane Sir",
+        role: "Academic Director & Faculty Lead",
+        initials: "PS",
+        address: "Near Shivaji Chowk, Main Road, Kopargaon",
+        district: "Dist. Ahmednagar - 423601",
+        phone: "+91 98814 65883",
+        phoneClean: "+919881465883",
+        phoneRaw: "9881465883",
+        phoneWhatsApp: "919881465883",
+        hours: "Monday to Saturday: 8:00 AM – 7:30 PM",
+        hoursSub: "Sunday: 8:30 AM – 12:30 PM",
+        mapHeading: "Find Our Kopargaon Campus",
+        mapSubdesc: "Located near Shivaji Chowk on Main Road in Kopargaon. Prime central location with modern smart lecture halls.",
+        mapEmbedUrl: "https://maps.google.com/maps?q=Shivaji%20Chowk,%20Kopargaon,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
+        mapDirectUrl: "https://maps.google.com/?q=Shivaji+Chowk+Kopargaon+Maharashtra",
+        formValue: "kopargaon"
+      },
+      yeola: {
+        key: "yeola",
+        name: "Yeola Campus",
+        badge: "Academic Coaching & Foundation Wing",
+        icon: "🏢",
+        person: "Prof. Sutawane Sir",
+        role: "Academic Director & Faculty Lead",
+        initials: "PS",
+        address: "Near Civil Court, Main Road, Yeola",
+        district: "Dist. Nashik - 423401",
+        phone: "+91 98814 65883",
+        phoneClean: "+919881465883",
+        phoneRaw: "9881465883",
+        phoneWhatsApp: "919881465883",
+        hours: "Monday to Saturday: 8:00 AM – 7:30 PM",
+        hoursSub: "Sunday: 8:30 AM – 12:30 PM",
+        mapHeading: "Find Our Yeola Campus",
+        mapSubdesc: "Located near Civil Court on Main Road in Yeola. Dedicated classrooms and personalized academic care.",
+        mapEmbedUrl: "https://maps.google.com/maps?q=Civil%20Court,%20Yeola,%20Maharashtra&t=&z=15&ie=UTF8&iwloc=&output=embed",
+        mapDirectUrl: "https://maps.google.com/?q=Civil+Court+Yeola+Maharashtra",
+        formValue: "yeola"
+      }
+    {% endif %}
   };
 
-  let activeBranchKey = 'vaijapur';
+  let activeBranchKey = '{{ website_campuses.0.campus_key|default:"vaijapur" }}';
 
   function switchBranch(key) {
     if (!branchData[key]) return;
@@ -758,59 +825,133 @@
     if (activeMini) activeMini.classList.add('active');
 
     // 3. Update Spotlight Card
-    document.getElementById('spotlightIcon').textContent = data.icon;
-    document.getElementById('spotlightName').textContent = data.name;
-    document.getElementById('spotlightBadge').textContent = data.badge;
-    document.getElementById('spotlightPerson').textContent = data.person;
-    document.getElementById('spotlightRole').textContent = data.role;
-    document.getElementById('spotlightAddress').textContent = data.address;
-    document.getElementById('spotlightDistrict').textContent = data.district;
-    document.getElementById('spotlightHours').textContent = data.hours;
+    const iconEl = document.getElementById('spotlightIcon');
+    if (iconEl) iconEl.textContent = data.icon;
+    const nameEl = document.getElementById('spotlightName');
+    if (nameEl) nameEl.textContent = data.name;
+    const badgeEl = document.getElementById('spotlightBadge');
+    if (badgeEl) badgeEl.textContent = data.badge;
+    const avatarEl = document.getElementById('spotlightAvatar');
+    if (avatarEl) avatarEl.textContent = data.initials || 'SC';
+    const personEl = document.getElementById('spotlightPerson');
+    if (personEl) personEl.textContent = data.person;
+    const roleEl = document.getElementById('spotlightRole');
+    if (roleEl) roleEl.textContent = data.role;
+    const addrEl = document.getElementById('spotlightAddress');
+    if (addrEl) addrEl.textContent = data.address;
+    const distEl = document.getElementById('spotlightDistrict');
+    if (distEl) distEl.textContent = data.district;
+    const hoursEl = document.getElementById('spotlightHours');
+    if (hoursEl) hoursEl.textContent = data.hours;
+    const hoursSubEl = document.getElementById('spotlightHoursSub');
+    if (hoursSubEl) hoursSubEl.textContent = data.hoursSub;
 
-    // 4. Update Spotlight Links
-    const waText = encodeURIComponent(`Hello Prof. Sutawane Sir, I want to inquire about admissions for ${data.name}.`);
-    document.getElementById('spotlightWaLink').href = `https://wa.me/919881465883?text=${waText}`;
+    // 4. Update Spotlight Phone & Call Links
+    const telTarget = data.phoneClean || data.phoneRaw || data.phone;
+    const callDirectBtn = document.getElementById('spotlightCallDirectBtn');
+    if (callDirectBtn) callDirectBtn.href = `tel:${telTarget}`;
+    const phoneLink = document.getElementById('spotlightPhoneLink');
+    if (phoneLink) phoneLink.href = `tel:${telTarget}`;
+    const phoneText = document.getElementById('spotlightPhoneText');
+    if (phoneText) phoneText.textContent = data.phone;
+    const phoneBranchName = document.getElementById('spotlightPhoneBranchName');
+    if (phoneBranchName) phoneBranchName.textContent = data.name;
 
-    // 5. Update Map Embed & Links
-    document.getElementById('mapHeading').textContent = data.mapHeading;
-    document.getElementById('mapSubdesc').textContent = data.mapSubdesc;
-    document.getElementById('campusMapIframe').src = data.mapEmbedUrl;
-    document.getElementById('mapDirectLink').href = data.mapDirectUrl;
+    const callBottomBtn = document.getElementById('spotlightCallBottomBtn');
+    if (callBottomBtn) callBottomBtn.href = `tel:${telTarget}`;
+    const callBottomText = document.getElementById('spotlightCallBottomText');
+    if (callBottomText) callBottomText.textContent = `📞 Call: ${data.phone}`;
 
-    // 6. Sync Form Dropdown
+    // WhatsApp Action
+    const waPhone = data.phoneWhatsApp || (data.phoneRaw ? (data.phoneRaw.startsWith('91') ? data.phoneRaw : '91' + data.phoneRaw.slice(-10)) : '919881465883');
+    const waText = encodeURIComponent(`Hello ${data.person}, I want to inquire about admissions for ${data.name}.`);
+    const waLink = document.getElementById('spotlightWaLink');
+    if (waLink) waLink.href = `https://wa.me/${waPhone}?text=${waText}`;
+
+    // 5. Update Right Column Direct Admissions Desk Mentor Banner
+    const formMentorName = document.getElementById('formMentorName');
+    if (formMentorName) formMentorName.textContent = data.person;
+    const formMentorPhone = document.getElementById('formMentorPhone');
+    if (formMentorPhone) formMentorPhone.textContent = `📞 ${data.phone}`;
+    const formMentorPhoneLink = document.getElementById('formMentorPhoneLink');
+    if (formMentorPhoneLink) formMentorPhoneLink.href = `tel:${telTarget}`;
+
+    const formSubmitBtnText = document.getElementById('formSubmitBtnText');
+    if (formSubmitBtnText) formSubmitBtnText.textContent = `Submit via WhatsApp (${data.phone})`;
+
+    // 6. Update Map Embed & Links
+    const mapHeadingEl = document.getElementById('mapHeading');
+    if (mapHeadingEl) mapHeadingEl.textContent = data.mapHeading || `Find Our ${data.name}`;
+    const mapSubdescEl = document.getElementById('mapSubdesc');
+    if (mapSubdescEl) mapSubdescEl.textContent = data.mapSubdesc || `Located on ${data.address}. Peaceful, secure, and accessible learning environment.`;
+    const mapIframe = document.getElementById('campusMapIframe');
+    if (mapIframe && data.mapEmbedUrl) mapIframe.src = data.mapEmbedUrl;
+    const mapDirectLink = document.getElementById('mapDirectLink');
+    if (mapDirectLink && data.mapDirectUrl) mapDirectLink.href = data.mapDirectUrl;
+
+    // 7. Sync Form Dropdown
     const branchSelect = document.getElementById('contact_branch');
     if (branchSelect) {
-      branchSelect.value = data.formValue;
+      branchSelect.value = key;
     }
   }
 
-  function syncBranchWithForm(selectedFormVal) {
-    for (const [key, b] of Object.entries(branchData)) {
-      if (b.formValue === selectedFormVal) {
-        switchBranch(key);
-        break;
-      }
-    }
+  function syncBranchWithForm(selectedKey) {
+    switchBranch(selectedKey);
   }
+
+  // Auto-init on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    switchBranch(activeBranchKey);
+  });
 
   function handleContactPageSubmit(e) {
     e.preventDefault();
     const name = document.getElementById('contact_student_name').value.trim();
     const phone = document.getElementById('contact_phone').value.trim();
-    const branch = document.getElementById('contact_branch').value;
+    const branchSelect = document.getElementById('contact_branch');
+    const branchKey = branchSelect.value;
+    const currCampus = branchData[branchKey] || branchData[activeBranchKey] || {};
+    const branchDisplayName = currCampus.name || (branchSelect.options[branchSelect.selectedIndex]?.dataset.name || branchKey);
     const standard = document.getElementById('contact_standard').value;
     const msg = document.getElementById('contact_message').value.trim();
+
+    const mentorName = currCampus.person || "Prof. Sutawane Sir";
+    const mentorPhone = currCampus.phone || "+91 98814 65883";
+    const targetWhatsApp = currCampus.phoneWhatsApp || (currCampus.phoneRaw && currCampus.phoneRaw.length >= 10 
+      ? (currCampus.phoneRaw.startsWith('91') ? currCampus.phoneRaw : '91' + currCampus.phoneRaw.slice(-10))
+      : "919881465883");
+
+    // Ingest lead into internal software database asynchronously
+    try {
+      fetch('/api/public/inquiry/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          student_name: name,
+          phone: phone,
+          standard_course: standard,
+          preferred_branch: branchDisplayName,
+          message: msg
+        })
+      }).catch(function(err) {
+        console.warn('Contact page lead sync:', err);
+      });
+    } catch (err) {
+      console.warn(err);
+    }
 
     const text = `*New 3-Day Demo & Counseling Inquiry - Sutawane Group*\n\n` +
                  `*Student/Parent Name:* ${name}\n` +
                  `*Contact Mobile:* ${phone}\n` +
-                 `*Preferred Branch:* ${branch}\n` +
+                 `*Preferred Branch:* ${branchDisplayName}\n` +
                  `*Target Course:* ${standard}\n` +
-                 `*Academic Mentor:* Prof. Sutawane Sir (+91 98814 65883)\n` +
+                 `*Academic Mentor:* ${mentorName} (${mentorPhone})\n` +
                  (msg ? `*Questions/Notes:* ${msg}\n` : '') +
                  `\n_Submitted via Sutawane Classes Public Contact Portal_`;
 
-    const targetWhatsApp = "919881465883";
     const encoded = encodeURIComponent(text);
     const waUrl = `https://wa.me/${targetWhatsApp}?text=${encoded}`;
 

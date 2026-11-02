@@ -68,5 +68,17 @@ urlpatterns = [
     path('api/whatsapp/webhook/', views.api_whatsapp_meta_webhook_view, name='api_whatsapp_meta_webhook'),
     path('developer-portal/', views.developer_portal_view, name='developer_portal'),
     path('support/', views.support_view, name='support'),
+
+    # Public Inquiry Capture API
+    path('api/public/inquiry/', views.api_public_inquiry_view, name='api_public_inquiry'),
+
+    # Inquiries Management Module
+    path('inquiries/', views.inquiries_list_view, name='inquiries_list'),
+    path('api/inquiries/<str:inquiry_id>/follow-up/', views.api_inquiry_followup_view, name='api_inquiry_followup'),
+    path('api/inquiries/<str:inquiry_id>/status/', views.api_inquiry_status_view, name='api_inquiry_status'),
+    path('api/inquiries/<str:inquiry_id>/delete/', views.api_inquiry_delete_view, name='api_inquiry_delete'),
+
+    # Website Management Control System
+    path('website-management/', views.website_management_view, name='website_management'),
 ]
 

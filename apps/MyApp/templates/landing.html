@@ -4,6 +4,1298 @@
 {% block title %}Sutawane Group · Premier Coaching Classes for Board, MHT-CET, NEET & JEE{% endblock %}
 {% block meta_desc %}Sutawane Group of Education in Vaijapur - Premier coaching classes for 8th-10th State Board, 11th-12th Science (PCB/PCM), MHT-CET, NEET & JEE. Proven state rankers and expert faculty mentorship.{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* ==========================================================================
+     ★ POST-HERO FAQ-STYLE NOTICE BOARD & ANNOUNCEMENTS ACCORDION
+     ========================================================================== */
+  .notice-board-section {
+    position: relative;
+    padding: 1.5rem 0 3.5rem 0;
+    margin-top: -1rem;
+    z-index: 10;
+  }
+
+  .notice-board-wrapper {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
+  .notice-board-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .notice-board-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    background: #EEF2FF;
+    border: 1px solid #C7D2FE;
+    color: #4F46E5;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin-bottom: 0.65rem;
+  }
+
+  .notice-board-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.45rem;
+  }
+
+  .notice-board-subtitle {
+    font-size: 0.95rem;
+    color: #64748B;
+    max-width: 580px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  .notice-accordion-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .notice-accordion-item {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px -3px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+    transition: all 0.25s ease;
+  }
+
+  .notice-accordion-item:hover {
+    border-color: #CBD5E1;
+    box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
+  }
+
+  .notice-accordion-item.is-open {
+    border-color: #818CF8;
+    box-shadow: 0 10px 28px -4px rgba(99, 102, 241, 0.12);
+  }
+
+  .notice-accordion-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.15rem 1.4rem;
+    background: #FFFFFF;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.2s ease;
+  }
+
+  .notice-accordion-item.is-open .notice-accordion-trigger {
+    background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%);
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .notice-trigger-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.95rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notice-icon-bullet {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #EEF2FF;
+    color: #4F46E5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: all 0.2s ease;
+  }
+
+  .notice-accordion-item.is-open .notice-icon-bullet {
+    background: #4F46E5;
+    color: #FFFFFF;
+  }
+
+  .notice-title-meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notice-title-text {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.4;
+    margin: 0 0 0.35rem 0;
+    word-break: break-word;
+  }
+
+  .notice-date-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .notice-date-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #64748B;
+    background: #F1F5F9;
+    padding: 0.18rem 0.55rem;
+    border-radius: 6px;
+  }
+
+  .notice-pinned-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #B45309;
+    background: #FEF3C7;
+    border: 1px solid #FDE68A;
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+  }
+
+  .notice-attachments-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #0369A1;
+    background: #E0F2FE;
+    padding: 0.18rem 0.55rem;
+    border-radius: 6px;
+  }
+
+  .notice-trigger-right {
+    flex-shrink: 0;
+  }
+
+  .notice-chevron-wrap {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    color: #64748B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+  }
+
+  .notice-accordion-item.is-open .notice-chevron-wrap {
+    background: #EEF2FF;
+    border-color: #C7D2FE;
+    color: #4F46E5;
+    transform: rotate(180deg);
+  }
+
+  /* Body */
+  .notice-accordion-body {
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  }
+
+  .notice-body-content {
+    padding: 1.4rem 1.5rem 1.6rem 1.5rem;
+  }
+
+  /* Rich text prose styling */
+  .notice-rich-text {
+    font-size: 0.935rem;
+    line-height: 1.7;
+    color: #334155;
+    word-break: break-word;
+  }
+
+  .notice-rich-text p {
+    margin: 0 0 0.85rem 0;
+  }
+
+  .notice-rich-text p:last-child {
+    margin-bottom: 0;
+  }
+
+  .notice-rich-text ul, .notice-rich-text ol {
+    margin: 0.65rem 0 0.85rem 0;
+    padding-left: 1.6rem;
+  }
+
+  .notice-rich-text ul {
+    list-style-type: disc;
+  }
+
+  .notice-rich-text ol {
+    list-style-type: decimal;
+  }
+
+  .notice-rich-text li {
+    margin-bottom: 0.35rem;
+    line-height: 1.6;
+  }
+
+  .notice-rich-text strong, .notice-rich-text b {
+    font-weight: 700;
+    color: #0F172A;
+  }
+
+  .notice-rich-text em, .notice-rich-text i {
+    font-style: italic;
+  }
+
+  .notice-rich-text u {
+    text-decoration: underline;
+  }
+
+  .notice-rich-text a {
+    color: #4F46E5;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+
+  .notice-rich-text h1, .notice-rich-text h2, .notice-rich-text h3 {
+    color: #0F172A;
+    font-weight: 700;
+    margin: 1rem 0 0.5rem 0;
+  }
+
+  /* Attached Documents Download Panel */
+  .notice-documents-panel {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px dashed #CBD5E1;
+  }
+
+  .notice-docs-header {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.85rem;
+  }
+
+  .notice-docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .notice-doc-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0.95rem;
+    background: #F8FAFC;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 12px;
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .notice-doc-card:hover {
+    background: #EEF2FF;
+    border-color: #C7D2FE;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
+  }
+
+  .notice-doc-main {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .notice-doc-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    color: #4F46E5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .notice-doc-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .notice-doc-name {
+    display: block;
+    font-size: 0.835rem;
+    font-weight: 700;
+    color: #0F172A;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.35;
+  }
+
+  .notice-doc-size {
+    display: block;
+    font-size: 0.72rem;
+    color: #64748B;
+    font-weight: 500;
+    margin-top: 0.1rem;
+  }
+
+  .notice-doc-download-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    background: #4F46E5;
+    color: #FFFFFF !important;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(79, 70, 229, 0.25);
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+
+  .notice-doc-card:hover .notice-doc-download-pill {
+    background: #4338CA;
+    transform: scale(1.02);
+  }
+
+  @media (max-width: 640px) {
+    .notice-board-title {
+      font-size: 1.35rem;
+    }
+    .notice-accordion-trigger {
+      padding: 0.95rem 1rem;
+    }
+    .notice-body-content {
+      padding: 1rem 1rem 1.25rem 1rem;
+    }
+    .notice-docs-grid {
+      grid-template-columns: 1fr;
+      gap: 0.65rem;
+    }
+    .notice-doc-card {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+      padding: 0.85rem;
+      width: 100%;
+    }
+    .notice-doc-main {
+      width: 100%;
+    }
+    .notice-doc-download-pill {
+      width: 100%;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.8rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  /* ==========================================================================
+     NEXT-LEVEL CREATIVE: 3D TROPHY & GOLDEN BLASTING CELEBRATION EFFECTS
+     Theme: Sutawane Group Toppers & State Rankers Showcase
+     ========================================================================== */
+
+  /* 1. Section Container & Ambient Golden Backdrop */
+  .ranker-slider-section {
+    position: relative !important;
+    overflow: visible !important;
+    padding-top: 1rem !important;
+    padding-bottom: 4rem !important;
+    margin-top: 2rem !important;
+  }
+
+  .golden-celebration-backdrop {
+    position: absolute;
+    top: -30px;
+    left: 5%;
+    right: 5%;
+    bottom: -20px;
+    background: radial-gradient(ellipse at 50% 30%, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.12) 45%, rgba(217, 119, 6, 0.03) 70%, transparent 85%);
+    filter: blur(28px);
+    pointer-events: none;
+    z-index: 0;
+    animation: goldGlowPulse 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes goldGlowPulse {
+    0% { opacity: 0.75; transform: scale(0.98); }
+    100% { opacity: 1; transform: scale(1.02); }
+  }
+
+  /* 2. Main Celebratory Glass & Gold Panel */
+  .celebratory-gold-panel {
+    position: relative !important;
+    overflow: visible !important;
+    background: #FFFFFF !important;
+    border: 1.5px solid rgba(251, 191, 36, 0.55) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+      0 25px 65px -15px rgba(245, 158, 11, 0.22),
+      0 0 0 1px rgba(253, 230, 138, 0.7),
+      0 12px 35px -8px rgba(15, 23, 42, 0.08) !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+  }
+
+  /* Animated Liquid Gold Streaming Border on Top */
+  .celebratory-gold-panel::before {
+    content: '';
+    position: absolute;
+    top: -1.5px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #F59E0B, #FDE68A, #F59E0B, #FEF08A, #F59E0B);
+    background-size: 300% 100%;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    animation: liquidGoldFlow 5s linear infinite;
+    z-index: 2;
+  }
+
+  @keyframes liquidGoldFlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+
+  /* 3. Corner 3D Animated Floating Trophy Badge */
+  .corner-trophy-badge {
+    position: absolute;
+    top: -44px;
+    right: 28px;
+    z-index: 25;
+    pointer-events: auto;
+  }
+
+  .trophy-3d-floating {
+    position: relative;
+    width: 104px;
+    height: 124px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform-style: preserve-3d;
+    animation: trophyHover3D 4.5s ease-in-out infinite;
+    cursor: pointer;
+  }
+
+  @keyframes trophyHover3D {
+    0%, 100% {
+      transform: translateY(0px) rotate(-2deg) perspective(600px) rotateY(-4deg);
+      filter: drop-shadow(0 12px 20px rgba(217, 119, 6, 0.4));
+    }
+    50% {
+      transform: translateY(-12px) rotate(3deg) perspective(600px) rotateY(6deg);
+      filter: drop-shadow(0 20px 30px rgba(245, 158, 11, 0.55));
+    }
+  }
+
+  .trophy-ambient-glow {
+    position: absolute;
+    top: 15px;
+    width: 76px;
+    height: 76px;
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.85) 0%, rgba(245, 158, 11, 0.45) 50%, transparent 75%);
+    border-radius: 50%;
+    filter: blur(14px);
+    z-index: 0;
+    animation: trophyGlowPulse 2.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes trophyGlowPulse {
+    0% { transform: scale(0.85); opacity: 0.6; }
+    100% { transform: scale(1.2); opacity: 1; }
+  }
+
+  .trophy-vector {
+    width: 86px;
+    height: 86px;
+    position: relative;
+    z-index: 1;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .corner-trophy-badge:hover .trophy-vector {
+    transform: scale(1.1) rotate(5deg);
+  }
+
+  /* Shimmer Sheen Pass on Trophy */
+  .trophy-vector::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.8) 50%, transparent 60%);
+    background-size: 200% 200%;
+    animation: trophySheen 3.5s ease infinite;
+    pointer-events: none;
+  }
+
+  /* Floating Sparkle Stars around Trophy */
+  .sparkle-star {
+    position: absolute;
+    color: #F59E0B;
+    font-size: 1.1rem;
+    line-height: 1;
+    z-index: 2;
+    pointer-events: none;
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.9), 0 0 14px rgba(245, 158, 11, 0.7);
+  }
+
+  .star-tl {
+    top: 4px;
+    left: -4px;
+    font-size: 1.25rem;
+    animation: sparkleTwinkle 2.8s ease-in-out infinite;
+  }
+
+  .star-tr {
+    top: 2px;
+    right: -4px;
+    font-size: 0.95rem;
+    animation: sparkleTwinkle 3.2s ease-in-out infinite 0.7s;
+  }
+
+  .star-br {
+    bottom: 30px;
+    right: 2px;
+    font-size: 1.05rem;
+    animation: sparkleTwinkle 2.5s ease-in-out infinite 1.4s;
+  }
+
+  @keyframes sparkleTwinkle {
+    0%, 100% {
+      transform: scale(0.6) rotate(0deg);
+      opacity: 0.3;
+    }
+    50% {
+      transform: scale(1.3) rotate(90deg);
+      opacity: 1;
+      filter: drop-shadow(0 0 10px #FBBF24);
+    }
+  }
+
+  /* Golden Trophy Label Pill */
+  .trophy-pill-label {
+    position: relative;
+    z-index: 2;
+    margin-top: -6px;
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FDE68A 100%);
+    border: 1.5px solid #F59E0B;
+    border-radius: 9999px;
+    padding: 0.2rem 0.65rem;
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+
+  .trophy-pill-label span {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #92400E;
+    letter-spacing: 0.05em;
+  }
+
+  .trophy-pill-label .crown-mini {
+    font-size: 0.75rem;
+  }
+
+  /* 4. Golden Blasting Wrappers & 3D Confetti Elements */
+  .golden-blasting-wrapper {
+    position: absolute;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .left-blast {
+    top: -25px;
+    left: -15px;
+    width: 140px;
+    height: 180px;
+  }
+
+  .right-blast {
+    bottom: -15px;
+    right: -15px;
+    width: 150px;
+    height: 170px;
+  }
+
+  /* 3D Spiraling Golden Streamer Ribbons */
+  .golden-ribbon {
+    position: absolute;
+    border-radius: 9999px;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4), 0 0 8px rgba(251, 191, 36, 0.5) inset;
+    transform-style: preserve-3d;
+  }
+
+  .ribbon-1 {
+    width: 11px;
+    height: 64px;
+    top: 10px;
+    left: 20px;
+    background: linear-gradient(180deg, #FFFBEB 0%, #FBBF24 35%, #D97706 70%, #FFFBEB 100%);
+    animation: ribbonWave1 4.2s ease-in-out infinite;
+  }
+
+  .ribbon-2 {
+    width: 9px;
+    height: 48px;
+    top: 45px;
+    left: 55px;
+    background: linear-gradient(180deg, #FEF08A 0%, #F59E0B 40%, #B45309 80%, #FEF08A 100%);
+    animation: ribbonWave2 3.8s ease-in-out infinite 0.6s;
+  }
+
+  .ribbon-3 {
+    width: 12px;
+    height: 56px;
+    bottom: 25px;
+    right: 25px;
+    background: linear-gradient(180deg, #FFFBEB 0%, #FBBF24 45%, #D97706 85%, #FEF08A 100%);
+    animation: ribbonWave1 4.6s ease-in-out infinite 1.2s;
+  }
+
+  .ribbon-4 {
+    width: 9px;
+    height: 42px;
+    bottom: 60px;
+    right: 60px;
+    background: linear-gradient(180deg, #FEF08A 0%, #F59E0B 50%, #B45309 100%);
+    animation: ribbonWave2 3.6s ease-in-out infinite 0.9s;
+  }
+
+  @keyframes ribbonWave1 {
+    0%, 100% {
+      transform: translateY(0) rotate(-22deg) rotateY(0deg) scale(1);
+    }
+    50% {
+      transform: translateY(-15px) rotate(-10deg) rotateY(180deg) scale(1.08);
+    }
+  }
+
+  @keyframes ribbonWave2 {
+    0%, 100% {
+      transform: translateY(0) rotate(28deg) rotateX(0deg) scale(1);
+    }
+    50% {
+      transform: translateY(-18px) rotate(38deg) rotateX(180deg) scale(1.06);
+    }
+  }
+
+  /* Bursting Foil Confetti Pieces */
+  .golden-confetti {
+    position: absolute;
+    border-radius: 2px;
+    box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
+    transform-style: preserve-3d;
+  }
+
+  .c-1 {
+    width: 14px;
+    height: 9px;
+    top: 30px;
+    left: 4px;
+    background: linear-gradient(135deg, #FFFBEB, #FBBF24);
+    animation: confettiSpin 3.4s ease-in-out infinite;
+  }
+
+  .c-2 {
+    width: 10px;
+    height: 10px;
+    top: 75px;
+    left: 35px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FDE68A, #D97706);
+    animation: confettiSpin 2.9s ease-in-out infinite 0.4s;
+  }
+
+  .c-3 {
+    width: 12px;
+    height: 7px;
+    top: 105px;
+    left: 12px;
+    background: linear-gradient(135deg, #FEF08A, #F59E0B);
+    animation: confettiSpin 3.6s ease-in-out infinite 0.8s;
+  }
+
+  .c-4 {
+    width: 13px;
+    height: 8px;
+    bottom: 45px;
+    right: 12px;
+    background: linear-gradient(135deg, #FFFBEB, #FBBF24);
+    animation: confettiSpin 3.2s ease-in-out infinite 0.3s;
+  }
+
+  .c-5 {
+    width: 11px;
+    height: 11px;
+    bottom: 80px;
+    right: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FDE68A, #B45309);
+    animation: confettiSpin 3.5s ease-in-out infinite 0.7s;
+  }
+
+  .c-6 {
+    width: 15px;
+    height: 8px;
+    bottom: 110px;
+    right: 20px;
+    background: linear-gradient(135deg, #FEF08A, #D97706);
+    animation: confettiSpin 3.1s ease-in-out infinite 1.1s;
+  }
+
+  @keyframes confettiSpin {
+    0%, 100% {
+      transform: translate(0, 0) rotate(0deg) rotateY(0deg);
+      opacity: 0.85;
+    }
+    50% {
+      transform: translate(-6px, -14px) rotate(45deg) rotateY(180deg);
+      opacity: 1;
+    }
+  }
+
+  /* Blasting Sparkle Points */
+  .golden-sparkle {
+    position: absolute;
+    color: #F59E0B;
+    line-height: 1;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.9), 0 0 18px rgba(245, 158, 11, 0.7);
+  }
+
+  .sp-1 { top: 18px; left: 75px; font-size: 1.15rem; animation: sparkleTwinkle 2.6s ease-in-out infinite 0.3s; }
+  .sp-2 { top: 90px; left: 60px; font-size: 0.9rem; animation: sparkleTwinkle 3.1s ease-in-out infinite 1.1s; }
+  .sp-3 { bottom: 35px; right: 75px; font-size: 1.1rem; animation: sparkleTwinkle 2.7s ease-in-out infinite 0.5s; }
+  .sp-4 { bottom: 95px; right: 55px; font-size: 0.95rem; animation: sparkleTwinkle 3.3s ease-in-out infinite 1.3s; }
+
+  /* 5. Header Bar & Controls Styling */
+  .celebratory-gold-panel .slider-top-bar {
+    padding-right: 130px !important;
+    position: relative;
+    z-index: 10;
+  }
+
+  .celebratory-gold-panel .slider-heading-badge {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 60%, #FDE68A 100%) !important;
+    border: 1.5px solid #FCD34D !important;
+    padding: 0.4rem 1.1rem !important;
+    border-radius: 9999px !important;
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.16) !important;
+  }
+
+  .celebratory-gold-panel .slider-badge-icon {
+    background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35) !important;
+    animation: badgePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes badgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+
+  /* 6. Ranker Slide Card Celebratory Hover */
+  .celebratory-gold-panel .ranker-slide-card {
+    border: 1.5px solid #E2E8F0 !important;
+    transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .celebratory-gold-panel .ranker-slide-card:hover {
+    transform: translateY(-6px) scale(1.02) !important;
+    border-color: #FBBF24 !important;
+    box-shadow: 
+      0 18px 38px -8px rgba(245, 158, 11, 0.24),
+      0 0 0 1px rgba(251, 191, 36, 0.4) !important;
+  }
+
+  .celebratory-gold-panel .ranker-slide-card:hover .avatar-crown {
+    transform: translateY(-4px) scale(1.25) rotate(8deg) !important;
+    transition: transform 0.25s ease !important;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 900px) {
+    .celebratory-gold-panel .slider-top-bar {
+      padding-right: 110px !important;
+    }
+    .corner-trophy-badge {
+      right: 14px;
+      top: -38px;
+      transform: scale(0.88);
+    }
+  }
+
+  @media (max-width: 680px) {
+    .celebratory-gold-panel .slider-top-bar {
+      padding-right: 0 !important;
+      padding-top: 1.25rem !important;
+    }
+    .corner-trophy-badge {
+      right: 10px;
+      top: -36px;
+      transform: scale(0.75);
+    }
+    .left-blast, .right-blast {
+      display: none; /* Keep clean on small mobile viewports without overflow */
+    }
+  }
+
+  /* ==========================================================================
+     MOBILE & DESKTOP ULTRA-RESPONSIVE POLISH (Next-Level Creative & Seamless)
+     ========================================================================== */
+
+  /* 1. Global Section Titles & Badges Responsiveness */
+  .modern-section-title {
+    font-size: clamp(1.75rem, 5vw, 2.85rem) !important;
+    font-weight: 800 !important;
+    color: var(--text-dark, #0F172A) !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.025em !important;
+    margin-bottom: 0.85rem !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    hyphens: manual !important;
+  }
+
+  .modern-section-desc {
+    font-size: clamp(0.925rem, 2.2vw, 1.1rem) !important;
+    color: var(--text-muted, #475569) !important;
+    line-height: 1.6 !important;
+  }
+
+  /* 2. Hero Trust Strip Mobile Fix */
+  @media (max-width: 640px) {
+    .taskharbor-trust-strip {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 0.55rem 0.65rem !important;
+      padding: 0.85rem 0.95rem !important;
+      border-radius: 14px !important;
+      margin-bottom: 1.25rem !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .trust-item {
+      font-size: 0.75rem !important;
+      line-height: 1.3 !important;
+      gap: 0.35rem !important;
+      display: flex !important;
+      align-items: center !important;
+      white-space: normal !important;
+    }
+    .trust-bullet {
+      display: none !important;
+    }
+    .taskharbor-actions-row {
+      gap: 0.65rem !important;
+      margin-bottom: 1.25rem !important;
+    }
+    .btn-taskharbor-primary,
+    .btn-taskharbor-frosted {
+      padding: 0.78rem 1.15rem !important;
+      font-size: 0.9rem !important;
+      border-radius: 12px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+  }
+
+  /* 3. Methodology & Pillar Cards Mobile Fix */
+  @media (max-width: 768px) {
+    .modern-pillars-section {
+      padding: 3.5rem 0 !important;
+    }
+    .pillars-grid {
+      grid-template-columns: 1fr !important;
+      gap: 1.25rem !important;
+    }
+    .pillar-card {
+      padding: 1.35rem 1.15rem !important;
+      border-radius: 18px !important;
+    }
+    .pillar-title {
+      font-size: 1.2rem !important;
+    }
+    .pillar-desc {
+      font-size: 0.88rem !important;
+      line-height: 1.55 !important;
+    }
+    .widget-subjects-row {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 0.4rem !important;
+    }
+    .mini-subject-pill {
+      font-size: 0.72rem !important;
+      padding: 0.3rem 0.5rem !important;
+      justify-content: center !important;
+    }
+  }
+
+  /* 4. Parent Portal / Digital Campus Ecosystem Card Mobile Fix */
+  .preview-pill-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .preview-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    color: var(--text-dark, #0F172A);
+    font-size: 0.925rem;
+  }
+  .preview-pulse-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  }
+  .preview-live-badge {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 9999px;
+    background: #EFF6FF;
+    color: #2563EB;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .ecosystem-inner-card {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 1rem;
+    transition: border-color 0.2s ease;
+  }
+  .dpp-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.825rem;
+    font-weight: 700;
+  }
+  .dpp-percent-text {
+    color: #059669;
+    white-space: nowrap;
+  }
+  .dpp-tracker-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.3rem;
+    width: 100%;
+  }
+  .dpp-day-chip {
+    height: 28px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 0.68rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-align: center;
+    padding: 0 2px;
+  }
+  .dpp-done {
+    background: #10B981;
+  }
+  .dpp-test {
+    background: #2563EB;
+  }
+  .ecosystem-ledger-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .ledger-label {
+    font-size: 0.76rem;
+    color: #64748B;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .ledger-value {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0F172A;
+  }
+  .ledger-receipt-chip {
+    padding: 0.35rem 0.75rem;
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    color: #047857;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .test-mock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.825rem;
+    font-weight: 700;
+  }
+  .test-mock-score {
+    color: #2563EB;
+    white-space: nowrap;
+  }
+  .test-progress-bar-track {
+    width: 100%;
+    height: 8px;
+    background: #E2E8F0;
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .test-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2563EB, #0EA5E9);
+    border-radius: 9999px;
+  }
+  .test-mock-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    color: #64748B;
+  }
+  .test-mock-rank {
+    font-weight: 700;
+    color: #1D4ED8;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .modern-ecosystem-section {
+      padding: 3rem 0 !important;
+    }
+    .ecosystem-split-grid {
+      grid-template-columns: 1fr !important;
+      gap: 2rem !important;
+      margin-top: 2rem !important;
+    }
+    .ecosystem-preview-box {
+      padding: 1.15rem 0.95rem !important;
+      border-radius: 18px !important;
+      gap: 0.9rem !important;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
+    }
+    .preview-header-title {
+      font-size: 0.85rem !important;
+    }
+    .ecosystem-inner-card {
+      padding: 0.85rem 0.75rem !important;
+    }
+    .dpp-tracker-grid {
+      gap: 0.25rem !important;
+    }
+    .dpp-day-chip {
+      height: 25px !important;
+      font-size: 0.6rem !important;
+    }
+    .ecosystem-ledger-row {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 0.55rem !important;
+    }
+    .ledger-receipt-chip {
+      align-self: flex-start !important;
+      font-size: 0.72rem !important;
+      padding: 0.3rem 0.65rem !important;
+    }
+  }
+
+  /* 5. Bottom CTA Section Responsive Polish */
+  .modern-cta-section {
+    padding: 4.5rem 0;
+    background: #FFFFFF;
+  }
+  .modern-cta-card {
+    background: linear-gradient(135deg, #091224 0%, #152E58 100%);
+    border-radius: 28px;
+    padding: 3.5rem 3rem;
+    box-shadow: 0 20px 40px -15px rgba(9, 18, 36, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 2rem;
+  }
+  .modern-cta-content {
+    max-width: 620px;
+  }
+  .modern-cta-badge {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(254, 240, 138, 0.25);
+    color: #FEF08A;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 0.85rem;
+  }
+  .modern-cta-title {
+    font-size: clamp(1.75rem, 4.5vw, 2.35rem);
+    font-weight: 800;
+    color: #FFFFFF;
+    line-height: 1.22;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+  }
+  .modern-cta-desc {
+    font-size: 1rem;
+    color: #CBD5E1;
+    line-height: 1.6;
+  }
+  .modern-cta-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .modern-cta-helpline-btn {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    color: #FFFFFF !important;
+  }
+  .modern-cta-helpline {
+    white-space: nowrap !important;
+  }
+
+  @media (max-width: 768px) {
+    .modern-cta-section {
+      padding: 2.5rem 0 !important;
+    }
+    .modern-cta-card {
+      padding: 2.25rem 1.25rem !important;
+      border-radius: 20px !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      text-align: center !important;
+      gap: 1.5rem !important;
+    }
+    .modern-cta-content {
+      max-width: 100% !important;
+    }
+    .modern-cta-title {
+      font-size: 1.65rem !important;
+      line-height: 1.25 !important;
+    }
+    .modern-cta-desc {
+      font-size: 0.88rem !important;
+      line-height: 1.55 !important;
+    }
+    .modern-cta-actions {
+      flex-direction: column !important;
+      width: 100% !important;
+      gap: 0.75rem !important;
+    }
+    .modern-cta-actions .btn-modern-amber,
+    .modern-cta-actions .btn-modern-outline {
+      width: 100% !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
+      padding: 0.85rem 1.25rem !important;
+    }
+  }
+
+  /* 6. Floating WhatsApp Button Refinement */
+  @media (max-width: 640px) {
+    .floating-whatsapp-help {
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+      right: 14px !important;
+      z-index: 45 !important;
+    }
+    .btn-help-whatsapp {
+      padding: 0.45rem 0.85rem !important;
+      font-size: 0.8rem !important;
+      gap: 0.35rem !important;
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35) !important;
+    }
+    .btn-help-whatsapp svg {
+      width: 18px !important;
+      height: 18px !important;
+    }
+  }
+  @media (max-width: 380px) {
+    .btn-help-whatsapp {
+      width: 44px !important;
+      height: 44px !important;
+      padding: 0 !important;
+      justify-content: center !important;
+      border-radius: 50% !important;
+    }
+    .btn-help-whatsapp span {
+      display: none !important;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- ==========================================================================
      1. TASKHARBOR-LEVEL ULTRA-PROFESSIONAL HERO SECTION
@@ -16,10 +1308,10 @@
     <div class="taskharbor-hero-wrap">
       
       <!-- Top Notification Pill -->
-      <a href="#demoModal" class="hero-notification-pill" onclick="openInquiryModal(); return false;">
-        <span class="pill-badge-indigo">🔥 ADMISSIONS OPEN 2026–27</span>
-        <span class="pill-text-content">New Batches Starting Soon · Limited 30 Seats / Batch</span>
-        <span class="pill-arrow-indicator">→</span>
+      <a href="#announcementBannerSection" class="hero-notification-pill" onclick="scrollToAnnouncement(); return false;">
+        <span class="pill-badge-indigo">{% if website_banner %}{{ website_banner.badge_text }}{% else %}🔥 ADMISSIONS OPEN 2026–27{% endif %}</span>
+        <span class="pill-text-content">{% if website_banner %}{{ website_banner.main_text }}{% else %}New Batches Starting Soon · Limited 30 Seats / Batch{% endif %}</span>
+        <span class="pill-arrow-indicator">↓</span>
       </a>
 
       <!-- Center Master Headline -->
@@ -57,241 +1349,221 @@
         <span class="trust-item"><span class="star-icon">🏆</span> Proven State Rankers</span>
       </div>
 
-      <!-- ====================================================================
-           SHOWSTOPPER: FLOATING ACADEMIC APP WINDOW MOCKUP (TaskHarbor Inspiration)
-           ==================================================================== -->
-      <div class="taskharbor-window-wrapper">
-        <div class="taskharbor-window-frame">
-          
-          <!-- Top Window Chrome / Bar -->
-          <div class="taskharbor-window-bar">
-            <div class="window-traffic-lights">
-              <span class="traffic-dot dot-red"></span>
-              <span class="traffic-dot dot-yellow"></span>
-              <span class="traffic-dot dot-green"></span>
-            </div>
-            
-            <div class="window-address-bar">
-              <span class="address-lock">🔒</span>
-              <span class="address-url">portal.sutawanegroup.com/student/omkar-patil</span>
-              <span class="address-status">LIVE CLOUD</span>
-            </div>
 
-            <div class="window-bar-actions">
-              <span class="window-badge-live">
-                <span class="live-dot-pulse"></span>
-                <span>Campus Online</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- Inside Window Body (3 Columns) -->
-          <div class="taskharbor-window-body">
-            
-            <!-- Column 1: Left Mini Sidebar / Profile -->
-            <aside class="window-col-sidebar">
-              <!-- Student Profile Card -->
-              <div class="window-student-card">
-                <div class="window-student-avatar">OP</div>
-                <div class="window-student-info">
-                  <div class="student-name">Omkar Patil</div>
-                  <div class="student-stream">12th Science · PCB/PCM</div>
-                  <div class="student-roll">Roll #2026-084</div>
-                </div>
-              </div>
-
-              <!-- Quick Nav Items -->
-              <nav class="window-nav-list">
-                <a href="#top" class="window-nav-item active">
-                  <span class="nav-item-icon">📊</span>
-                  <span class="nav-item-label">Dashboard</span>
-                </a>
-                <a href="{% url 'public_batches' %}" class="window-nav-item">
-                  <span class="nav-item-icon">📚</span>
-                  <span class="nav-item-label">Active Batches</span>
-                  <span class="nav-item-pill">Active</span>
-                </a>
-                <a href="#toppersSliderSection" class="window-nav-item">
-                  <span class="nav-item-icon">🏆</span>
-                  <span class="nav-item-label">Rankers Board</span>
-                  <span class="nav-item-pill highlight">99.8%ile</span>
-                </a>
-                <a href="#deskSection" class="window-nav-item">
-                  <span class="nav-item-icon">💬</span>
-                  <span class="nav-item-label">Doubt Desk</span>
-                </a>
-                <a href="{% url 'login' %}" class="window-nav-item">
-                  <span class="nav-item-icon">🔐</span>
-                  <span class="nav-item-label">Student Login</span>
-                </a>
-              </nav>
-
-              <!-- Faculty Support Snippet -->
-              <div class="window-faculty-card">
-                <div class="faculty-tag">CHIEF MENTOR</div>
-                <div class="faculty-name">Prof. Sutawane Sir</div>
-                <div class="faculty-sub">Direct Concept &amp; Doubt Help</div>
-              </div>
-            </aside>
-
-            <!-- Column 2: Center Primary Workspace with Two Rich 3D Cards -->
-            <main class="window-col-center">
-              
-              <!-- Welcome & Progress Banner -->
-              <div class="window-welcome-banner">
-                <div class="welcome-text-group">
-                  <h3 class="welcome-greeting">Hi Omkar! 👋</h3>
-                  <p class="welcome-sub">You have completed 94% of your daily Physics &amp; Maths DPPs this week.</p>
-                </div>
-                <div class="welcome-stat-pill">
-                  <span class="stat-num">99.82%</span>
-                  <span class="stat-lbl">Target Percentile</span>
-                </div>
-              </div>
-
-              <!-- Two Colorful 3D Hero Cards (Coral Rose & Royal Violet) -->
-              <div class="window-cards-row">
-                
-                <!-- Card 1: Coral / Rose Vibrant 3D Card -->
-                <div class="window-card-vibrant card-coral">
-                  <div class="card-vibrant-top">
-                    <span class="card-chip chip-coral">PHYSICS MASTERCLASS</span>
-                    <span class="card-time-badge">4:00 PM Today</span>
-                  </div>
-                  <h4 class="card-vibrant-title">Rotational Dynamics &amp; Angular Momentum</h4>
-                  <p class="card-vibrant-desc">Master derivations, moment of inertia shortcuts &amp; advanced CET questions.</p>
-                  
-                  <div class="card-vibrant-footer">
-                    <div class="card-faculty-info">
-                      <span class="faculty-avatar-mini">👨‍🏫</span>
-                      <span>Prof. Sutawane · Room 102</span>
-                    </div>
-                    <span class="card-action-link" onclick="openInquiryModal()">View Notes →</span>
-                  </div>
-                </div>
-
-                <!-- Card 2: Royal Violet / Indigo Vibrant 3D Card -->
-                <div class="window-card-vibrant card-violet">
-                  <div class="card-vibrant-top">
-                    <span class="card-chip chip-violet">MHT-CET &amp; NEET</span>
-                    <span class="card-score-badge">Mock #12 Active</span>
-                  </div>
-                  <h4 class="card-vibrant-title">Grand Mock Test Series 2026</h4>
-                  <p class="card-vibrant-desc">200 High-yield exam questions with instant negative-marking analytics.</p>
-                  
-                  <div class="card-vibrant-footer">
-                    <div class="card-target-stat">
-                      <span class="target-icon">🎯</span>
-                      <span>Target: 180+ / 200</span>
-                    </div>
-                    <span class="card-action-link" onclick="openInquiryModal()">Start Mock →</span>
-                  </div>
-                </div>
-
-              </div>
-
-              <!-- Live Announcement Micro Bar -->
-              <div class="window-live-strip">
-                <span class="strip-icon">📢</span>
-                <span class="strip-text"><strong>Sunday Special:</strong> Full Syllabus Grand Revision &amp; OMR Test Session at 8:30 AM sharp.</span>
-              </div>
-
-            </main>
-
-            <!-- Column 3: Right Schedule & Live Analytics -->
-            <aside class="window-col-right">
-              
-              <!-- Daily Timetable Card -->
-              <div class="window-right-widget">
-                <div class="widget-header">
-                  <span class="widget-title">Today's Lectures</span>
-                  <span class="widget-status-badge">3 Batches</span>
-                </div>
-                
-                <div class="schedule-timeline">
-                  <div class="schedule-entry completed">
-                    <div class="schedule-time">08:00 AM</div>
-                    <div class="schedule-details">
-                      <div class="schedule-subject">Chemistry · Chemical Bonding</div>
-                      <div class="schedule-status-text">Completed ✓</div>
-                    </div>
-                  </div>
-
-                  <div class="schedule-entry live">
-                    <div class="schedule-time">04:00 PM</div>
-                    <div class="schedule-details">
-                      <div class="schedule-subject">Physics · Rotational Dynamics</div>
-                      <div class="schedule-status-text">Up Next · Classroom</div>
-                    </div>
-                  </div>
-
-                  <div class="schedule-entry upcoming">
-                    <div class="schedule-time">06:30 PM</div>
-                    <div class="schedule-details">
-                      <div class="schedule-subject">Maths · Definite Integration</div>
-                      <div class="schedule-status-text">DPP Discussion</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Student Performance Meter -->
-              <div class="window-right-widget">
-                <div class="widget-header">
-                  <span class="widget-title">Performance Radar</span>
-                  <span class="widget-top-tag">Top 1%</span>
-                </div>
-
-                <div class="performance-metric-bars">
-                  <div class="metric-row">
-                    <div class="metric-labels">
-                      <span>Physics Mastery</span>
-                      <span class="metric-val">96%</span>
-                    </div>
-                    <div class="metric-bar-track">
-                      <div class="metric-bar-fill fill-coral" style="width: 96%;"></div>
-                    </div>
-                  </div>
-
-                  <div class="metric-row">
-                    <div class="metric-labels">
-                      <span>Chemistry Mastery</span>
-                      <span class="metric-val">92%</span>
-                    </div>
-                    <div class="metric-bar-track">
-                      <div class="metric-bar-fill fill-violet" style="width: 92%;"></div>
-                    </div>
-                  </div>
-
-                  <div class="metric-row">
-                    <div class="metric-labels">
-                      <span>Maths / Biology</span>
-                      <span class="metric-val">98%</span>
-                    </div>
-                    <div class="metric-bar-track">
-                      <div class="metric-bar-fill fill-emerald" style="width: 98%;"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </aside>
-
-          </div>
-        </div>
-      </div>
 
     </div>
   </div>
 </section>
 
+{% if website_notifications %}
 <!-- ==========================================================================
-     2. RANKER AUTO-SLIDER (Showing half on the hero section)
+     ★ POST-HERO OFFICIAL NOTICE BOARD & ANNOUNCEMENTS (FAQ ACCORDION STYLE)
+     Clean Title + Date headers, rich formatted detail text, and multi-file downloads
      ========================================================================== -->
-<section class="ranker-slider-section" id="toppersSliderSection">
+<section class="notice-board-section" id="noticeBoardSection">
   <div class="modern-container">
-    <div class="ranker-slider-panel">
+    <div class="notice-board-wrapper">
       
+      <!-- Section Header -->
+      <div class="notice-board-header">
+        <div class="notice-board-tag">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          <span>Official Notice Board</span>
+        </div>
+        <h2 class="notice-board-title">Announcements &amp; Important Updates</h2>
+        <p class="notice-board-subtitle">Academic circulars, schedule changes, and examination notices from Sutawane Classes.</p>
+      </div>
+
+      <!-- FAQ-style Accordion Stack -->
+      <div class="notice-accordion-stack">
+        {% for notif in website_notifications %}
+        <div class="notice-accordion-item" id="notice-item-{{ notif.id }}">
+          
+          <!-- Accordion Header Button -->
+          <button 
+            type="button" 
+            class="notice-accordion-trigger" 
+            onclick="toggleNoticeAccordion('{{ notif.id }}')"
+            aria-expanded="false"
+            aria-controls="notice-body-{{ notif.id }}"
+          >
+            <div class="notice-trigger-left">
+              <span class="notice-icon-bullet">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              </span>
+              <div class="notice-title-meta">
+                <h3 class="notice-title-text">{{ notif.title }}</h3>
+                <div class="notice-date-row">
+                  <span class="notice-date-chip">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span>{{ notif.created_at|date:"d M Y" }}</span>
+                  </span>
+                  {% if notif.is_pinned %}
+                  <span class="notice-pinned-chip">📌 Pinned</span>
+                  {% endif %}
+                  {% if notif.documents.all %}
+                  <span class="notice-attachments-chip">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                    <span>{{ notif.documents.all|length }} {% if notif.documents.all|length == 1 %}File{% else %}Files{% endif %} Attached</span>
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div class="notice-trigger-right">
+              <span class="notice-chevron-wrap">
+                <svg class="notice-chevron-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </span>
+            </div>
+          </button>
+
+          <!-- Accordion Collapsible Detail Body -->
+          <div 
+            class="notice-accordion-body" 
+            id="notice-body-{{ notif.id }}"
+            style="max-height: 0px; opacity: 0;"
+          >
+            <div class="notice-body-content">
+              
+              <!-- Formatted Detail Message (Rich Text HTML) -->
+              {% if notif.content %}
+              <div class="notice-rich-text">
+                {{ notif.content|safe }}
+              </div>
+              {% endif %}
+
+              <!-- Attached Documents & Downloads Section -->
+              {% if notif.documents.all %}
+              <div class="notice-documents-panel">
+                <div class="notice-docs-header">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                  <span>Download Attached Documents &amp; Circulars</span>
+                </div>
+                <div class="notice-docs-grid">
+                  {% for doc in notif.documents.all %}
+                  <a href="{{ doc.file.url }}" download="{{ doc.file_name }}" target="_blank" rel="noopener noreferrer" class="notice-doc-card">
+                    <div class="notice-doc-main">
+                      <div class="notice-doc-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      </div>
+                      <div class="notice-doc-info">
+                        <span class="notice-doc-name" title="{{ doc.file_name }}">{{ doc.file_name }}</span>
+                        <span class="notice-doc-size">{{ doc.file_size|default:"Attachment" }}</span>
+                      </div>
+                    </div>
+                    <div class="notice-doc-download-pill">
+                      <span>Download</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
+                  </a>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+
+            </div>
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ==========================================================================
+     2. RANKER AUTO-SLIDER (Celebration Theme with 3D Animated Trophy & Golden Blasting Wrappers)
+     ========================================================================== -->
+{% if website_toppers %}
+<section class="ranker-slider-section" id="toppersSliderSection">
+  <!-- Golden Ambient Glow Backlight -->
+  <div class="golden-celebration-backdrop" aria-hidden="true"></div>
+
+  <!-- Left Golden Blasting Wrappers & Confetti -->
+  <div class="golden-blasting-wrapper left-blast" aria-hidden="true">
+    <div class="golden-ribbon ribbon-1"></div>
+    <div class="golden-ribbon ribbon-2"></div>
+    <div class="golden-confetti c-1"></div>
+    <div class="golden-confetti c-2"></div>
+    <div class="golden-confetti c-3"></div>
+    <div class="golden-sparkle sp-1">✦</div>
+    <div class="golden-sparkle sp-2">★</div>
+  </div>
+
+  <!-- Right Golden Blasting Wrappers & Confetti -->
+  <div class="golden-blasting-wrapper right-blast" aria-hidden="true">
+    <div class="golden-ribbon ribbon-3"></div>
+    <div class="golden-ribbon ribbon-4"></div>
+    <div class="golden-confetti c-4"></div>
+    <div class="golden-confetti c-5"></div>
+    <div class="golden-confetti c-6"></div>
+    <div class="golden-sparkle sp-3">★</div>
+    <div class="golden-sparkle sp-4">✦</div>
+  </div>
+
+  <div class="modern-container" style="position:relative; z-index:2;">
+    <div class="ranker-slider-panel celebratory-gold-panel">
+      
+      <!-- 3D Animated Corner Trophy Badge -->
+      <div class="corner-trophy-badge" title="Sutawane Group · State Rankers Hall of Fame">
+        <div class="trophy-3d-floating">
+          <div class="trophy-ambient-glow"></div>
+          
+          <!-- Detailed 3D Metallic Golden Trophy SVG -->
+          <svg class="trophy-vector" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="trophyGoldGrad" x1="15%" y1="10%" x2="85%" y2="90%">
+                <stop offset="0%" stop-color="#FFFBEB" />
+                <stop offset="20%" stop-color="#FDE047" />
+                <stop offset="50%" stop-color="#EAB308" />
+                <stop offset="80%" stop-color="#CA8A04" />
+                <stop offset="100%" stop-color="#854D0E" />
+              </linearGradient>
+              <linearGradient id="trophyDarkGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#EAB308" />
+                <stop offset="50%" stop-color="#A16207" />
+                <stop offset="100%" stop-color="#713F12" />
+              </linearGradient>
+              <filter id="trophyGlowFilter" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#D97706" flood-opacity="0.45" />
+              </filter>
+            </defs>
+            <!-- Handles -->
+            <path d="M28 26C17 26 12 36 12 45C12 56 22 63 32 63L33 55C26 55 19 50 19 44C19 39 23 33 29 33L28 26Z" fill="url(#trophyDarkGold)" />
+            <path d="M72 26C83 26 88 36 88 45C88 56 78 63 68 63L67 55C74 55 81 50 81 44C81 39 77 33 71 33L72 26Z" fill="url(#trophyDarkGold)" />
+            <!-- Main Cup Body -->
+            <path d="M26 21H74C74 21 73 57 50 67C27 57 26 21 26 21Z" fill="url(#trophyGoldGrad)" filter="url(#trophyGlowFilter)" />
+            <!-- Top Cup Rim -->
+            <ellipse cx="50" cy="21" rx="24" ry="4.5" fill="#FEF08A" />
+            <ellipse cx="50" cy="21" rx="22" ry="3.5" fill="url(#trophyGoldGrad)" />
+            <!-- Center Star Emblem -->
+            <path d="M50 33L52.5 40.5H60.5L54 45.2L56.5 53L50 48.2L43.5 53L46 45.2L39.5 40.5H47.5L50 33Z" fill="#FFFBEB" opacity="0.95" />
+            <!-- Stem -->
+            <path d="M46 67H54V76H46V67Z" fill="url(#trophyDarkGold)" />
+            <ellipse cx="50" cy="76" rx="8" ry="2" fill="#CA8A04" />
+            <!-- Base Tier 1 -->
+            <path d="M38 78H62L64 83H36L38 78Z" fill="url(#trophyGoldGrad)" />
+            <!-- Base Tier 2 -->
+            <rect x="32" y="83" width="36" height="7" rx="2" fill="url(#trophyDarkGold)" />
+            <rect x="34" y="85" width="32" height="3" rx="1" fill="#FEF08A" opacity="0.4" />
+          </svg>
+
+          <!-- Sparkling Stars -->
+          <span class="sparkle-star star-tl">✦</span>
+          <span class="sparkle-star star-tr">★</span>
+          <span class="sparkle-star star-br">✦</span>
+          
+          <!-- Golden Trophy Label Pill -->
+          <div class="trophy-pill-label">
+            <span class="crown-mini">👑</span>
+            <span>TOPPERS 2026</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Slider Top Controls Bar -->
       <div class="slider-top-bar">
         <div class="slider-heading-badge">
@@ -313,159 +1585,30 @@
       <div class="ranker-slider-viewport" id="rankerSliderViewport">
         <div class="ranker-slider-track" id="rankerSliderTrack">
           
-          <!-- Slide 1: Omkar Patil -->
+          {% for topper in website_toppers %}
           <div class="ranker-slide-card">
             <div class="ranker-card-head">
-              <div class="ranker-avatar-box avatar-blue">
+              <div class="ranker-avatar-box {{ topper.avatar_color|default:'avatar-blue' }}">
                 <span class="avatar-crown">👑</span>
-                <span>OP</span>
+                <span>{{ topper.avatar_initials|default:'ST' }}</span>
               </div>
               <div class="ranker-score-pill score-emerald">
-                <span>⚡</span>
-                <span>99.82%ile</span>
+                <span>{{ topper.score_icon|default:'⚡' }}</span>
+                <span>{{ topper.score_text }}</span>
               </div>
             </div>
-            <h4 class="ranker-student-name">Omkar Patil</h4>
-            <div class="ranker-exam-tag">MHT-CET Engineering · 12th PCM</div>
+            <h4 class="ranker-student-name">{{ topper.student_name }}</h4>
+            <div class="ranker-exam-tag">{{ topper.exam_stream }}</div>
             <div class="ranker-achievement-badge">
-              <span>★</span> State Rank 14 · COEP Pune
+              <span>★</span> {{ topper.achievement_badge }}
             </div>
+            {% if topper.quote %}
             <p class="ranker-quote-text">
-              "Faculty doubt clearance and daily DPPs made this entrance score possible."
+              "{{ topper.quote }}"
             </p>
+            {% endif %}
           </div>
-
-          <!-- Slide 2: Snehal Deshmukh -->
-          <div class="ranker-slide-card">
-            <div class="ranker-card-head">
-              <div class="ranker-avatar-box avatar-emerald">
-                <span class="avatar-crown">👑</span>
-                <span>SD</span>
-              </div>
-              <div class="ranker-score-pill score-emerald">
-                <span>🎯</span>
-                <span>652 / 720</span>
-              </div>
-            </div>
-            <h4 class="ranker-student-name">Snehal Deshmukh</h4>
-            <div class="ranker-exam-tag">NEET UG Medical · 12th PCB</div>
-            <div class="ranker-achievement-badge">
-              <span>★</span> Taluka Topper · GMC Aurangabad
-            </div>
-            <p class="ranker-quote-text">
-              "Full-length proctored mock exams gave me total exam day confidence."
-            </p>
-          </div>
-
-          <!-- Slide 3: Prathamesh Shinde -->
-          <div class="ranker-slide-card">
-            <div class="ranker-card-head">
-              <div class="ranker-avatar-box avatar-purple">
-                <span class="avatar-crown">★</span>
-                <span>PS</span>
-              </div>
-              <div class="ranker-score-pill score-blue">
-                <span>📘</span>
-                <span>97.40%</span>
-              </div>
-            </div>
-            <h4 class="ranker-student-name">Prathamesh Shinde</h4>
-            <div class="ranker-exam-tag">12th Science Maharashtra Board</div>
-            <div class="ranker-achievement-badge">
-              <span>★</span> 100/100 in Mathematics
-            </div>
-            <p class="ranker-quote-text">
-              "Structured theory notes helped me score a perfect 100 in Maths."
-            </p>
-          </div>
-
-          <!-- Slide 4: Tanvi Kulkarni -->
-          <div class="ranker-slide-card">
-            <div class="ranker-card-head">
-              <div class="ranker-avatar-box avatar-amber">
-                <span class="avatar-crown">👑</span>
-                <span>TK</span>
-              </div>
-              <div class="ranker-score-pill score-emerald">
-                <span>🏆</span>
-                <span>98.60%</span>
-              </div>
-            </div>
-            <h4 class="ranker-student-name">Tanvi Kulkarni</h4>
-            <div class="ranker-exam-tag">10th SSC State Board · Foundation</div>
-            <div class="ranker-achievement-badge">
-              <span>★</span> Taluka Rank 1 · Vaijapur
-            </div>
-            <p class="ranker-quote-text">
-              "Teachers gave personal attention to every single concept and weak area."
-            </p>
-          </div>
-
-          <!-- Slide 5: Aditya Gaikwad -->
-          <div class="ranker-slide-card">
-            <div class="ranker-card-head">
-              <div class="ranker-avatar-box avatar-blue">
-                <span class="avatar-crown">★</span>
-                <span>AG</span>
-              </div>
-              <div class="ranker-score-pill score-emerald">
-                <span>⚡</span>
-                <span>99.15%ile</span>
-              </div>
-            </div>
-            <h4 class="ranker-student-name">Aditya Gaikwad</h4>
-            <div class="ranker-exam-tag">MHT-CET Engineering · 12th PCM</div>
-            <div class="ranker-achievement-badge">
-              <span>★</span> VJTI Mumbai Selection
-            </div>
-            <p class="ranker-quote-text">
-              "Speed calculation drills and negative marking analysis boosted my rank."
-            </p>
-          </div>
-
-          <!-- Slide 6: Rutuja More -->
-          <div class="ranker-slide-card">
-            <div class="ranker-card-head">
-              <div class="ranker-avatar-box avatar-rose">
-                <span class="avatar-crown">👑</span>
-                <span>RM</span>
-              </div>
-              <div class="ranker-score-pill score-emerald">
-                <span>🎯</span>
-                <span>640 / 720</span>
-              </div>
-            </div>
-            <h4 class="ranker-student-name">Rutuja More</h4>
-            <div class="ranker-exam-tag">NEET UG Medical · 12th PCB</div>
-            <div class="ranker-achievement-badge">
-              <span>★</span> BJ Medical College Pune
-            </div>
-            <p class="ranker-quote-text">
-              "Dedicated mentorship by senior faculty kept me focused throughout."
-            </p>
-          </div>
-
-          <!-- Slide 7: Kunal Jadhav -->
-          <div class="ranker-slide-card">
-            <div class="ranker-card-head">
-              <div class="ranker-avatar-box avatar-purple">
-                <span class="avatar-crown">★</span>
-                <span>KJ</span>
-              </div>
-              <div class="ranker-score-pill score-blue">
-                <span>📘</span>
-                <span>96.80%</span>
-              </div>
-            </div>
-            <h4 class="ranker-student-name">Kunal Jadhav</h4>
-            <div class="ranker-exam-tag">12th Science Maharashtra Board</div>
-            <div class="ranker-achievement-badge">
-              <span>★</span> State Board Distinction
-            </div>
-            <p class="ranker-quote-text">
-              "Daily 4-hour lectures covered every concept in complete detail."
-            </p>
-          </div>
+          {% endfor %}
 
         </div>
       </div>
@@ -473,6 +1616,7 @@
     </div>
   </div>
 </section>
+{% endif %}
 
 <!-- ==========================================================================
      3. THE 4 TEACHING PILLARS OF SUTAWANE GROUP (Interactive Animated Pipeline)
@@ -641,53 +1785,53 @@
       <!-- Left: Interactive Portal Dashboard Preview Card -->
       <div class="ecosystem-preview-box">
         <div class="preview-pill-header">
-          <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700;color:var(--text-dark);font-size:0.95rem;">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2563EB;"></span>
+          <div class="preview-header-title">
+            <span class="preview-pulse-dot"></span>
             <span>Parent Portal · Real-Time Academic Ledger</span>
           </div>
-          <span style="font-size:0.75rem;padding:0.25rem 0.65rem;border-radius:var(--radius-full);background:#EFF6FF;color:#2563EB;font-weight:700;">Live Feed</span>
+          <span class="preview-live-badge">Live Feed</span>
         </div>
 
-        <!-- Attendance Calendar Row -->
-        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:var(--radius-md);padding:1rem;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:0.75rem;font-size:0.825rem;font-weight:700;">
-            <span>Current Month Attendance (October)</span>
-            <span style="color:#059669;">98.4% Present</span>
+        <!-- Weekly DPP & Practice Worksheet Tracker -->
+        <div class="ecosystem-inner-card">
+          <div class="dpp-header-row">
+            <span>Weekly DPP &amp; Practice Worksheets</span>
+            <span class="dpp-percent-text">96% Completed ✓</span>
           </div>
-          <div style="display:flex;gap:0.35rem;justify-content:space-between;">
-            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
-            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
-            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
-            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
-            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
-            <span style="flex:1;height:24px;background:#E2E8F0;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#64748B;font-size:0.7rem;font-weight:700;">Sun</span>
-            <span style="flex:1;height:24px;background:#10B981;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFF;font-size:0.7rem;font-weight:700;">P</span>
+          <div class="dpp-tracker-grid">
+            <span class="dpp-day-chip dpp-done" title="Monday: Physics DPP Completed">Mon ✓</span>
+            <span class="dpp-day-chip dpp-done" title="Tuesday: Chemistry DPP Completed">Tue ✓</span>
+            <span class="dpp-day-chip dpp-done" title="Wednesday: Maths DPP Completed">Wed ✓</span>
+            <span class="dpp-day-chip dpp-done" title="Thursday: Biology DPP Completed">Thu ✓</span>
+            <span class="dpp-day-chip dpp-done" title="Friday: DPP Revision Completed">Fri ✓</span>
+            <span class="dpp-day-chip dpp-done" title="Saturday: Practice Paper Completed">Sat ✓</span>
+            <span class="dpp-day-chip dpp-test" title="Sunday: Weekly Grand Mock Test">Test</span>
           </div>
         </div>
 
         <!-- Fee Ledger Snippet -->
-        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:var(--radius-md);padding:1rem;display:flex;align-items:center;justify-content:space-between;">
+        <div class="ecosystem-inner-card ecosystem-ledger-row">
           <div>
-            <div style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">INSTITUTE FEE LEDGER</div>
-            <div style="font-size:0.95rem;font-weight:800;color:var(--text-dark);">1st Term Installment Paid</div>
+            <div class="ledger-label">INSTITUTE FEE LEDGER</div>
+            <div class="ledger-value">1st Term Installment Paid</div>
           </div>
-          <span style="padding:0.35rem 0.75rem;background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;border-radius:var(--radius-full);font-size:0.75rem;font-weight:700;">
+          <span class="ledger-receipt-chip">
             ✓ Official Receipt Generated
           </span>
         </div>
 
         <!-- Test Performance Comparison Snippet -->
-        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:var(--radius-md);padding:1rem;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;font-size:0.825rem;font-weight:700;">
+        <div class="ecosystem-inner-card">
+          <div class="test-mock-header">
             <span>Physics Grand Mock #4</span>
-            <span style="color:var(--brand-blue);">92 / 100 Marks</span>
+            <span class="test-mock-score">92 / 100 Marks</span>
           </div>
-          <div style="width:100%;height:8px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
-            <div style="width:92%;height:100%;background:linear-gradient(90deg, #2563EB, #0EA5E9);border-radius:9999px;"></div>
+          <div class="test-progress-bar-track">
+            <div class="test-progress-bar-fill" style="width:92%;"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;margin-top:0.35rem;font-size:0.72rem;color:var(--text-muted);">
+          <div class="test-mock-footer">
             <span>Batch Average: 74%</span>
-            <span style="font-weight:700;color:#1D4ED8;">Top 5% in Vaijapur</span>
+            <span class="test-mock-rank">Top 5% in Vaijapur</span>
           </div>
         </div>
 
@@ -697,10 +1841,10 @@
       <div class="ecosystem-feature-list">
         
         <div class="eco-feature-row">
-          <div class="eco-feature-icon">⏱️</div>
+          <div class="eco-feature-icon">💬</div>
           <div class="eco-feature-content">
-            <h4>Real-Time WhatsApp & SMS Alerts</h4>
-            <p>Parents receive instant automated notifications within minutes if their child is absent or delayed from the lecture.</p>
+            <h4>Real-Time WhatsApp &amp; SMS Alerts</h4>
+            <p>Parents receive instant automated fee receipts, exam score reports, and important academic circulars directly on WhatsApp.</p>
           </div>
         </div>
 
@@ -750,10 +1894,10 @@
             <span>Campus Guidance Desk</span>
           </div>
           <h2 style="font-size:2.35rem;font-weight:800;color:var(--text-dark);line-height:1.2;margin-bottom:0.75rem;">
-            Visit Our Main Campus in Vaijapur
+            Visit Our {% if website_campuses.0 %}{{ website_campuses.0.name }}{% else %}Main Campus in Vaijapur{% endif %}
           </h2>
           <p style="font-size:1.025rem;color:var(--text-muted);line-height:1.65;">
-            We warmly welcome parents and students for a personalized academic orientation, batch inspection, and direct counseling with senior faculty.
+            We warmly welcome parents and students for a personalized academic orientation, batch inspection, and direct counseling with {% if website_campuses.0 %}{{ website_campuses.0.person_name }}{% else %}senior faculty{% endif %}.
           </p>
         </div>
 
@@ -765,9 +1909,9 @@
               <span class="meta-card-title">Campus Location</span>
             </div>
             <div class="meta-card-value">
-              Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur
+              {% if website_campuses.0 %}{{ website_campuses.0.address }}{% if website_campuses.0.district %}, {{ website_campuses.0.district }}{% endif %}{% else %}Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur{% endif %}
             </div>
-            <a href="https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur" target="_blank" rel="noopener noreferrer" class="meta-card-link">
+            <a href="{% if website_campuses.0 and website_campuses.0.map_direct_url %}{{ website_campuses.0.map_direct_url }}{% else %}https://maps.google.com/?q=Ladgaon+Road+Niwara+Nagari+Near+Dongare+Hospital+Vaijapur{% endif %}" target="_blank" rel="noopener noreferrer" class="meta-card-link">
               <span>View on Google Maps</span>
               <span>↗</span>
             </a>
@@ -782,25 +1926,39 @@
               </div>
             </div>
             <div class="meta-card-value">
-              Mon – Sat: 7:30 AM – 8:00 PM
+              {% if website_campuses.0 %}{{ website_campuses.0.hours }}{% else %}Mon – Sat: 7:30 AM – 8:00 PM{% endif %}
             </div>
-            <span style="font-size:0.75rem;color:var(--text-muted);">Sunday: 8:00 AM – 1:00 PM</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">{% if website_campuses.0 and website_campuses.0.hours_sub %}{{ website_campuses.0.hours_sub }}{% else %}Sunday: 8:00 AM – 1:00 PM{% endif %}</span>
           </div>
         </div>
 
         <!-- Fast Contact Helpline Row -->
         <div class="desk-actions-row">
-          <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="btn-modern-navy" style="display:inline-flex;">
+          <a href="tel:{% if website_campuses.0 %}{{ website_campuses.0.phone_clean|default:website_campuses.0.phone }}{% else %}{{ institute_settings.phone|default:'+919876543210' }}{% endif %}" class="btn-modern-navy" style="display:inline-flex;">
             <span class="btn-icon-circle">📞</span>
-            <span>Call Counseling Desk</span>
+            <span>Call Counseling Desk ({% if website_campuses.0 %}{{ website_campuses.0.phone }}{% else %}{{ institute_settings.phone|default:'+91 98814 65883' }}{% endif %})</span>
           </a>
 
-          <a href="https://wa.me/917776824564?text=Hello%20Sutawane%20Classes,%20I%20would%20like%20to%20visit%20the%20campus%20for%20admissions." target="_blank" rel="noopener noreferrer" class="btn-modern-outline" style="display:inline-flex;">
+          <a href="https://wa.me/{% if website_campuses.0 %}{{ website_campuses.0.phone_whatsapp|default:'919881465883' }}{% else %}919881465883{% endif %}?text=Hello%20{% if website_campuses.0 %}{{ website_campuses.0.person_name|urlencode }}{% else %}Prof.%20Sutawane%20Sir{% endif %},%20I%20would%20like%20to%20visit%20the%20campus%20for%20admissions." target="_blank" rel="noopener noreferrer" class="btn-modern-outline" style="display:inline-flex;">
             <span style="font-size:1.1rem;">💬</span>
             <span>Chat on WhatsApp</span>
             <span>↗</span>
           </a>
         </div>
+
+        {% if website_campuses and website_campuses|length > 1 %}
+        <!-- Multi-Campus Quick Badges -->
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;margin-top:0.75rem;">
+          <span style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">Other Campuses:</span>
+          {% for c in website_campuses|slice:"1:" %}
+          <a href="{% url 'public_contact_us' %}" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.8rem;padding:0.25rem 0.7rem;border-radius:999px;background:rgba(37,99,235,0.08);color:var(--brand-blue);font-weight:600;text-decoration:none;">
+            <span>{{ c.icon|default:'🏢' }}</span>
+            <span>{{ c.name }}</span>
+            <span style="color:#64748b;font-weight:400;font-size:0.75rem;">({{ c.badge }})</span>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
 
         <!-- Interactive FAQ Accordion -->
         <div class="faq-modern-accordion">
@@ -921,30 +2079,30 @@
 <!-- ==========================================================================
      7. MODERN FINALE ACTION BANNER
      ========================================================================== -->
-<section style="padding:0 0 5rem;">
+<section class="modern-cta-section">
   <div class="modern-container">
-    <div style="background:linear-gradient(135deg, #091224 0%, #152E58 100%);border-radius:var(--radius-xl);padding:3.5rem;box-shadow:var(--shadow-xl);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2rem;">
-      <div style="max-width:650px;">
-        <span style="display:inline-block;padding:0.3rem 0.85rem;border-radius:4px;background:rgba(255,255,255,0.1);color:#FEF08A;font-size:0.78rem;font-weight:700;margin-bottom:1rem;">
+    <div class="modern-cta-card">
+      <div class="modern-cta-content">
+        <span class="modern-cta-badge">
           ⚡ Admissions Open 2026–2027
         </span>
-        <h3 style="font-size:2.35rem;font-weight:800;color:#FFFFFF;line-height:1.2;margin-bottom:0.75rem;">
+        <h3 class="modern-cta-title">
           Begin Your Academic Journey With Sutawane Group
         </h3>
-        <p style="font-size:1rem;color:#CBD5E1;line-height:1.6;">
+        <p class="modern-cta-desc">
           Join over 10,000+ successful alumni across Maharashtra. Connect with our academic mentors to select the best batch for your target examination.
         </p>
       </div>
 
-      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <div class="modern-cta-actions">
         <button type="button" class="btn-modern-amber" onclick="openInquiryModal()">
           <span class="btn-icon-circle">🚀</span>
           <span>Apply for Admission</span>
           <span class="btn-arrow-circle">→</span>
         </button>
 
-        <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="btn-modern-outline" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.25);color:#FFFFFF !important;">
-          <span>📞 Helpline: {{ institute_settings.phone|default:'+91 98765 43210' }}</span>
+        <a href="tel:{{ institute_settings.phone|default:'+919881465883' }}" class="btn-modern-outline modern-cta-helpline-btn">
+          <span class="modern-cta-helpline">📞 Helpline: {{ institute_settings.phone|default:'+91 98814 65883' }}</span>
         </a>
       </div>
     </div>
@@ -1109,6 +2267,46 @@
     const targetPhone = "917776824564";
     const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
+  }
+
+  // Post-Hero FAQ-Style Notice Board Accordion Toggle (Strict Single-Accordion: only one section expanded at a time)
+  function toggleNoticeAccordion(id) {
+    const targetItem = document.getElementById('notice-item-' + id);
+    const targetBody = document.getElementById('notice-body-' + id);
+    if (!targetItem || !targetBody) return;
+
+    const isCurrentlyOpen = targetItem.classList.contains('is-open');
+
+    // Automatically collapse any open notice items first
+    const allNoticeItems = document.querySelectorAll('.notice-accordion-item');
+    allNoticeItems.forEach(item => {
+      item.classList.remove('is-open');
+      const btn = item.querySelector('.notice-accordion-trigger');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      const body = item.querySelector('.notice-accordion-body');
+      if (body) {
+        body.style.maxHeight = '0px';
+        body.style.opacity = '0';
+      }
+    });
+
+    // If the clicked item was not already open, expand it
+    if (!isCurrentlyOpen) {
+      targetItem.classList.add('is-open');
+      targetBody.style.maxHeight = (targetBody.scrollHeight + 120) + 'px';
+      targetBody.style.opacity = '1';
+      const btn = targetItem.querySelector('.notice-accordion-trigger');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function scrollToAnnouncement() {
+    const sec = document.getElementById('noticeBoardSection');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      openInquiryModal();
+    }
   }
 
   // Interactive FAQ Accordion Listener

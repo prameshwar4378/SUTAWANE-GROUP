@@ -52,7 +52,48 @@
 <section class="modern-section" style="padding-top:0;">
   <div class="modern-container">
     <div class="modern-batches-grid" id="batchesGrid">
+      {% if website_batches %}
+        {% for b in website_batches %}
+        <div class="modern-batch-card {% if b.is_featured %}featured-batch{% endif %}" data-category="{{ b.category }}">
+          {% if b.is_featured %}
+          <span class="featured-popular-tag">★ {{ b.featured_tag|default:'MOST POPULAR · RANKER PREFERRED' }}</span>
+          {% endif %}
+          <div>
+            <div class="batch-card-header" {% if b.is_featured %}style="margin-top:0.35rem;"{% endif %}>
+              <span class="batch-stream-tag tag-{{ b.category }}">{{ b.stream_tag }}</span>
+              {% if b.seats_badge %}
+              <span class="batch-seat-badge">
+                <span class="live-dot-pulse"></span>
+                <span>{{ b.seats_badge }}</span>
+              </span>
+              {% endif %}
+            </div>
+            <h3 class="batch-card-title">{{ b.title }}</h3>
+            <p class="batch-card-target">{{ b.target_text }}</p>
+            
+            <ul class="modern-features-list">
+              {% for feat in b.get_features_list %}
+              <li>
+                <span class="feat-check-icon">✓</span>
+                <span>{{ feat }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
 
+          <div class="batch-card-footer">
+            <div class="batch-timing-box">
+              <small>Lecture Schedule</small>
+              <strong>{{ b.timing_text }}</strong>
+            </div>
+            <button type="button" class="btn-taskharbor-primary" style="padding:0.65rem 1.35rem;font-size:0.875rem;" onclick="openInquiryModal('{{ b.title|escapejs }}')">
+              <span>Inquire for Seat</span>
+              <span class="btn-pill-arrow">→</span>
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
       <!-- Batch 1: 11th & 12th Science -->
       <div class="modern-batch-card" data-category="science">
         <div>
@@ -323,92 +364,12 @@
           </button>
         </div>
       </div>
+      {% endif %}
 
     </div>
   </div>
 </section>
 
-<!-- ==========================================================================
-     3. PROGRAM COMPARISON MATRIX TABLE
-     ========================================================================== -->
-<section class="modern-section" style="padding-top:0;">
-  <div class="modern-container">
-    <div class="matrix-section-wrap">
-      
-      <div class="text-center">
-        <span class="modern-badge">✦ PROGRAM SPECIFICATIONS ✦</span>
-        <h2 class="modern-section-title" style="font-size:2.4rem;">Batch Comparison Matrix</h2>
-        <p class="modern-section-desc mx-auto">
-          Choose the academic program structure best aligned with your target colleges, entrance examinations, and learning pace.
-        </p>
-      </div>
-
-      <div style="overflow-x:auto;">
-        <table class="modern-matrix-table">
-          <thead>
-            <tr>
-              <th>Feature / Parameter</th>
-              <th>Foundation (8th–10th)</th>
-              <th>11th–12th Regular Board</th>
-              <th class="featured-col-th">★ Super-30 Entrance Target</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="font-weight:700;color:#0F172A;">Daily Lecture Duration</td>
-              <td>2.5 – 3.0 Hours</td>
-              <td>3.5 – 4.0 Hours</td>
-              <td class="featured-col-td">4.5 – 5.0 Hours</td>
-            </tr>
-            <tr>
-              <td style="font-weight:700;color:#0F172A;">Study Material Modules</td>
-              <td>Printed Theory &amp; Worksheets</td>
-              <td>Full Set (Text + Question Bank)</td>
-              <td class="featured-col-td">Advanced Modules + 10k MCQ Bank</td>
-            </tr>
-            <tr>
-              <td style="font-weight:700;color:#0F172A;">Weekly Test Frequency</td>
-              <td>Every Saturday</td>
-              <td>Weekly Subjective &amp; Objective</td>
-              <td class="featured-col-td">Twice Weekly + Full Mock Drills</td>
-            </tr>
-            <tr>
-              <td style="font-weight:700;color:#0F172A;">1-on-1 Faculty Mentorship</td>
-              <td>Bi-weekly Review</td>
-              <td>Daily Doubt Counters</td>
-              <td class="featured-col-td">Personal Faculty Mentor Assigned</td>
-            </tr>
-            <tr>
-              <td style="font-weight:700;color:#0F172A;">Performance Analytics</td>
-              <td>Monthly Report Card</td>
-              <td>Weekly WhatsApp SMS</td>
-              <td class="featured-col-td">Real-Time Cloud App Dashboard</td>
-            </tr>
-            <tr>
-              <td style="font-weight:700;color:#0F172A;">Next Action</td>
-              <td>
-                <button type="button" class="btn-taskharbor-frosted" style="padding:0.45rem 1.15rem;font-size:0.8rem;" onclick="openInquiryModal()">
-                  Inquire Seat
-                </button>
-              </td>
-              <td>
-                <button type="button" class="btn-taskharbor-frosted" style="padding:0.45rem 1.15rem;font-size:0.8rem;" onclick="openInquiryModal()">
-                  Inquire Seat
-                </button>
-              </td>
-              <td class="featured-col-td">
-                <button type="button" class="btn-taskharbor-primary" style="padding:0.45rem 1.15rem;font-size:0.8rem;" onclick="openInquiryModal()">
-                  Apply for Target
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-    </div>
-  </div>
-</section>
 
 <!-- ==========================================================================
      4. 4-STEP ADMISSION PROCESS PIPELINE
@@ -499,11 +460,11 @@
       <!-- FAQ 4 -->
       <div class="modern-faq-box">
         <button type="button" class="modern-faq-btn" onclick="toggleBatchFaq(this)">
-          <span>How are parents kept updated regarding attendance and progress?</span>
+          <span>How are parents kept updated regarding test scores and academic progress?</span>
           <span class="modern-faq-icon">+</span>
         </button>
         <div class="modern-faq-content">
-          Parents receive automatic real-time SMS notifications when their ward enters the campus. Additionally, weekly test scorecards, chapter completion status, and fee receipts are dispatched directly via WhatsApp and our integrated student portal.
+          Weekly test scorecards, chapter completion status, fee payment receipts, and important academic notices are dispatched directly to parents via WhatsApp and our integrated student portal.
         </div>
       </div>
 

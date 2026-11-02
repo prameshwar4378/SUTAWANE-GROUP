@@ -4,8 +4,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}{{ institute_name|default:'Sutawane Classes' }} · Premier Coaching Institute{% endblock %}</title>
-  <meta name="description" content="{% block meta_desc %}Sutawane Classes - Premier Coaching Institute in Vaijapur for 8th-10th State Board, 11th-12th Science (PCB/PCM), MHT-CET, NEET, JEE & Commerce excellence.{% endblock %}">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>{% block title %}{% if page_meta and page_meta.meta_title %}{{ page_meta.meta_title }}{% else %}{{ institute_name|default:'Sutawane Classes' }} · Premier Coaching Institute{% endif %}{% endblock %}</title>
+  <meta name="description" content="{% block meta_desc %}{% if page_meta and page_meta.meta_desc %}{{ page_meta.meta_desc }}{% else %}Sutawane Classes - Premier Coaching Institute in Vaijapur for 8th-10th State Board, 11th-12th Science (PCB/PCM), MHT-CET, NEET, JEE & Commerce excellence.{% endif %}{% endblock %}">
+  {% if page_meta and page_meta.meta_keywords %}
+  <meta name="keywords" content="{{ page_meta.meta_keywords }}">
+  {% endif %}
+  {% if page_meta and page_meta.og_title %}
+  <meta property="og:title" content="{{ page_meta.og_title }}">
+  {% endif %}
+  {% if page_meta and page_meta.og_desc %}
+  <meta property="og:description" content="{{ page_meta.og_desc }}">
+  {% endif %}
   
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
@@ -34,13 +44,50 @@
     }
 
     /* =====================================================================
-       FULL-WIDTH EDGE-TO-EDGE CREATIVE PROFESSIONAL NAVIGATION SYSTEM
+       PERMANENT FIXED-POSITION NAVIGATION SYSTEM (Stays Fixed on Scroll)
        ===================================================================== */
+    html {
+      scroll-padding-top: 115px !important;
+      scroll-behavior: smooth !important;
+    }
+    @media (max-width: 640px) {
+      html {
+        scroll-padding-top: 95px !important;
+      }
+    }
+
+    .fixed-top-navigation-shell {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      width: 100% !important;
+      z-index: 1000 !important;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06) !important;
+      transition: box-shadow 0.25s ease, background 0.25s ease !important;
+      background: #FFFFFF !important;
+    }
+
+    .fixed-top-navigation-shell.is-scrolled {
+      box-shadow: 0 8px 30px -4px rgba(15, 23, 42, 0.12) !important;
+    }
+
+    .fixed-nav-spacer {
+      width: 100% !important;
+      height: 106px !important;
+      flex-shrink: 0 !important;
+    }
+    @media (max-width: 640px) {
+      .fixed-nav-spacer {
+        height: 88px !important;
+      }
+    }
+
     .top-announcement-bar {
       background: #FFFFFF !important;
       border-bottom: 1px solid #E2E8F0 !important;
       font-size: 0.8125rem !important;
-      padding: 0.5rem 0 !important;
+      padding: 0.45rem 0 !important;
       position: relative !important;
       z-index: 101 !important;
       width: 100% !important;
@@ -123,16 +170,14 @@
       background: #CBD5E1 !important;
     }
 
-    /* Sticky Navigation Header */
+    /* Navigation Header inside Fixed Shell */
     .modern-header {
-      position: sticky !important;
-      top: 0 !important;
+      position: relative !important;
       z-index: 100 !important;
-      background: rgba(255, 255, 255, 0.94) !important;
+      background: rgba(255, 255, 255, 0.96) !important;
       backdrop-filter: blur(20px) saturate(180%) !important;
       -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
       border-bottom: 1px solid rgba(226, 232, 240, 0.85) !important;
-      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04) !important;
       width: 100% !important;
       max-width: 100% !important;
       transition: all 0.2s ease !important;
@@ -268,9 +313,24 @@
 
     .modern-nav-dropdown-btn:hover,
     .modern-nav-dropdown-btn.active,
-    .modern-nav-dropdown.open .modern-nav-dropdown-btn {
+    .modern-nav-dropdown.open .modern-nav-dropdown-btn,
+    .modern-nav-dropdown:hover .modern-nav-dropdown-btn,
+    .modern-nav-dropdown:focus-within .modern-nav-dropdown-btn {
       color: #0F172A !important;
       background: rgba(15, 23, 42, 0.05) !important;
+    }
+
+    .modern-nav-dropdown:hover .dropdown-chevron,
+    .modern-nav-dropdown:focus-within .dropdown-chevron {
+      transform: rotate(180deg) !important;
+    }
+
+    .modern-nav-dropdown:hover .modern-submenu,
+    .modern-nav-dropdown:focus-within .modern-submenu {
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+      transform: translateX(-50%) translateY(0) !important;
     }
 
     /* Action Buttons */
@@ -345,15 +405,15 @@
     /* Universal Responsive & Overflow Resets */
     html, body {
       width: 100% !important;
-      max-width: 100vw !important;
-      overflow-x: hidden !important;
+      max-width: 100% !important;
+      overflow-x: clip !important;
       position: relative !important;
     }
 
     body.modern-body {
       width: 100% !important;
       max-width: 100% !important;
-      overflow-x: hidden !important;
+      overflow-x: clip !important;
     }
 
     /* Responsive Adjustments */
@@ -506,104 +566,112 @@
     <div class="ambient-glow-right"></div>
   </div>
 
-  <!-- 1. Top Announcement Bar (Full Width Screen-Edge) -->
-  <div class="top-announcement-bar">
-    <div class="header-full-container top-announcement-inner">
-      <div class="top-announcement-left">
-        <span class="live-dot-pulse"></span>
-        <span>Admissions Open 2026–2027 · Limited Seats Per Batch</span>
-      </div>
-      <div class="top-announcement-right">
-        <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="top-contact-link">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-          <span>{{ institute_settings.phone|default:'+91 98765 43210' }}</span>
-        </a>
-        <span class="top-divider"></span>
-        <span class="top-location">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur
-        </span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 2. Modern Sticky Navigation Bar (Full Width Screen-Edge) -->
-  <header class="modern-header" id="modernHeader">
-    <div class="header-full-container">
-      <div class="modern-header-inner">
-        <!-- Brand Logo / Identity -->
-        <a href="{% url 'landing' %}" class="modern-brand" aria-label="Sutawane Classes Home">
-          <div class="modern-logo-box">
-            {% if active_logo_url %}
-              <img src="{{ active_logo_url }}" alt="Sutawane Classes Logo">
-            {% else %}
-              <span>SC</span>
-            {% endif %}
-          </div>
-          <div class="modern-brand-text">
-            <div class="modern-brand-name">{{ institute_name|default:'Sutawane Classes Vaijapur' }}</div>
-            <div class="modern-brand-tag">
-              <span class="brand-tag-dot"></span>
-              <span>Academy of Excellence · Vaijapur</span>
-            </div>
-          </div>
-        </a>
-
-        <!-- Desktop Navigation Menu -->
-        <nav class="modern-nav-links" aria-label="Main Navigation">
-          <a href="{% url 'landing' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'landing' %}active{% endif %}">Home</a>
-          <a href="{% url 'public_batches' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_batches' %}active{% endif %}">Batches</a>
-          
-          <!-- Gallery Dropdown (Click to toggle submenu) -->
-          <div class="modern-nav-dropdown" id="galleryDropdown">
-            <button type="button" class="modern-nav-dropdown-btn {% if request.resolver_match.url_name in 'public_photo_gallery,public_video_gallery' %}active{% endif %}" id="galleryDropdownBtn" aria-expanded="false" aria-haspopup="true">
-              <span>Gallery</span>
-              <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
-            <div class="modern-submenu" id="gallerySubmenu">
-              <a href="{% url 'public_photo_gallery' %}" class="modern-submenu-item {% if request.resolver_match.url_name == 'public_photo_gallery' %}active{% endif %}">
-                <div class="submenu-icon-box">📷</div>
-                <div class="submenu-text">
-                  <span class="submenu-title">Photo Gallery</span>
-                  <span class="submenu-desc">Campus facilities, events & toppers</span>
-                </div>
-              </a>
-              <a href="{% url 'public_video_gallery' %}" class="modern-submenu-item {% if request.resolver_match.url_name == 'public_video_gallery' %}active{% endif %}">
-                <div class="submenu-icon-box">🎥</div>
-                <div class="submenu-text">
-                  <span class="submenu-title">Video Gallery</span>
-                  <span class="submenu-desc">Faculty lectures & student experiences</span>
-                </div>
-              </a>
-            </div>
-          </div>
-
-          <a href="{% url 'public_about_us' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_about_us' %}active{% endif %}">About Us</a>
-          <a href="{% url 'public_contact_us' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_contact_us' %}active{% endif %}">Contact Us</a>
-        </nav>
-
-        <!-- Header Actions: Login + Creative Primary CTA -->
-        <div class="modern-header-actions">
-          {% if request.session.user_id %}
-            <a href="{% url 'dashboard' %}" class="btn-nav-login" title="Open ERP Workspace">Open ERP ↗</a>
-          {% else %}
-            <a href="{% url 'login' %}" class="btn-nav-login" title="Staff / Student Login">Login</a>
-          {% endif %}
-
-          <button type="button" class="btn-header-demo" onclick="openInquiryModal()">
-            <span class="btn-demo-full">Book Free Demo</span>
-            <span class="btn-demo-mobile">Free Demo</span>
-            <span class="demo-arrow">→</span>
-          </button>
-
-          <!-- Mobile Hamburger Toggle -->
-          <button class="modern-menu-btn" id="mobileMenuBtn" aria-label="Open mobile menu">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
+  <!-- Top Fixed Navigation Shell (Stays fixed at top on scroll) -->
+  <div class="fixed-top-navigation-shell" id="fixedNavShell">
+    <!-- 1. Top Announcement Bar (Full Width Screen-Edge) -->
+    <div class="top-announcement-bar">
+      <div class="header-full-container top-announcement-inner">
+        <div class="top-announcement-left">
+          <span class="live-dot-pulse"></span>
+          <span>{% if website_banner %}{{ website_banner.badge_text }} · {{ website_banner.main_text }}{% else %}Admissions Open 2026–2027 · Limited Seats Per Batch{% endif %}</span>
+        </div>
+        <div class="top-announcement-right">
+          <a href="tel:{{ institute_settings.phone|default:'+919876543210' }}" class="top-contact-link">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            <span>{{ institute_settings.phone|default:'+91 98765 43210' }}</span>
+          </a>
+          <span class="top-divider"></span>
+          <span class="top-location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur
+          </span>
         </div>
       </div>
     </div>
-  </header>
+
+    <!-- 2. Modern Navigation Bar (Full Width Screen-Edge) -->
+    <header class="modern-header" id="modernHeader">
+      <div class="header-full-container">
+        <div class="modern-header-inner">
+          <!-- Brand Logo / Identity -->
+          <a href="{% url 'landing' %}" class="modern-brand" aria-label="Sutawane Classes Home">
+            <div class="modern-logo-box">
+              {% if active_logo_url %}
+                <img src="{{ active_logo_url }}" alt="Sutawane Classes Logo">
+              {% else %}
+                <span>SC</span>
+              {% endif %}
+            </div>
+            <div class="modern-brand-text">
+              <div class="modern-brand-name">{{ institute_name|default:'Sutawane Classes Vaijapur' }}</div>
+              <div class="modern-brand-tag">
+                <span class="brand-tag-dot"></span>
+                <span>Academy of Excellence · Vaijapur</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Desktop Navigation Menu -->
+          <nav class="modern-nav-links" aria-label="Main Navigation">
+            <a href="{% url 'landing' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'landing' %}active{% endif %}">Home</a>
+            <a href="{% url 'public_batches' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_batches' %}active{% endif %}">Batches</a>
+            
+            <!-- Gallery Dropdown (Click to toggle submenu) -->
+            <div class="modern-nav-dropdown" id="galleryDropdown">
+              <button type="button" class="modern-nav-dropdown-btn {% if request.resolver_match.url_name in 'public_photo_gallery,public_video_gallery' %}active{% endif %}" id="galleryDropdownBtn" aria-expanded="false" aria-haspopup="true">
+                <span>Gallery</span>
+                <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="modern-submenu" id="gallerySubmenu">
+                <a href="{% url 'public_photo_gallery' %}" class="modern-submenu-item {% if request.resolver_match.url_name == 'public_photo_gallery' %}active{% endif %}">
+                  <div class="submenu-icon-box">📷</div>
+                  <div class="submenu-text">
+                    <span class="submenu-title">Photo Gallery</span>
+                    <span class="submenu-desc">Campus facilities, events & toppers</span>
+                  </div>
+                </a>
+                <a href="{% url 'public_video_gallery' %}" class="modern-submenu-item {% if request.resolver_match.url_name == 'public_video_gallery' %}active{% endif %}">
+                  <div class="submenu-icon-box">🎥</div>
+                  <div class="submenu-text">
+                    <span class="submenu-title">Video Gallery</span>
+                    <span class="submenu-desc">Faculty lectures & student experiences</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <a href="{% url 'public_about_us' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_about_us' %}active{% endif %}">About Us</a>
+            <a href="{% url 'public_contact_us' %}" class="modern-nav-link {% if request.resolver_match.url_name == 'public_contact_us' %}active{% endif %}">Contact Us</a>
+          </nav>
+
+          <!-- Header Actions: Login + Creative Primary CTA -->
+          <div class="modern-header-actions">
+            {% if request.session.user_id or is_user_authenticated %}
+              <a href="{% if is_developer %}{% url 'developer_portal' %}{% else %}{% url 'dashboard' %}{% endif %}" class="btn-nav-login" title="Go to Dashboard">
+                <span>Dashboard</span>
+                <span style="font-size:0.75rem;">↗</span>
+              </a>
+            {% else %}
+              <a href="{% url 'login' %}" class="btn-nav-login" title="Staff / Student Login">Login</a>
+            {% endif %}
+
+            <button type="button" class="btn-header-demo" onclick="openInquiryModal()">
+              <span class="btn-demo-full">Book Free Demo</span>
+              <span class="btn-demo-mobile">Free Demo</span>
+              <span class="demo-arrow">→</span>
+            </button>
+
+            <!-- Mobile Hamburger Toggle -->
+            <button class="modern-menu-btn" id="mobileMenuBtn" aria-label="Open mobile menu">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  </div>
+  <!-- Fixed Navigation Height Spacer (Keeps page flow exact without content jump) -->
+  <div class="fixed-nav-spacer" id="fixedNavSpacer" aria-hidden="true"></div>
 
   <!-- 3. Modern Mobile Drawer -->
   <div class="modern-mobile-drawer" id="mobileDrawer" aria-hidden="true">
@@ -663,13 +731,13 @@
         <span class="btn-arrow-circle">→</span>
       </button>
 
-      {% if request.session.user_id %}
-        <a href="{% url 'dashboard' %}" class="btn-modern-navy" style="width:100%;justify-content:center;text-align:center;">
-          <span>Open ERP Workspace ↗</span>
+      {% if request.session.user_id or is_user_authenticated %}
+        <a href="{% if is_developer %}{% url 'developer_portal' %}{% else %}{% url 'dashboard' %}{% endif %}" class="btn-modern-navy" style="width:100%;justify-content:center;text-align:center;">
+          <span>Dashboard ↗</span>
         </a>
       {% else %}
         <a href="{% url 'login' %}" class="btn-modern-navy" style="width:100%;justify-content:center;text-align:center;">
-          <span>Staff / Student Login ↗</span>
+          <span>Login ↗</span>
         </a>
       {% endif %}
     </div>
@@ -744,15 +812,15 @@
           <div class="footer-campus-card">
             <div class="footer-campus-item">
               <span class="icon">📍</span>
-              <span><strong>Main Campus:</strong> Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur.</span>
+              <span><strong>Main Campus:</strong> {% if website_campuses.0 %}{{ website_campuses.0.address }}{% if website_campuses.0.district %}, {{ website_campuses.0.district }}{% endif %}{% else %}Ladgaon Road, Niwara Nagari, Near Dongare Hospital, Vaijapur.{% endif %}</span>
             </div>
             <div class="footer-campus-item">
               <span class="icon">🏢</span>
-              <span><strong>Branches:</strong> Vaijapur · Kopargaon · Yeola</span>
+              <span><strong>Branches:</strong> {% if website_campuses %}{% for c in website_campuses %}{{ c.name }}{% if not forloop.last %} · {% endif %}{% endfor %}{% else %}Vaijapur · Kopargaon · Yeola{% endif %}</span>
             </div>
             <div class="footer-campus-item">
               <span class="icon">📞</span>
-              <span><strong>Helpline:</strong> <a href="tel:{{ institute_settings.phone|default:'+919881465883' }}" class="footer-helpline-link">{{ institute_settings.phone|default:'+91 98814 65883' }}</a></span>
+              <span><strong>Helpline:</strong> <a href="tel:{% if website_campuses.0 %}{{ website_campuses.0.phone_clean|default:website_campuses.0.phone }}{% else %}{{ institute_settings.phone|default:'+919881465883' }}{% endif %}" class="footer-helpline-link">{% if website_campuses.0 %}{{ website_campuses.0.phone }}{% else %}{{ institute_settings.phone|default:'+91 98814 65883' }}{% endif %}</a></span>
             </div>
             <div style="display:flex;gap:0.5rem;margin-top:0.4rem;">
               <a href="{% url 'public_contact_us' %}" class="btn-taskharbor-frosted" style="flex:1;justify-content:center;padding:0.6rem;font-size:0.8rem;text-align:center;text-decoration:none;">
@@ -771,7 +839,11 @@
           © {% now "Y" %} Sutawane Group of Education. All Rights Reserved. Crafted for Academic Excellence.
         </div>
         <div style="display:flex;align-items:center;gap:1.5rem;">
-          <a href="{% url 'login' %}" class="footer-login-link">Staff / Admin Login ↗</a>
+          {% if request.session.user_id or is_user_authenticated %}
+            <a href="{% if is_developer %}{% url 'developer_portal' %}{% else %}{% url 'dashboard' %}{% endif %}" class="footer-login-link">Dashboard ↗</a>
+          {% else %}
+            <a href="{% url 'login' %}" class="footer-login-link">Staff / Admin Login ↗</a>
+          {% endif %}
           <span style="color:rgba(255,255,255,0.2);">•</span>
           <a href="#top" class="footer-top-link">Back to Top ↑</a>
         </div>
@@ -781,7 +853,7 @@
 
   <!-- 5. Floating WhatsApp Help Button (Green Pill matching Screenshots) -->
   <div class="floating-whatsapp-help">
-    <a href="https://wa.me/919881465883?text=Hello%20Prof.%20Sutawane%20Sir,%20I%20would%20like%20to%20inquire%20about%20admissions%20for%20Sutawane%20Classes%20(Vaijapur,%20Kopargaon,%20Yeola)." target="_blank" rel="noopener noreferrer" class="btn-help-whatsapp" title="Instant WhatsApp Support">
+    <a href="https://wa.me/{% if website_campuses.0 %}{{ website_campuses.0.phone_whatsapp|default:'919881465883' }}{% else %}919881465883{% endif %}?text=Hello%20{% if website_campuses.0 %}{{ website_campuses.0.person_name|urlencode }}{% else %}Prof.%20Sutawane%20Sir{% endif %},%20I%20would%20like%20to%20inquire%20about%20admissions%20for%20Sutawane%20Classes." target="_blank" rel="noopener noreferrer" class="btn-help-whatsapp" title="Instant WhatsApp Support">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
       <span>Help</span>
     </a>
@@ -817,20 +889,32 @@
             <label class="modern-form-label" for="inq_standard">Class / Batch Interested *</label>
             <select id="inq_standard" class="modern-select" name="standard" required>
               <option value="" disabled selected>Select Desired Batch</option>
-              <option value="11th Science (PCB/PCM)">11th Science (Board + CET/NEET/JEE)</option>
-              <option value="12th Science Target Batch">12th Science Target Batch (CET / NEET)</option>
-              <option value="MHT-CET Crash Course">MHT-CET Intensive Entrance Batch</option>
-              <option value="10th State Board Foundation">10th State Board Foundation</option>
-              <option value="8th & 9th Pre-Foundation">8th & 9th Pre-Foundation</option>
-              <option value="11th & 12th Commerce">11th & 12th Commerce</option>
+              {% if website_batches %}
+                {% for b in website_batches %}
+                <option value="{{ b.title }}">{{ b.title }} ({{ b.stream_tag }})</option>
+                {% endfor %}
+              {% else %}
+                <option value="11th Science (PCB/PCM)">11th Science (Board + CET/NEET/JEE)</option>
+                <option value="12th Science Target Batch">12th Science Target Batch (CET / NEET)</option>
+                <option value="MHT-CET Crash Course">MHT-CET Intensive Entrance Batch</option>
+                <option value="10th State Board Foundation">10th State Board Foundation</option>
+                <option value="8th & 9th Pre-Foundation">8th & 9th Pre-Foundation</option>
+                <option value="11th & 12th Commerce">11th & 12th Commerce</option>
+              {% endif %}
             </select>
           </div>
           <div class="modern-form-group">
             <label class="modern-form-label" for="inq_campus">Preferred Campus Branch *</label>
             <select id="inq_campus" class="modern-select" name="campus" required>
-              <option value="Vaijapur (Main Campus)">🏛️ Vaijapur (Main Campus)</option>
-              <option value="Kopargaon Campus">🏢 Kopargaon Campus</option>
-              <option value="Yeola Campus">🏢 Yeola Campus</option>
+              {% if website_campuses %}
+                {% for c in website_campuses %}
+                <option value="{{ c.name }}">{{ c.icon|default:'🏢' }} {{ c.name }}</option>
+                {% endfor %}
+              {% else %}
+                <option value="Vaijapur (Main Campus)">🏛️ Vaijapur (Main Campus)</option>
+                <option value="Kopargaon Campus">🏢 Kopargaon Campus</option>
+                <option value="Yeola Campus">🏢 Yeola Campus</option>
+              {% endif %}
             </select>
           </div>
         </div>
@@ -842,7 +926,7 @@
 
         <button type="submit" class="btn-modern-amber" style="width:100%;justify-content:center;padding:0.95rem;margin-top:0.5rem;">
           <span class="btn-icon-circle">🚀</span>
-          <span>Submit Counseling Request via WhatsApp (+91 98814 65883)</span>
+          <span>Submit Counseling Request via WhatsApp ({% if website_campuses.0 %}{{ website_campuses.0.phone }}{% else %}{{ institute_settings.phone|default:'+91 98814 65883' }}{% endif %})</span>
           <span class="btn-arrow-circle">→</span>
         </button>
       </form>
@@ -870,16 +954,58 @@
       drawerCloseBtn.addEventListener('click', closeMobileDrawer);
     }
 
-    // Gallery Dropdown Toggle (Desktop)
+    // Gallery Dropdown Hover & Click (Desktop)
     const galleryDropdown = document.getElementById('galleryDropdown');
     const galleryBtn = document.getElementById('galleryDropdownBtn');
+    let galleryLeaveTimer = null;
 
     if (galleryDropdown && galleryBtn) {
+      const openGalleryMenu = () => {
+        if (galleryLeaveTimer) {
+          clearTimeout(galleryLeaveTimer);
+          galleryLeaveTimer = null;
+        }
+        galleryDropdown.classList.add('open');
+        galleryBtn.setAttribute('aria-expanded', 'true');
+      };
+
+      const closeGalleryMenu = (delay = 140) => {
+        if (galleryLeaveTimer) clearTimeout(galleryLeaveTimer);
+        galleryLeaveTimer = setTimeout(() => {
+          galleryDropdown.classList.remove('open');
+          galleryBtn.setAttribute('aria-expanded', 'false');
+        }, delay);
+      };
+
+      // Mouse hover listeners on desktop
+      galleryDropdown.addEventListener('mouseenter', () => {
+        openGalleryMenu();
+      });
+
+      galleryDropdown.addEventListener('mouseleave', () => {
+        closeGalleryMenu(140);
+      });
+
+      // Keyboard focus accessibility
+      galleryDropdown.addEventListener('focusin', () => {
+        openGalleryMenu();
+      });
+      galleryDropdown.addEventListener('focusout', (e) => {
+        if (!galleryDropdown.contains(e.relatedTarget)) {
+          closeGalleryMenu(100);
+        }
+      });
+
+      // Click still supports toggle (e.g. touchscreen laptops)
       galleryBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const isOpen = galleryDropdown.classList.contains('open');
-        galleryDropdown.classList.toggle('open');
-        galleryBtn.setAttribute('aria-expanded', !isOpen);
+        if (isOpen) {
+          galleryDropdown.classList.remove('open');
+          galleryBtn.setAttribute('aria-expanded', 'false');
+        } else {
+          openGalleryMenu();
+        }
       });
 
       // Close dropdown when clicking outside
@@ -895,6 +1021,7 @@
         if (e.key === 'Escape' && galleryDropdown.classList.contains('open')) {
           galleryDropdown.classList.remove('open');
           galleryBtn.setAttribute('aria-expanded', 'false');
+          galleryBtn.focus();
         }
       });
     }
@@ -909,10 +1036,58 @@
       });
     }
 
+    // Fixed Top Navigation Bar Height Sync & Scroll Shadow
+    function syncFixedNav() {
+      const shell = document.getElementById('fixedNavShell');
+      const spacer = document.getElementById('fixedNavSpacer');
+      if (shell && spacer) {
+        spacer.style.height = shell.offsetHeight + 'px';
+      }
+    }
+    window.addEventListener('DOMContentLoaded', syncFixedNav);
+    window.addEventListener('load', syncFixedNav);
+    window.addEventListener('resize', syncFixedNav);
+    syncFixedNav();
+
+    window.addEventListener('scroll', function() {
+      const shell = document.getElementById('fixedNavShell');
+      if (shell) {
+        if (window.scrollY > 15) {
+          shell.classList.add('is-scrolled');
+        } else {
+          shell.classList.remove('is-scrolled');
+        }
+      }
+    }, { passive: true });
+
     // Modal Controls
     const inqModal = document.getElementById('inquiryModal');
-    function openInquiryModal() {
-      if (inqModal) inqModal.style.display = 'flex';
+    function openInquiryModal(targetBatch) {
+      if (inqModal) {
+        inqModal.style.display = 'flex';
+        if (targetBatch) {
+          const stdSelect = document.getElementById('inq_standard');
+          if (stdSelect) {
+            let matched = false;
+            const tbLower = targetBatch.toLowerCase();
+            for (let i = 0; i < stdSelect.options.length; i++) {
+              const optVal = stdSelect.options[i].value.toLowerCase();
+              if (optVal && (optVal.includes(tbLower) || tbLower.includes(optVal))) {
+                stdSelect.selectedIndex = i;
+                matched = true;
+                break;
+              }
+            }
+            if (!matched) {
+              const opt = document.createElement('option');
+              opt.value = targetBatch;
+              opt.textContent = targetBatch;
+              opt.selected = true;
+              stdSelect.appendChild(opt);
+            }
+          }
+        }
+      }
     }
     function closeInquiryModal() {
       if (inqModal) inqModal.style.display = 'none';
@@ -927,7 +1102,7 @@
       });
     }
 
-    // WhatsApp Direct Dispatch
+    // WhatsApp Direct Dispatch & Asynchronous Backend Lead Ingestion
     function handleInquirySubmit(e) {
       e.preventDefault();
       const name = document.getElementById('inq_student_name').value.trim();
@@ -935,6 +1110,27 @@
       const standard = document.getElementById('inq_standard').value;
       const campus = document.getElementById('inq_campus').value;
       const msg = document.getElementById('inq_message').value.trim();
+
+      // Dispatch to Backend Lead Capture API asynchronously
+      try {
+        fetch('/api/public/inquiry/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            student_name: name,
+            phone: phone,
+            standard_course: standard,
+            preferred_branch: campus,
+            message: msg
+          })
+        }).catch(function(err) {
+          console.warn('Inquiry background sync warning:', err);
+        });
+      } catch (err) {
+        console.warn(err);
+      }
 
       const text = `*New Admission Inquiry - Sutawane Classes*\n\n` +
                    `*Student Name:* ${name}\n` +
@@ -948,6 +1144,9 @@
       const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
       window.open(waUrl, '_blank');
       closeInquiryModal();
+      try {
+        document.getElementById('publicInquiryForm').reset();
+      } catch (e) {}
     }
   </script>
 

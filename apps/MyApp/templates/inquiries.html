@@ -1,0 +1,737 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Website Inquiries &amp; Leads — Sutawane Classes{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Page Header -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+        <i data-lucide="message-square-plus" class="w-6 h-6 text-sky-500"></i>
+        <span>Website Inquiries &amp; Prospect Register</span>
+      </h1>
+      <p class="text-sm text-muted-foreground mt-0.5">
+        Self-dependent inquiry registry: capture online counseling requests, log follow-up notes, and maintain status records.
+      </p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-2">
+      <a
+        href="{% url 'inquiries_list' %}"
+        class="inline-flex items-center gap-1.5 text-xs h-9 px-3.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+        title="Refresh lead pipeline"
+      >
+        <i data-lucide="rotate-cw" class="w-4 h-4 text-muted-foreground"></i>
+        <span>Refresh</span>
+      </a>
+
+      <a
+        href="{% url 'landing' %}"
+        target="_blank"
+        class="inline-flex items-center gap-1.5 text-xs h-9 px-3.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground font-semibold shadow-xs transition-colors cursor-pointer"
+        title="Open Public Website in new tab"
+      >
+        <i data-lucide="external-link" class="w-4 h-4 text-primary"></i>
+        <span>View Live Website</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Self-Dependent Inquiries Register Notice -->
+  <div class="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-900 dark:text-sky-200 flex items-start gap-2.5">
+    <i data-lucide="shield-check" class="w-4 h-4 shrink-0 text-sky-600 mt-0.5"></i>
+    <div>
+      <strong>Self-Dependent Inquiries Register:</strong> All inquiry entries, follow-ups, and statuses (including 'Converted') are maintained solely as independent prospect counseling records. They are completely self-dependent and have zero automated linking or conversion to internal software Student admission records.
+    </div>
+  </div>
+
+  <!-- KPI Statistics Ribbon -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Total Inquiries -->
+    <div class="p-4 bg-card rounded-xl border shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0">
+        <i data-lucide="users" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <p class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Inquiries</p>
+        <p class="text-2xl font-bold text-foreground leading-tight">{{ kpi.total }}</p>
+      </div>
+    </div>
+
+    <!-- New Leads -->
+    <div class="p-4 bg-card rounded-xl border shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 relative">
+        <i data-lucide="bell" class="w-5 h-5"></i>
+        {% if kpi.new > 0 %}
+        <span class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-card animate-pulse"></span>
+        {% endif %}
+      </div>
+      <div>
+        <p class="text-xs text-muted-foreground font-medium uppercase tracking-wider">New Leads</p>
+        <p class="text-2xl font-bold text-foreground leading-tight">{{ kpi.new }}</p>
+      </div>
+    </div>
+
+    <!-- Follow-up Due Today / Overdue -->
+    <div class="p-4 bg-card rounded-xl border shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+        <i data-lucide="clock-alert" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <p class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Follow-up Due</p>
+        <p class="text-2xl font-bold text-foreground leading-tight">{{ kpi.followup_due }}</p>
+      </div>
+    </div>
+
+    <!-- Converted (Reference Only) -->
+    <div class="p-4 bg-card rounded-xl border shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+        <i data-lucide="check-circle" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <p class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Converted (Reference)</p>
+        <p class="text-2xl font-bold text-foreground leading-tight">{{ kpi.converted }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Filter Controls Card (Fully Responsive Grid matching students.html) -->
+  <div class="p-4 bg-card rounded-xl border shadow-sm">
+    <form method="GET" action="{% url 'inquiries_list' %}">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+        <!-- 1. Search Input -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground">Search Inquiries</label>
+          <div class="relative flex items-center">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"></i>
+            <input
+              type="text"
+              name="q"
+              value="{{ search_query }}"
+              placeholder="Search by student, parent, phone, #..."
+              class="w-full text-xs h-9 pl-9 pr-8 rounded-md border border-input bg-background shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+            />
+            {% if search_query %}
+            <a
+              href="{% url 'inquiries_list' %}"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-0.5"
+              title="Clear search"
+            >
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- 2. Status Filter -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground">Pipeline Status</label>
+          <select
+            name="status"
+            onchange="this.form.submit()"
+            class="text-xs h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>All Statuses</option>
+            <option value="NEW" {% if status_filter == 'NEW' %}selected{% endif %}>✨ New Leads</option>
+            <option value="CONTACTED" {% if status_filter == 'CONTACTED' %}selected{% endif %}>📞 Contacted</option>
+            <option value="FOLLOW_UP" {% if status_filter == 'FOLLOW_UP' %}selected{% endif %}>📅 Follow-up Due</option>
+            <option value="DEMO_SCHEDULED" {% if status_filter == 'DEMO_SCHEDULED' %}selected{% endif %}>🎯 Demo Scheduled</option>
+            <option value="CONVERTED" {% if status_filter == 'CONVERTED' %}selected{% endif %}>✅ Converted (Reference)</option>
+            <option value="CLOSED" {% if status_filter == 'CLOSED' %}selected{% endif %}>❌ Closed</option>
+          </select>
+        </div>
+
+        <!-- 3. Campus Filter -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground">Target Campus</label>
+          <select
+            name="branch"
+            onchange="this.form.submit()"
+            class="text-xs h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+          >
+            <option value="ALL" {% if branch_filter == 'ALL' %}selected{% endif %}>All Campuses</option>
+            {% if website_campuses %}
+              {% for c in website_campuses %}
+              <option value="{{ c.name }}" {% if branch_filter == c.name %}selected{% endif %}>{{ c.icon|default:'🏢' }} {{ c.name }}</option>
+              {% endfor %}
+            {% else %}
+              <option value="Vaijapur" {% if branch_filter == 'Vaijapur' %}selected{% endif %}>Vaijapur</option>
+              <option value="Kopargaon" {% if branch_filter == 'Kopargaon' %}selected{% endif %}>Kopargaon</option>
+              <option value="Yeola" {% if branch_filter == 'Yeola' %}selected{% endif %}>Yeola</option>
+            {% endif %}
+          </select>
+        </div>
+
+        <!-- 4. Action Buttons -->
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-muted-foreground hidden sm:block">&nbsp;</label>
+          <div class="flex items-center gap-2">
+            <button
+              type="submit"
+              class="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
+            >
+              <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+              <span>Filter</span>
+            </button>
+            {% if search_query or status_filter != 'ALL' or branch_filter != 'ALL' %}
+            <a
+              href="{% url 'inquiries_list' %}"
+              class="inline-flex items-center justify-center gap-1 h-9 px-3 rounded-md border border-border bg-card hover:bg-accent text-xs font-semibold text-muted-foreground transition-colors cursor-pointer"
+              title="Reset all filters"
+            >
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              <span>Reset</span>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Inquiries Table Card -->
+  <div class="bg-card rounded-xl border shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-muted/40 text-xs font-semibold text-muted-foreground uppercase border-b tracking-wider">
+          <tr>
+            <th class="px-4 py-3">Inquiry Info</th>
+            <th class="px-4 py-3">Student &amp; Parent</th>
+            <th class="px-4 py-3">Contact &amp; Connect</th>
+            <th class="px-4 py-3">Target Batch &amp; Campus</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3">Next Follow-up</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border">
+          {% if inquiries %}
+            {% for inq in inquiries %}
+            <tr class="hover:bg-accent/40 transition-colors group">
+              <!-- Inquiry Info -->
+              <td class="px-4 py-3.5">
+                <div class="font-mono text-xs font-bold text-foreground">{{ inq.inquiry_number }}</div>
+                <div class="text-[11px] text-muted-foreground mt-0.5">
+                  {{ inq.created_at|date:"d M Y, h:i A" }}
+                </div>
+              </td>
+
+              <!-- Student & Parent -->
+              <td class="px-4 py-3.5">
+                <div class="font-semibold text-foreground flex items-center gap-1.5">
+                  <span>{{ inq.student_name }}</span>
+                </div>
+                {% if inq.parent_name %}
+                <div class="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <span>Parent: {{ inq.parent_name }}</span>
+                </div>
+                {% endif %}
+                {% if inq.message %}
+                <div class="text-[11px] text-muted-foreground/80 italic mt-1 line-clamp-1 max-w-xs" title="{{ inq.message }}">
+                  "{{ inq.message }}"
+                </div>
+                {% endif %}
+              </td>
+
+              <!-- Contact & Direct Actions -->
+              <td class="px-4 py-3.5">
+                <div class="font-medium text-foreground">{{ inq.phone }}</div>
+                <div class="flex items-center gap-1.5 mt-1.5">
+                  <!-- WhatsApp Chat Button -->
+                  <a
+                    href="https://wa.me/91{{ inq.phone|cut:'+'|cut:' '|cut:'-' }}?text={{ 'Hello '|urlencode }}{{ inq.student_name|urlencode }}{{ ', greeting from Sutawane Classes! Regarding your admission inquiry for '|urlencode }}{{ inq.standard_course|urlencode }}{{ ', when is a good time to discuss batch details & scholarship evaluation?'|urlencode }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
+                    title="Send WhatsApp Follow-up Message"
+                  >
+                    <i data-lucide="message-circle" class="w-3 h-3"></i>
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <!-- Direct Call Button -->
+                  <a
+                    href="tel:{{ inq.phone }}"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
+                    title="Direct Dial"
+                  >
+                    <i data-lucide="phone-call" class="w-3 h-3"></i>
+                    <span>Call</span>
+                  </a>
+                </div>
+              </td>
+
+              <!-- Course & Campus -->
+              <td class="px-4 py-3.5">
+                <div class="font-medium text-foreground text-xs">{{ inq.standard_course }}</div>
+                <div class="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                  <i data-lucide="map-pin" class="w-3 h-3 text-muted-foreground"></i>
+                  <span>{{ inq.preferred_branch|default:"Main Campus" }}</span>
+                </div>
+              </td>
+
+              <!-- Status Badge -->
+              <td class="px-4 py-3.5">
+                {% if inq.status == 'NEW' %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                    <span>New Lead</span>
+                  </span>
+                {% elif inq.status == 'CONTACTED' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                    Contacted
+                  </span>
+                {% elif inq.status == 'FOLLOW_UP' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                    Follow-up
+                  </span>
+                {% elif inq.status == 'DEMO_SCHEDULED' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    Demo Scheduled
+                  </span>
+                {% elif inq.status == 'CONVERTED' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    ✓ Converted (Record)
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                    Closed
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Next Follow-up Date -->
+              <td class="px-4 py-3.5">
+                {% if inq.next_followup_date %}
+                  {% if inq.next_followup_date < today %}
+                    <span class="text-xs font-semibold text-rose-600 flex items-center gap-1" title="Overdue">
+                      <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+                      <span>{{ inq.next_followup_date|date:"d M Y" }}</span>
+                    </span>
+                  {% elif inq.next_followup_date == today %}
+                    <span class="text-xs font-bold text-amber-600 flex items-center gap-1" title="Due Today">
+                      <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                      <span>Due Today!</span>
+                    </span>
+                  {% else %}
+                    <span class="text-xs text-muted-foreground flex items-center gap-1">
+                      <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                      <span>{{ inq.next_followup_date|date:"d M Y" }}</span>
+                    </span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-xs text-muted-foreground italic">None scheduled</span>
+                {% endif %}
+              </td>
+
+              <!-- Actions -->
+              <td class="px-4 py-3.5 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <!-- Record Follow-up Button -->
+                  <button
+                    type="button"
+                    onclick="openFollowUpModal('{{ inq.id }}', '{{ inq.student_name|escapejs }}', '{{ inq.phone|escapejs }}', '{{ inq.status }}', '{{ inq.next_followup_date|date:'Y-m-d'|default:'' }}')"
+                    class="h-8 px-2.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground text-xs font-semibold transition-colors flex items-center gap-1"
+                    title="Log Phone Call, WhatsApp, or Campus Visit"
+                  >
+                    <i data-lucide="notebook-pen" class="w-3.5 h-3.5 text-primary"></i>
+                    <span>Follow-up</span>
+                  </button>
+
+                  <!-- View History Button -->
+                  <button
+                    type="button"
+                    onclick="openHistoryModal('{{ inq.id }}', '{{ inq.student_name|escapejs }}', '{{ inq.inquiry_number|escapejs }}')"
+                    class="h-8 w-8 rounded-lg border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                    title="View Chronological Follow-up Timeline"
+                  >
+                    <i data-lucide="history" class="w-3.5 h-3.5"></i>
+                  </button>
+
+                  <!-- Delete Inquiry -->
+                  <button
+                    type="button"
+                    onclick="deleteInquiry('{{ inq.id }}', '{{ inq.student_name|escapejs }}')"
+                    class="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors"
+                    title="Delete Inquiry"
+                  >
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+
+                <!-- Hidden Timeline Data Payload for History Modal -->
+                <div id="history-data-{{ inq.id }}" class="hidden">
+                  [
+                    {% for f in inq.followups.all %}
+                      {
+                        "id": "{{ f.id }}",
+                        "method": "{{ f.get_contact_method_display|escapejs }}",
+                        "notes": "{{ f.notes|escapejs }}",
+                        "status": "{{ f.status_after|escapejs }}",
+                        "next_date": "{{ f.next_followup_date|date:'d M Y'|default:'' }}",
+                        "recorded_by": "{{ f.recorded_by_display|escapejs }}",
+                        "time": "{{ f.created_at|date:'d M Y, h:i A' }}"
+                      }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                  ]
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
+                <i data-lucide="inbox" class="w-10 h-10 mx-auto text-muted-foreground/40 mb-3"></i>
+                <p class="font-semibold text-base text-foreground">No inquiries found matching your filters</p>
+                <p class="text-xs text-muted-foreground mt-1">
+                  Inquiries submitted via the public website counseling form or contact page will appear here instantly.
+                </p>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="px-4 py-3 border-t flex items-center justify-between text-xs text-muted-foreground">
+      <div>
+        Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total leads)
+      </div>
+      <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+        <a
+          href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}&branch={{ branch_filter }}&q={{ search_query }}"
+          class="h-8 px-3 rounded border border-border bg-card hover:bg-accent flex items-center font-medium"
+        >
+          Previous
+        </a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a
+          href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}&branch={{ branch_filter }}&q={{ search_query }}"
+          class="h-8 px-3 rounded border border-border bg-card hover:bg-accent flex items-center font-medium"
+        >
+          Next
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ==========================================================================
+     RECORD FOLLOW-UP MODAL
+     ========================================================================== -->
+<div id="followUpModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20">
+      <div>
+        <h3 class="text-base font-bold text-foreground flex items-center gap-2">
+          <i data-lucide="notebook-pen" class="w-5 h-5 text-primary"></i>
+          <span>Record Lead Follow-Up</span>
+        </h3>
+        <p class="text-xs text-muted-foreground mt-0.5" id="modalStudentSubtitle">Student: Aditya Sharma</p>
+      </div>
+      <button
+        type="button"
+        onclick="closeFollowUpModal()"
+        class="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent"
+      >
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form id="followUpForm" onsubmit="submitFollowUp(event)" class="p-6 space-y-4">
+      <input type="hidden" id="modal_inquiry_id" name="inquiry_id" value="">
+
+      <!-- Contact Method -->
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Contact Method *</label>
+        <select
+          id="modal_contact_method"
+          name="contact_method"
+          required
+          class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="PHONE_CALL">📞 Phone Call</option>
+          <option value="WHATSAPP">💬 WhatsApp Message</option>
+          <option value="CAMPUS_VISIT">🏛️ In-Person Campus Visit</option>
+          <option value="SMS">✉️ SMS Alert</option>
+        </select>
+      </div>
+
+      <!-- Interaction Notes -->
+      <div>
+        <label class="block text-xs font-semibold text-foreground mb-1">Follow-Up Notes &amp; Parent Discussion *</label>
+        <textarea
+          id="modal_notes"
+          name="notes"
+          rows="3"
+          required
+          placeholder="e.g. Spoke to student's father regarding 11th Science batch. Interested in morning timings. Invited for demo lectures on Monday."
+          class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+        ></textarea>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- New Pipeline Status -->
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Update Status</label>
+          <select
+            id="modal_status"
+            name="status"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="NEW">New Lead</option>
+            <option value="CONTACTED">Contacted / Spoke to Parent</option>
+            <option value="FOLLOW_UP">Follow-up Scheduled</option>
+            <option value="DEMO_SCHEDULED">3-Day Demo Scheduled</option>
+            <option value="CONVERTED">Converted (Reference Only)</option>
+            <option value="CLOSED">Closed / Not Interested</option>
+          </select>
+        </div>
+
+        <!-- Next Follow-Up Date -->
+        <div>
+          <label class="block text-xs font-semibold text-foreground mb-1">Next Follow-Up Date</label>
+          <input
+            type="date"
+            id="modal_next_date"
+            name="next_followup_date"
+            class="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+      </div>
+
+      <div class="pt-3 border-t flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onclick="closeFollowUpModal()"
+          class="h-9 px-4 rounded-lg border border-border bg-card hover:bg-accent text-xs font-medium text-foreground transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          id="submitFollowUpBtn"
+          class="h-9 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs transition-colors"
+        >
+          Save Follow-Up
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     TIMELINE HISTORY MODAL
+     ========================================================================== -->
+<div id="historyModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+  <div class="bg-card w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="px-6 py-4 border-b flex items-center justify-between bg-muted/20">
+      <div>
+        <h3 class="text-base font-bold text-foreground flex items-center gap-2">
+          <i data-lucide="history" class="w-5 h-5 text-primary"></i>
+          <span>Follow-Up Interaction Timeline</span>
+        </h3>
+        <p class="text-xs text-muted-foreground mt-0.5" id="historyModalSubtitle">Lead History</p>
+      </div>
+      <button
+        type="button"
+        onclick="closeHistoryModal()"
+        class="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent"
+      >
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div class="p-6 max-h-[60vh] overflow-y-auto">
+      <div id="historyTimelineList" class="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+        <!-- Dynamically injected timeline items -->
+      </div>
+    </div>
+
+    <div class="px-6 py-3 border-t bg-muted/20 flex justify-end">
+      <button
+        type="button"
+        onclick="closeHistoryModal()"
+        class="h-8 px-4 rounded-lg border border-border bg-card hover:bg-accent text-xs font-medium text-foreground"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Follow-Up Modal Logic
+  function openFollowUpModal(id, name, phone, status, nextDate) {
+    document.getElementById('modal_inquiry_id').value = id;
+    document.getElementById('modalStudentSubtitle').textContent = `Student: ${name} (${phone})`;
+    document.getElementById('modal_status').value = status;
+    document.getElementById('modal_next_date').value = nextDate || '';
+    document.getElementById('modal_notes').value = '';
+    document.getElementById('followUpModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeFollowUpModal() {
+    document.getElementById('followUpModal').classList.add('hidden');
+  }
+
+  async function submitFollowUp(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submitFollowUpBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const id = document.getElementById('modal_inquiry_id').value;
+    const method = document.getElementById('modal_contact_method').value;
+    const notes = document.getElementById('modal_notes').value.trim();
+    const status = document.getElementById('modal_status').value;
+    const nextDate = document.getElementById('modal_next_date').value;
+
+    try {
+      const res = await fetch(`/api/inquiries/${id}/follow-up/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+          contact_method: method,
+          notes: notes,
+          status: status,
+          next_followup_date: nextDate
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        closeFollowUpModal();
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to save follow-up');
+      }
+    } catch (err) {
+      alert('Network error while saving follow-up: ' + err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Follow-Up';
+    }
+  }
+
+  // Quick Status Update
+  async function quickUpdateStatus(id, newStatus) {
+    if (!confirm(`Mark this inquiry as '${newStatus}'?`)) return;
+
+    try {
+      const res = await fetch(`/api/inquiries/${id}/status/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to update status');
+      }
+    } catch (err) {
+      alert('Error updating status: ' + err);
+    }
+  }
+
+  // Delete Inquiry
+  async function deleteInquiry(id, name) {
+    if (!confirm(`Are you sure you want to delete inquiry for '${name}'? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/inquiries/${id}/delete/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken')
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to delete');
+      }
+    } catch (err) {
+      alert('Error deleting: ' + err);
+    }
+  }
+
+  // History Modal Logic
+  function openHistoryModal(id, studentName, inqNum) {
+    document.getElementById('historyModalSubtitle').textContent = `${studentName} · ${inqNum}`;
+    const dataContainer = document.getElementById(`history-data-${id}`);
+    const timelineList = document.getElementById('historyTimelineList');
+    timelineList.innerHTML = '';
+
+    if (dataContainer) {
+      try {
+        const history = JSON.parse(dataContainer.textContent.trim());
+        if (history.length === 0) {
+          timelineList.innerHTML = '<p class="text-xs text-muted-foreground py-4">No follow-ups recorded yet.</p>';
+        } else {
+          history.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'relative';
+            el.innerHTML = `
+              <div class="absolute -left-[1.8rem] top-1 w-3.5 h-3.5 rounded-full border-2 border-background bg-primary"></div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-foreground">${item.method}</span>
+                <span class="text-muted-foreground text-[11px]">${item.time}</span>
+              </div>
+              <p class="text-xs text-foreground/90 mt-1 bg-muted/30 p-2.5 rounded-lg border leading-relaxed">${item.notes}</p>
+              <div class="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
+                <span>By: <strong>${item.recorded_by}</strong></span>
+                <span>•</span>
+                <span>Status: <strong>${item.status}</strong></span>
+                ${item.next_date ? `<span>•</span><span>Next: <strong>${item.next_date}</strong></span>` : ''}
+              </div>
+            `;
+            timelineList.appendChild(el);
+          });
+        }
+      } catch (e) {
+        timelineList.innerHTML = '<p class="text-xs text-destructive">Error reading history records.</p>';
+      }
+    }
+
+    document.getElementById('historyModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeHistoryModal() {
+    document.getElementById('historyModal').classList.add('hidden');
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+{% endblock %}

@@ -81,7 +81,7 @@ body.modern-body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   position: relative;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Ambient Canvas Background with Grid & Soft Pastel Glows */
@@ -175,12 +175,15 @@ body.modern-body {
 }
 
 .modern-section-title {
-  font-size: 2.85rem;
+  font-size: clamp(1.75rem, 5vw, 2.85rem);
   font-weight: 800;
   color: var(--text-dark);
   line-height: 1.18;
   letter-spacing: -0.02em;
   margin-bottom: 1rem;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: manual;
 }
 
 .modern-section-desc {
@@ -393,7 +396,9 @@ body.modern-body {
 
 .modern-nav-dropdown-btn:hover,
 .modern-nav-dropdown-btn.active,
-.modern-nav-dropdown.open .modern-nav-dropdown-btn {
+.modern-nav-dropdown.open .modern-nav-dropdown-btn,
+.modern-nav-dropdown:hover .modern-nav-dropdown-btn,
+.modern-nav-dropdown:focus-within .modern-nav-dropdown-btn {
   color: var(--brand-blue);
 }
 
@@ -401,7 +406,9 @@ body.modern-body {
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.modern-nav-dropdown.open .dropdown-chevron {
+.modern-nav-dropdown.open .dropdown-chevron,
+.modern-nav-dropdown:hover .dropdown-chevron,
+.modern-nav-dropdown:focus-within .dropdown-chevron {
   transform: rotate(180deg);
 }
 
@@ -427,7 +434,20 @@ body.modern-body {
   gap: 0.35rem;
 }
 
-.modern-nav-dropdown.open .modern-submenu {
+/* Invisible hover bridge to prevent mouseleave between button and submenu */
+.modern-submenu::after {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: transparent;
+}
+
+.modern-nav-dropdown.open .modern-submenu,
+.modern-nav-dropdown:hover .modern-submenu,
+.modern-nav-dropdown:focus-within .modern-submenu {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -4289,13 +4309,34 @@ body.modern-body {
 
   /* Floating WhatsApp Help Button */
   .floating-whatsapp-help {
-    bottom: 18px;
-    right: 18px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    right: 14px;
+    z-index: 45;
   }
 
   .btn-help-whatsapp {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8rem;
+    gap: 0.35rem;
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+  }
+
+  .btn-help-whatsapp svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 400px) {
+  .btn-help-whatsapp {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .btn-help-whatsapp span {
+    display: none;
   }
 }
 

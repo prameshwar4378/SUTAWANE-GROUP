@@ -36,9 +36,15 @@
       <!-- Category Filter Pills Bar -->
       <div class="modern-filter-bar">
         <button type="button" class="modern-filter-btn active" data-video-filter="all">All Videos</button>
-        <button type="button" class="modern-filter-btn" data-video-filter="topper">Topper Interviews</button>
-        <button type="button" class="modern-filter-btn" data-video-filter="lecture">Concept Masterclasses</button>
-        <button type="button" class="modern-filter-btn" data-video-filter="seminar">Seminars &amp; Motivation</button>
+        {% if gallery_categories %}
+          {% for cat in gallery_categories %}
+          <button type="button" class="modern-filter-btn" data-video-filter="{{ cat.slug }}">{{ cat.name }}</button>
+          {% endfor %}
+        {% else %}
+          <button type="button" class="modern-filter-btn" data-video-filter="topper-felicitation">Topper Interviews</button>
+          <button type="button" class="modern-filter-btn" data-video-filter="science-labs-classrooms">Concept Masterclasses</button>
+          <button type="button" class="modern-filter-btn" data-video-filter="workshops-seminars">Seminars &amp; Motivation</button>
+        {% endif %}
       </div>
 
     </div>
@@ -51,9 +57,45 @@
 <section class="modern-section" style="padding-top:0;padding-bottom:5.5rem;">
   <div class="modern-container">
     <div class="modern-videos-grid" id="videoGrid">
-
+      {% if gallery_videos %}
+        {% for video in gallery_videos %}
+        <a 
+          href="{{ video.effective_watch_url }}" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          class="modern-video-card" 
+          data-cat="{{ video.category_slug }}"
+          title="Watch on Official YouTube: {{ video.title }}"
+          style="text-decoration:none;color:inherit;cursor:pointer;"
+        >
+          <div class="video-thumb-container">
+            <span class="video-card-badge">{{ video.category_display }}</span>
+            <img class="video-card-thumb" src="{{ video.effective_thumbnail_url }}" alt="{{ video.title }}" onerror="this.src='/static/images/default-course.png';">
+            <div class="video-play-orb">▶</div>
+          </div>
+          <div class="video-card-body">
+            <div>
+              <h3 class="video-card-title">{{ video.title }}</h3>
+              {% if video.caption %}
+              <div class="video-speaker-tag">
+                <span>🎓</span>
+                <span>{{ video.caption }}</span>
+              </div>
+              {% endif %}
+            </div>
+            <div class="video-action-strip">
+              <span style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:600;">
+                <svg style="width:16px;height:16px;fill:#EF4444;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                Watch on YouTube
+              </span>
+              <span>↗</span>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      {% else %}
       <!-- Video 1: Topper Interview -->
-      <div class="modern-video-card" data-cat="topper" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'How I Scored 99.82%ile in MHT-CET & Secured COEP Pune')">
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer" class="modern-video-card" data-cat="topper" style="text-decoration:none;color:inherit;cursor:pointer;" title="Watch on Official YouTube">
         <div class="video-thumb-container">
           <span class="video-card-badge">Topper Journey</span>
           <img class="video-card-thumb" src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Topper Interview">
@@ -69,14 +111,17 @@
             </div>
           </div>
           <div class="video-action-strip">
-            <span>Watch Full Testimonial</span>
-            <span>→</span>
+            <span style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:600;">
+              <svg style="width:16px;height:16px;fill:#EF4444;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              Watch on YouTube
+            </span>
+            <span>↗</span>
           </div>
         </div>
-      </div>
+      </a>
 
       <!-- Video 2: Physics Masterclass -->
-      <div class="modern-video-card" data-cat="lecture" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Rotational Dynamics: Solving Hard Moment of Inertia Numericals in 30 Sec')">
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer" class="modern-video-card" data-cat="lecture" style="text-decoration:none;color:inherit;cursor:pointer;" title="Watch on Official YouTube">
         <div class="video-thumb-container">
           <span class="video-card-badge">Physics Masterclass</span>
           <img class="video-card-thumb" src="https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Physics Masterclass">
@@ -92,14 +137,17 @@
             </div>
           </div>
           <div class="video-action-strip">
-            <span>Watch Lecture Masterclass</span>
-            <span>→</span>
+            <span style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:600;">
+              <svg style="width:16px;height:16px;fill:#EF4444;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              Watch on YouTube
+            </span>
+            <span>↗</span>
           </div>
         </div>
-      </div>
+      </a>
 
       <!-- Video 3: Medical Ranker -->
-      <div class="modern-video-card" data-cat="topper" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'From Average Student to GMC Aurangabad MBBS: My NEET Journey')">
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer" class="modern-video-card" data-cat="topper" style="text-decoration:none;color:inherit;cursor:pointer;" title="Watch on Official YouTube">
         <div class="video-thumb-container">
           <span class="video-card-badge">Medical Ranker</span>
           <img class="video-card-thumb" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="NEET Topper">
@@ -115,14 +163,17 @@
             </div>
           </div>
           <div class="video-action-strip">
-            <span>Watch Preparation Journey</span>
-            <span>→</span>
+            <span style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:600;">
+              <svg style="width:16px;height:16px;fill:#EF4444;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              Watch on YouTube
+            </span>
+            <span>↗</span>
           </div>
         </div>
-      </div>
+      </a>
 
       <!-- Video 4: Chemistry Masterclass -->
-      <div class="modern-video-card" data-cat="lecture" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Aldehydes & Ketones: Complete Named Reactions Roadmap')">
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer" class="modern-video-card" data-cat="lecture" style="text-decoration:none;color:inherit;cursor:pointer;" title="Watch on Official YouTube">
         <div class="video-thumb-container">
           <span class="video-card-badge">Chemistry Masterclass</span>
           <img class="video-card-thumb" src="https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Chemistry Demo">
@@ -138,14 +189,17 @@
             </div>
           </div>
           <div class="video-action-strip">
-            <span>Watch Concept Masterclass</span>
-            <span>→</span>
+            <span style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:600;">
+              <svg style="width:16px;height:16px;fill:#EF4444;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              Watch on YouTube
+            </span>
+            <span>↗</span>
           </div>
         </div>
-      </div>
+      </a>
 
       <!-- Video 5: Motivational Seminar -->
-      <div class="modern-video-card" data-cat="seminar" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Mastering Examination Pressure: How State Rankers Think Under Stress')">
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer" class="modern-video-card" data-cat="seminar" style="text-decoration:none;color:inherit;cursor:pointer;" title="Watch on Official YouTube">
         <div class="video-thumb-container">
           <span class="video-card-badge">Motivation &amp; Strategy</span>
           <img class="video-card-thumb" src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Motivational Seminar">
@@ -161,14 +215,17 @@
             </div>
           </div>
           <div class="video-action-strip">
-            <span>Watch Full Keynote</span>
-            <span>→</span>
+            <span style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:600;">
+              <svg style="width:16px;height:16px;fill:#EF4444;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              Watch on YouTube
+            </span>
+            <span>↗</span>
           </div>
         </div>
-      </div>
+      </a>
 
       <!-- Video 6: Foundation Math -->
-      <div class="modern-video-card" data-cat="lecture" onclick="openModernVideo('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'Circle Geometry & Similarity Theorems: Never Lose a Single Mark')">
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer" class="modern-video-card" data-cat="lecture" style="text-decoration:none;color:inherit;cursor:pointer;" title="Watch on Official YouTube">
         <div class="video-thumb-container">
           <span class="video-card-badge">Foundation Math</span>
           <img class="video-card-thumb" src="https://images.unsplash.com/photo-1596495578065-6e0763fa1178?w=800&amp;auto=format&amp;fit=crop&amp;q=80" alt="Math Shortcuts">
@@ -184,11 +241,15 @@
             </div>
           </div>
           <div class="video-action-strip">
-            <span>Watch Proof Masterclass</span>
-            <span>→</span>
+            <span style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:600;">
+              <svg style="width:16px;height:16px;fill:#EF4444;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              Watch on YouTube
+            </span>
+            <span>↗</span>
           </div>
         </div>
-      </div>
+      </a>
+      {% endif %}
 
     </div>
   </div>
@@ -201,9 +262,16 @@
   <div class="modern-video-modal-dialog">
     
     <!-- Modal Header -->
-    <div class="video-modal-header">
+    <div class="video-modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <h4 class="video-modal-title" id="modernVideoTitle">Lecture Video</h4>
-      <button type="button" class="video-modal-close" onclick="closeModernVideo()" aria-label="Close video player">×</button>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <a id="modernWatchOnYtBtn" href="#" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.35rem 0.75rem;background:#EF4444;color:#FFFFFF;border-radius:8px;font-size:0.75rem;font-weight:600;text-decoration:none;" title="Watch on Official YouTube">
+          <svg style="width:13px;height:13px;fill:currentColor;" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          <span>Watch on YouTube</span>
+          ↗
+        </a>
+        <button type="button" class="video-modal-close" onclick="closeModernVideo()" aria-label="Close video player">×</button>
+      </div>
     </div>
 
     <!-- 16:9 Video Player Stage -->
@@ -211,7 +279,9 @@
       <iframe 
         id="modernVideoFrame" 
         src="" 
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+        referrerpolicy="strict-origin-when-cross-origin"
         allowfullscreen>
       </iframe>
     </div>
@@ -238,13 +308,44 @@
   const videoIframe = document.getElementById('modernVideoFrame');
   const videoTitleElem = document.getElementById('modernVideoTitle');
 
-  function openModernVideo(url, title) {
-    if (videoModalOverlay && videoIframe) {
-      videoIframe.src = url;
-      videoTitleElem.textContent = title || 'Lecture Masterclass';
-      videoModalOverlay.classList.add('active');
-      document.body.style.overflow = 'hidden';
+  function extractYouTubeId(url) {
+    if (!url) return null;
+    const s = String(url).trim();
+    const patterns = [
+      /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtube-nocookie\.com)\/(?:watch\?v=|embed\/|shorts\/|v\/|live\/)([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:m\.)?youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/i,
+      /[?&]v=([a-zA-Z0-9_-]{11})/i,
+      /^([a-zA-Z0-9_-]{11})$/
+    ];
+    for (const p of patterns) {
+      const match = s.match(p);
+      if (match && match[1]) return match[1];
     }
+    return null;
+  }
+
+  function openModernVideo(url, title) {
+    if (!videoModalOverlay || !videoIframe) return;
+
+    let finalSrc = url;
+    const ytId = extractYouTubeId(url);
+    const ytBtn = document.getElementById('modernWatchOnYtBtn');
+    if (ytId) {
+      const originParam = window.location.origin ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
+      finalSrc = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&enablejsapi=1${originParam}`;
+      if (ytBtn) {
+        ytBtn.href = `https://www.youtube.com/watch?v=${ytId}`;
+        ytBtn.style.display = 'inline-flex';
+      }
+    } else {
+      if (ytBtn) ytBtn.style.display = 'none';
+    }
+
+    videoIframe.src = finalSrc;
+    if (videoTitleElem) videoTitleElem.textContent = title || 'Lecture Masterclass';
+    videoModalOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
   }
 
   function closeModernVideo() {

@@ -1,6 +1,6 @@
 import os
 from django.conf import settings as django_settings
-from .models import Branch, AcademicSession, SystemSetting, User
+from .models import Branch, AcademicSession, SystemSetting, User, WebsiteCampus
 from .auth_utils import get_user_permissions
 from .cache_utils import (
     safe_cache_get,
@@ -10,6 +10,47 @@ from .cache_utils import (
     invalidate_context_cache,
     TTL_CONTEXT,
 )
+
+
+def get_cached_website_campuses():
+    """Returns active website campuses cached with automated signal-based invalidation."""
+    cache_key = build_cache_key('context', 'website_campuses')
+    campuses = safe_cache_get(cache_key)
+    if campuses is None:
+        try:
+            campuses = list(WebsiteCampus.objects.filter(is_active=True).order_by('sort_order', 'name'))
+            safe_cache_set(cache_key, campuses, TTL_CONTEXT)
+        except Exception:
+            campuses = []
+    return campuses
+
+
+def get_cached_website_batches():
+    """Returns active website batches cached with automated invalidation."""
+    cache_key = build_cache_key('context', 'website_batches')
+    batches = safe_cache_get(cache_key)
+    if batches is None:
+        try:
+            from .models import WebsiteBatchCard
+            batches = list(WebsiteBatchCard.objects.filter(is_active=True).order_by('sort_order', 'id'))
+            safe_cache_set(cache_key, batches, TTL_CONTEXT)
+        except Exception:
+            batches = []
+    return batches
+
+
+def get_cached_website_banner():
+    """Returns the active website announcement banner cached with automated invalidation."""
+    cache_key = build_cache_key('context', 'website_banner')
+    banner = safe_cache_get(cache_key)
+    if banner is None:
+        try:
+            from .models import WebsiteBanner
+            banner = WebsiteBanner.objects.filter(is_active=True).first()
+            safe_cache_set(cache_key, banner, TTL_CONTEXT)
+        except Exception:
+            banner = None
+    return banner
 
 
 def get_cached_branches():
@@ -87,8 +128,11 @@ def get_branch_branding(branch=None):
 
 
 def invalidate_global_context_cache():
-    """Immediately clears caches for branches, sessions, and system settings."""
+    """Immediately clears caches for branches, sessions, system settings, website campuses, website batches, and website banner."""
     invalidate_context_cache()
+    safe_cache_delete(build_cache_key('context', 'website_campuses'))
+    safe_cache_delete(build_cache_key('context', 'website_batches'))
+    safe_cache_delete(build_cache_key('context', 'website_banner'))
 
 
 
@@ -211,5 +255,9 @@ def global_context(request):
         'whatsapp_mode': whatsapp_mode,
         'whatsapp_show_manual_buttons': whatsapp_show_manual_buttons,
         'whatsapp_auto_enabled': whatsapp_auto_enabled,
+        'website_campuses': get_cached_website_campuses(),
+        'website_batches': get_cached_website_batches(),
+        'website_banner': get_cached_website_banner(),
+        'is_user_authenticated': bool(request.session.get('user_id')),
     }
 

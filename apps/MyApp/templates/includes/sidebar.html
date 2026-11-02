@@ -175,17 +175,6 @@
     </a>
     {% endif %}
 
-    {% if is_developer or is_class_owner or user_permissions.can_manage_courses %}
-    <a
-      href="{% url 'courses_list' %}"
-      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'courses' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
-      title="Classes & Courses"
-    >
-      <i data-lucide="book-open" class="w-4 h-4 flex-shrink-0"></i>
-      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Classes & Courses</span>
-    </a>
-    {% endif %}
-
     {% if is_developer or is_class_owner or user_permissions.can_collect_fees %}
     <a
       href="{% url 'fee_collect' %}"
@@ -219,6 +208,17 @@
     </a>
     {% endif %}
 
+    {% if is_developer or is_class_owner or user_permissions.can_manage_courses %}
+    <a
+      href="{% url 'courses_list' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'courses' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Classes & Courses"
+    >
+      <i data-lucide="book-open" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Classes & Courses</span>
+    </a>
+    {% endif %}
+
     {% if is_developer or is_class_owner or user_permissions.can_view_reports %}
     <a
       href="{% url 'financial_reports' %}"
@@ -227,17 +227,6 @@
     >
       <i data-lucide="bar-chart-3" class="w-4 h-4 flex-shrink-0"></i>
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Financial Reports</span>
-    </a>
-    {% endif %}
-
-    {% if is_developer or is_class_owner or user_permissions.can_view_daily_reports %}
-    <a
-      href="{% url 'daily_reports' %}"
-      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if request.resolver_match.url_name == 'daily_reports' %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
-      title="Daily Collections / Day Book"
-    >
-      <i data-lucide="calendar" class="w-4 h-4 flex-shrink-0"></i>
-      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Daily Collections</span>
     </a>
     {% endif %}
 
@@ -262,6 +251,26 @@
       <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Academic Sessions</span>
     </a>
     {% endif %}
+
+    {% if is_developer or is_class_owner %}
+    <a
+      href="{% url 'website_management' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'website_management' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Website Management"
+    >
+      <i data-lucide="globe" class="w-4 h-4 flex-shrink-0 text-indigo-500"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Website Management</span>
+    </a>
+    {% endif %}
+
+    <a
+      href="{% url 'inquiries_list' %}"
+      class="sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-colors group relative {% if 'inquiries' in request.resolver_match.url_name %}bg-primary text-primary-foreground shadow-sm{% else %}text-muted-foreground hover:bg-accent hover:text-foreground{% endif %} {% if is_sidebar_collapsed %}justify-center{% else %}gap-3 px-3 py-2.5{% endif %}"
+      title="Inquiries"
+    >
+      <i data-lucide="message-square-plus" class="w-4 h-4 flex-shrink-0 text-sky-500"></i>
+      <span class="sidebar-label flex-1 truncate {% if is_sidebar_collapsed %}hidden{% endif %}">Inquiries</span>
+    </a>
 
     {% if is_developer or is_class_owner or user_permissions.can_access_backup %}
     <a
