@@ -172,19 +172,27 @@ def get_storage_paths():
     base_dir = str(settings.BASE_DIR)
     db_path = str(settings.DATABASES['default']['NAME'])
 
-    # Media directories
-    media_root = str(settings.MEDIA_ROOT) if hasattr(settings, 'MEDIA_ROOT') else os.path.join(base_dir, 'media')
+    # Media directories (configured in settings.MEDIA_ROOT, defaults to /home/sutawane/media on production)
+    media_root = str(getattr(settings, 'MEDIA_ROOT', os.path.join(base_dir, 'media')))
     photos_dir = os.path.join(media_root, 'photos')
     attachments_dir = os.path.join(media_root, 'attachments')
 
-    # Backups directory in data/backups
-    backups_dir = os.path.join(base_dir, 'data', 'backups')
+    # Backups directory (configured in settings.BACKUPS_DIR, defaults to /home/sutawane/backup_zip on production)
+    if hasattr(settings, 'BACKUPS_DIR'):
+        backups_dir = str(settings.BACKUPS_DIR)
+    elif os.path.exists('/home/sutawane/backup_zip') or (os.name != 'nt' and os.path.exists('/home/sutawane')):
+        backups_dir = '/home/sutawane/backup_zip'
+    else:
+        backups_dir = os.path.join(base_dir, 'data', 'backups')
 
     # Ensure directories exist
-    os.makedirs(media_root, exist_ok=True)
-    os.makedirs(photos_dir, exist_ok=True)
-    os.makedirs(attachments_dir, exist_ok=True)
-    os.makedirs(backups_dir, exist_ok=True)
+    try:
+        os.makedirs(media_root, exist_ok=True)
+        os.makedirs(photos_dir, exist_ok=True)
+        os.makedirs(attachments_dir, exist_ok=True)
+        os.makedirs(backups_dir, exist_ok=True)
+    except Exception:
+        pass
 
     return {
         'base_dir': base_dir,

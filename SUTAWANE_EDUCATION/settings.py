@@ -198,8 +198,38 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 WHITENOISE_MAX_AGE = int(os.getenv('WHITENOISE_MAX_AGE', 31536000))
 WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: True
 
+# External Production Storage Paths for Media & Backups
+# Configured outside the code repository (/home/sutawane/media and /home/sutawane/backup_zip)
+# so that git pull, branch merges, or code redeployments will NEVER touch or delete media files or backups.
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+
+_default_prod_media = Path('/home/sutawane/media')
+_default_prod_backups = Path('/home/sutawane/backup_zip')
+
+_env_media = os.getenv('DJANGO_MEDIA_ROOT')
+if _env_media and (os.name != 'nt' or (os.path.isabs(_env_media) and Path(_env_media).parent.exists())):
+    MEDIA_ROOT = Path(_env_media)
+elif _default_prod_media.exists() or (os.name != 'nt' and Path('/home/sutawane').exists()):
+    MEDIA_ROOT = _default_prod_media
+else:
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+_env_backups = os.getenv('DJANGO_BACKUPS_DIR')
+if _env_backups and (os.name != 'nt' or (os.path.isabs(_env_backups) and Path(_env_backups).parent.exists())):
+    BACKUPS_DIR = Path(_env_backups)
+elif _default_prod_backups.exists() or (os.name != 'nt' and Path('/home/sutawane').exists()):
+    BACKUPS_DIR = _default_prod_backups
+else:
+    BACKUPS_DIR = BASE_DIR / 'data' / 'backups'
+
+# Automatically ensure required directories and media subfolders exist
+try:
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    (MEDIA_ROOT / 'photos').mkdir(parents=True, exist_ok=True)
+    (MEDIA_ROOT / 'attachments').mkdir(parents=True, exist_ok=True)
+    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 
 # Security Headers & Hardening
