@@ -25,3 +25,6 @@ urlpatterns += [
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+# Production error handlers with interactive popup & diagnostics
+handler500 = 'MyApp.views.custom_500_handler'

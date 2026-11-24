@@ -10586,5 +10586,62 @@ def website_management_view(request):
     return render(request, 'website_management.html', context)
 
 
+def custom_500_handler(request):
+    """
+    Production-grade 500 error handler that captures detailed exception information,
+    error message, and stack trace, rendering it inside 500.html with an interactive
+    error popup and actionable recovery recommendations.
+    """
+    import sys
+    import traceback
+    from django.template import loader
+    from django.http import HttpResponseServerError
+
+    exc_type, exc_value, tb = sys.exc_info()
+    error_details = "".join(traceback.format_exception(exc_type, exc_value, tb)) if exc_type else ""
+    error_message = str(exc_value) if exc_value else "An unexpected server error occurred."
+    error_type = exc_type.__name__ if exc_type else "InternalServerError"
+
+    hint = None
+    msg_lower = error_message.lower()
+    if "no such table" in msg_lower or "no such column" in msg_lower:
+        hint = (
+            "Database Schema Mismatch: A database table or column is missing. "
+            "If you recently restored a backup or updated the software, run 'python manage.py migrate' "
+            "in your production server terminal to create missing tables and columns."
+        )
+    elif "readonly" in msg_lower or "permission" in msg_lower or "disk i/o" in msg_lower:
+        hint = (
+            "File Permission / Lock Error: The SQLite database file may be locked or have incorrect read/write permissions. "
+            "Restart the production service (e.g. sudo systemctl restart gunicorn / waitress) and check file permissions."
+        )
+    elif "database is locked" in msg_lower:
+        hint = (
+            "Database Locked: Another process or background worker holds an open transaction lock. "
+            "Restart your web server process to release locked connections."
+        )
+
+    context = {
+        'error_type': error_type,
+        'error_message': error_message,
+        'error_details': error_details,
+        'error_hint': hint,
+        'request_path': getattr(request, 'path', ''),
+    }
+
+    try:
+        return render(request, '500.html', context, status=500)
+    except Exception:
+        # Failsafe fallback: render template directly without context processors
+        try:
+            t = loader.get_template('500.html')
+            return HttpResponseServerError(t.render(context))
+        except Exception:
+            return HttpResponseServerError(
+                f"<h1>500 Server Error: {error_type}</h1><p>{error_message}</p><pre>{error_details}</pre>"
+            )
+
+
+
 
 

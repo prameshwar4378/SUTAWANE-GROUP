@@ -9,59 +9,199 @@
   <script src="{% static 'js/lucide.min.js' %}"></script>
   <style>
     body {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      background: radial-gradient(circle at 10% 20%, #1e1b4b 0%, #0f172a 60%, #020617 100%);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      color: #f8fafc;
+      margin: 0;
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #475569;
     }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 text-slate-100">
+<body>
 
-  <div class="max-w-md w-full bg-slate-900/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md text-center space-y-6">
-    <!-- Brand Icon -->
-    <div class="w-16 h-16 mx-auto rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center shadow-inner">
-      <i data-lucide="alert-octagon" class="w-8 h-8"></i>
-    </div>
+  <div class="max-w-2xl w-full bg-slate-900/95 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-6">
+    
+    <!-- Header Icon & Status Badge -->
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0">
+          <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="text-[11px] font-mono font-bold tracking-widest text-rose-400 uppercase bg-rose-400/10 px-2.5 py-0.5 rounded-full border border-rose-400/20">
+            HTTP 500 Internal Error
+          </span>
+          <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
+            Unexpected Server Error
+          </h1>
+        </div>
+      </div>
 
-    <!-- Error Codes & Message -->
-    <div class="space-y-2">
-      <span class="text-xs font-mono font-bold tracking-widest text-rose-400 uppercase bg-rose-400/10 px-2.5 py-1 rounded-full border border-rose-400/20">
-        HTTP 500 Internal Error
-      </span>
-      <h1 class="text-2xl font-black tracking-tight text-white mt-3">
-        Unexpected Server Error
-      </h1>
-      <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-        An unexpected error occurred while processing your request. The issue has been recorded in the production error log.
-      </p>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="pt-2 flex flex-col sm:flex-row gap-3">
-      <a
-        href="/app/"
-        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-colors"
-        style="background-color: #4f46e5 !important; color: #ffffff !important;"
-      >
-        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-        <span>Return to Dashboard</span>
-      </a>
       <button
         type="button"
         onclick="window.location.reload()"
-        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition-colors"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+        title="Reload current page"
       >
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-        <span>Retry Page</span>
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        <span>Retry</span>
       </button>
     </div>
 
-    <!-- Footer Note -->
-    <div class="pt-4 border-t border-slate-800 text-[11px] text-slate-500">
-      Need developer support? Contact <a href="mailto:prameshwar4378@gmail.com" class="text-indigo-400 underline">System Administrator</a>
+    <!-- Error Summary Card -->
+    <div class="bg-slate-950/70 border border-rose-500/20 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between text-xs text-slate-400 font-mono">
+        <span>Target: <strong class="text-slate-200">{{ request_path|default:request.path|default:"/" }}</strong></span>
+        {% if error_type %}
+        <span class="text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">{{ error_type }}</span>
+        {% endif %}
+      </div>
+
+      <div class="text-sm font-semibold text-rose-300 break-words leading-relaxed">
+        {{ error_message|default:"An unhandled exception occurred while processing this request." }}
+      </div>
+    </div>
+
+    <!-- Actionable Root-Cause Diagnostic Hint -->
+    {% if error_hint %}
+    <div class="bg-amber-950/40 border border-amber-500/40 rounded-xl p-4 space-y-2 text-xs">
+      <div class="flex items-center gap-2 font-bold text-amber-400">
+        <i data-lucide="lightbulb" class="w-4 h-4 shrink-0"></i>
+        <span>Likely Cause & Instant Fix:</span>
+      </div>
+      <p class="text-amber-200/90 leading-relaxed font-medium">
+        {{ error_hint }}
+      </p>
+    </div>
+    {% else %}
+    <div class="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3.5 text-xs text-amber-200/80 space-y-1.5">
+      <div class="font-bold text-amber-400 flex items-center gap-1.5">
+        <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
+        <span>If this happened immediately after restoring a backup:</span>
+      </div>
+      <p class="leading-relaxed">
+        The restored database might be missing newer schema tables or columns. Run <code class="bg-slate-900 px-1.5 py-0.5 rounded text-amber-300 font-mono">python manage.py migrate</code> on your server terminal and restart the application service.
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- Technical Details & Stack Trace Accordion -->
+    <div class="border border-slate-800 rounded-xl bg-slate-950/50 overflow-hidden">
+      <button
+        type="button"
+        onclick="toggleDetails()"
+        class="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/40 transition-colors"
+      >
+        <span class="flex items-center gap-2">
+          <i data-lucide="code" class="w-4 h-4 text-indigo-400"></i>
+          <span>View Technical Details & Stack Trace</span>
+        </span>
+        <div class="flex items-center gap-2">
+          <span id="detailsToggleLabel" class="text-[11px] text-slate-500">Click to expand</span>
+          <i id="detailsChevron" data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200"></i>
+        </div>
+      </button>
+
+      <div id="detailsContent" class="hidden p-4 border-t border-slate-800 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-mono text-slate-400">Python Traceback:</span>
+          <button
+            type="button"
+            onclick="copyErrorDetails()"
+            id="copyBtn"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 px-2.5 py-1 rounded transition-colors cursor-pointer"
+          >
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span id="copyBtnText">Copy Details</span>
+          </button>
+        </div>
+
+        <pre id="rawErrorText" class="custom-scrollbar bg-slate-900 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-64 whitespace-pre leading-relaxed select-all">{% if error_details %}{{ error_details }}{% else %}No detailed traceback captured for this request.
+Check server production logs or run `python manage.py runserver` with DEBUG=True to view interactive debugging output.{% endif %}</pre>
+      </div>
+    </div>
+
+    <!-- Navigation Action Buttons -->
+    <div class="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      <a
+        href="/app/"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-colors"
+      >
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+        <span>Dashboard</span>
+      </a>
+
+      <a
+        href="/login/"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-colors"
+      >
+        <i data-lucide="log-in" class="w-4 h-4"></i>
+        <span>Login Page</span>
+      </a>
+
+      <a
+        href="/"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-colors"
+      >
+        <i data-lucide="globe" class="w-4 h-4"></i>
+        <span>Live Website</span>
+      </a>
+    </div>
+
+    <!-- Footer Support Note -->
+    <div class="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
+      <span>Sutawane Classes Software • Production Diagnostic Engine</span>
+      <span>Support: <a href="mailto:prameshwar4378@gmail.com" class="text-indigo-400 underline hover:text-indigo-300">prameshwar4378@gmail.com</a></span>
     </div>
   </div>
 
   <script>
+    function toggleDetails() {
+      const content = document.getElementById('detailsContent');
+      const chevron = document.getElementById('detailsChevron');
+      const label = document.getElementById('detailsToggleLabel');
+      const isHidden = content.classList.contains('hidden');
+      if (isHidden) {
+        content.classList.remove('hidden');
+        chevron.style.transform = 'rotate(180deg)';
+        label.textContent = 'Click to collapse';
+      } else {
+        content.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+        label.textContent = 'Click to expand';
+      }
+    }
+
+    function copyErrorDetails() {
+      const text = document.getElementById('rawErrorText').innerText;
+      const copyText = `Target URL: ${window.location.href}\n\n${text}`;
+      navigator.clipboard.writeText(copyText).then(function() {
+        const btnText = document.getElementById('copyBtnText');
+        btnText.textContent = 'Copied!';
+        setTimeout(function() {
+          btnText.textContent = 'Copy Details';
+        }, 2000);
+      });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
       if (typeof lucide !== 'undefined' && lucide.createIcons) {
         lucide.createIcons();

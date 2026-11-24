@@ -425,6 +425,20 @@ def execute_restore_from_file(target_file_path, original_filename):
             if not res or res[0] != 'ok':
                 raise ValueError(f"Restored database failed integrity check: {res}")
 
+        # Post-restore auto-sync: Run migrations to align older backups with current software schema
+        try:
+            from django.core.management import call_command
+            call_command('migrate', interactive=False)
+        except Exception:
+            pass
+
+        # Clear in-memory caches to purge stale pre-restore models and settings
+        try:
+            from .context_processors import invalidate_global_context_cache
+            invalidate_global_context_cache()
+        except Exception:
+            pass
+
         breakdown_msg = f"{restored_photos} photos & {restored_attachments} vouchers"
         if restored_other > 0:
             breakdown_msg += f" & {restored_other} other media"
@@ -459,6 +473,20 @@ def execute_restore_from_file(target_file_path, original_filename):
             res = cursor.fetchone()
             if not res or res[0] != 'ok':
                 raise ValueError(f"Restored database failed integrity check: {res}")
+
+        # Post-restore auto-sync: Run migrations to align older backups with current software schema
+        try:
+            from django.core.management import call_command
+            call_command('migrate', interactive=False)
+        except Exception:
+            pass
+
+        # Clear in-memory caches to purge stale pre-restore models and settings
+        try:
+            from .context_processors import invalidate_global_context_cache
+            invalidate_global_context_cache()
+        except Exception:
+            pass
 
         return {
             'safetySnapshot': safety['fileName'],
