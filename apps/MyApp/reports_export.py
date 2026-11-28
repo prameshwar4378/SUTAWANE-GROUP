@@ -5,7 +5,7 @@ the exact institutional snapshot design of Sutawane Classes software.
 """
 
 import io
-from datetime import datetime
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -33,6 +33,7 @@ from .export_theme import (
     format_excel_worksheet,
     FONT_FAMILY,
     FONT_FAMILY_BOLD,
+    safe_xml_text,
 )
 
 
@@ -70,7 +71,7 @@ def export_session_audit_excel(audit_data, options=None):
     options = options or {}
     session_name = audit_data.get('session', {}).get('name') or options.get('session_name') or 'Current Session'
     branch_label = options.get('branch_name') or 'All Branches'
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
 
@@ -244,17 +245,17 @@ def export_session_audit_excel(audit_data, options=None):
         align_h = 'center' if col_idx in [1, 3, 7] else ('right' if col_idx in [4, 5, 6] else 'left')
         cell.alignment = Alignment(horizontal=align_h, vertical="center")
 
-    course_list = audit_data.get('courseBreakdown', [])
+    course_list = audit_data.get('standardBreakdown') or audit_data.get('courseBreakdown', [])
     c_tot_st = 0
     c_tot_fees = 0.0
     c_tot_col = 0.0
     c_tot_dues = 0.0
 
     for idx, c_item in enumerate(course_list, 1):
-        st_cnt = int(c_item.get('studentsCount', 0))
-        fees = float(c_item.get('totalFees', 0.0))
-        col = float(c_item.get('collections', 0.0))
-        dues = float(c_item.get('pendingDues', 0.0))
+        st_cnt = int(c_item.get('studentsCount') or c_item.get('studentCount') or 0)
+        fees = float(c_item.get('totalFees') or 0.0)
+        col = float(c_item.get('collected') if c_item.get('collected') is not None else (c_item.get('collections') or 0.0))
+        dues = float(c_item.get('pendingDues') if c_item.get('pendingDues') is not None else max(0.0, fees - col))
         rate = c_item.get('collectionRate', 0.0)
 
         c_tot_st += st_cnt
@@ -624,10 +625,10 @@ def export_session_audit_pdf(audit_data, options=None):
             tot_dues += dues
             tot_exp += exp
 
-            branch_label_html = f"<b>{b.get('branchName', '—')}</b>"
+            branch_label_html = f"<b>{safe_xml_text(b.get('branchName'), '—')}</b>"
             b_code = b.get('branchCode')
             if b_code:
-                branch_label_html += f" &bull; <font size=5.5 color='#64748B'>Code: {b_code}</font>"
+                branch_label_html += f" &bull; <font size=5.5 color='#64748B'>Code: {safe_xml_text(b_code)}</font>"
 
             b_rows.append([
                 Paragraph(str(idx), cell_center),
@@ -717,7 +718,7 @@ def export_session_audit_pdf(audit_data, options=None):
 
             c_rows.append([
                 Paragraph(str(idx), cell_center),
-                Paragraph(str(c_item.get('standard', '—')), cell_bold),
+                Paragraph(safe_xml_text(c_item.get('standard'), '—'), cell_bold),
                 Paragraph(str(st_cnt), cell_center),
                 Paragraph(format_currency_inr(fees), cell_right),
                 Paragraph(format_currency_inr(col), cell_green),
@@ -782,7 +783,7 @@ def export_session_audit_pdf(audit_data, options=None):
             m_tot_exp += exp
 
             m_rows.append([
-                Paragraph(f"<b>{m.get('monthLabel', '—')}</b>", cell_normal),
+                Paragraph(f"<b>{safe_xml_text(m.get('monthLabel'), '—')}</b>", cell_normal),
                 Paragraph(format_currency_inr(col), cell_green),
                 Paragraph(format_currency_inr(exp), cell_red if exp > 0 else cell_right),
                 Paragraph(format_currency_inr(net), cell_green if net >= 0 else cell_red),
@@ -819,29 +820,43 @@ def export_session_audit_pdf(audit_data, options=None):
         ])
     m_table.setStyle(TableStyle(m_style))
 
-    # Assemble Side-by-Side block
-    left_block = [
-        Paragraph(f"<b>Part B: Course &amp; Standard Breakdown ({len(course_list)} Courses)</b>", section_title),
-        Spacer(1, 3),
-        c_table
-    ]
-    right_block = [
-        Paragraph(f"<b>Part C: Session Monthly Cash Movement ({len(m_trend)} Months)</b>", section_title),
-        Spacer(1, 3),
-        m_table
-    ]
+    # Assemble Side-by-Side block when compact, or stack sequentially for multi-page safety (avoids ReportLab LayoutError)
+    if len(c_rows) <= 12 and len(m_rows) <= 12:
+        left_block = [
+            Paragraph(f"<b>Part B: Course &amp; Standard Breakdown ({len(course_list)} Courses)</b>", section_title),
+            Spacer(1, 3),
+            c_table
+        ]
+        right_block = [
+            Paragraph(f"<b>Part C: Session Monthly Cash Movement ({len(m_trend)} Months)</b>", section_title),
+            Spacer(1, 3),
+            m_table
+        ]
 
-    dual_table = Table([[left_block, right_block]], colWidths=[420, 381.89])
-    dual_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (0, 0), 6),
-        ('LEFTPADDING', (1, 0), (1, 0), 6),
-    ]))
-    story.append(dual_table)
+        dual_table = Table([[left_block, right_block]], colWidths=[420, 381.89])
+        dual_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (0, 0), 6),
+            ('LEFTPADDING', (1, 0), (1, 0), 6),
+        ]))
+        story.append(dual_table)
+    else:
+        c_full_table = Table(c_rows, colWidths=[28, 294, 80, 145, 145, 110], repeatRows=1)
+        c_full_table.setStyle(TableStyle(c_style))
+        m_full_table = Table(m_rows, colWidths=[200, 200, 200, 202], repeatRows=1)
+        m_full_table.setStyle(TableStyle(m_style))
+
+        story.append(Paragraph(f"<b>Part B: Course &amp; Standard Breakdown ({len(course_list)} Courses)</b>", section_title))
+        story.append(Spacer(1, 3))
+        story.append(c_full_table)
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(f"<b>Part C: Session Monthly Cash Movement ({len(m_trend)} Months)</b>", section_title))
+        story.append(Spacer(1, 3))
+        story.append(m_full_table)
 
     doc.build(story, canvasmaker=ExecutiveLandscapeCanvas)
     buffer.seek(0)
@@ -864,7 +879,7 @@ def export_payment_modes_excel(modes_data, options=None):
     options = options or {}
     branch_label = options.get('branch_name') or 'All Branches'
     session_label = options.get('session_name') or 'All Sessions'
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
 
@@ -997,15 +1012,22 @@ def export_payment_modes_excel(modes_data, options=None):
         c.border = THIN_BORDER
         c.alignment = Alignment(horizontal="center" if c_idx in [1, 3] else "left", vertical="center")
 
-    digital_modes = float(sum((float(m.get('amount', 0.0)) for m in modes if m.get('label', '').upper() in ('UPI', 'ONLINE', 'BANK TRANSFER', 'CARD', 'NET BANKING')), 0.0))
-    cash_mode = float(sum((float(m.get('amount', 0.0)) for m in modes if m.get('label', '').upper() == 'CASH'), 0.0))
+    def _norm_mode(m_dict):
+        return (m_dict.get('mode') or m_dict.get('label') or '').upper().replace('_', ' ').strip()
+
+    digital_modes = float(sum(
+        (float(m.get('amount') or 0.0) for m in modes if _norm_mode(m) in ('UPI', 'ONLINE', 'BANK TRANSFER', 'BANK_TRANSFER', 'CARD', 'NET BANKING', 'NEFT')),
+        0.0
+    ))
+    cash_mode = float(sum((float(m.get('amount') or 0.0) for m in modes if _norm_mode(m) == 'CASH'), 0.0))
     digital_share = round((digital_modes / tot_amt * 100), 1) if tot_amt > 0 else 0.0
+    cash_share = round((cash_mode / tot_amt * 100), 1) if tot_amt > 0 else 0.0
 
     insight_rows = [
         ['Total Realized Inflows', format_currency_inr(tot_amt), '100% Target', 'Reconciled to bank & cash accounts'],
         ['Total Payment Vouchers', str(tot_cnt), 'N/A', 'Official receipts issued'],
         ['Digital Collection Share (UPI/Bank)', f"{digital_share}%", '> 60% Optimal', f"Realized: {format_currency_inr(digital_modes)}"],
-        ['Cash Collection Share', f"{round(100 - digital_share, 1)}%", '< 40% Optimal', f"Realized: {format_currency_inr(cash_mode)}"],
+        ['Cash Collection Share', f"{cash_share}%", '< 40% Optimal', f"Realized: {format_currency_inr(cash_mode)}"],
         ['Average Receipt Size', format_currency_inr(overall_avg), 'Ticket size indicator', 'Across all active channels'],
     ]
 
@@ -1157,7 +1179,7 @@ def export_payment_modes_pdf(modes_data, options=None):
 
         tbl_rows.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(str(m.get('label', '—')), cell_bold),
+            Paragraph(safe_xml_text(m.get('label'), '—'), cell_bold),
             Paragraph(format_currency_inr(amt), cell_green),
             Paragraph(str(cnt), cell_center),
             Paragraph(format_currency_inr(avg), cell_right),
@@ -1210,7 +1232,7 @@ def export_expense_categories_excel(categories_data, options=None):
     """
     options = options or {}
     branch_label = options.get('branch_name') or 'All Branches'
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
 
@@ -1496,7 +1518,7 @@ def export_expense_categories_pdf(categories_data, options=None):
 
         tbl_rows.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(str(c_item.get('categoryName', '—')), cell_bold),
+            Paragraph(safe_xml_text(c_item.get('categoryName'), '—'), cell_bold),
             Paragraph(format_currency_inr(amt), cell_red),
             Paragraph(str(cnt), cell_center),
             Paragraph(format_currency_inr(avg), cell_right),
@@ -1551,7 +1573,7 @@ def export_statement_excel(statement_data, options=None):
     period_label = options.get('period_label') or 'Financial Statement'
     branch_label = options.get('branch_name') or 'All Branches'
     session_label = options.get('session_name') or 'All Sessions'
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
 
@@ -1604,16 +1626,16 @@ def export_statement_excel(statement_data, options=None):
         c.alignment = Alignment(horizontal="center" if col_idx in [1, 3] else ("right" if col_idx == 2 else "left"), vertical="center")
 
     summary_rows = [
-        ['Total Fee Collections', tot_col, f'{cnt_col} Receipts', 'Confirmed fees deposited into center accounts'],
+        ('inflow', ['Total Fee Collections', tot_col, f'{cnt_col} Receipts', 'Confirmed fees deposited into center accounts']),
     ]
     if tot_ref > 0:
-        summary_rows.append(['Fee Refunds & Reversals Disbursed', -tot_ref, f'{cnt_ref} Refunds', 'Returned fee receipts'])
+        summary_rows.append(('outflow', ['Fee Refunds & Reversals Disbursed', -tot_ref, f'{cnt_ref} Refunds', 'Returned fee receipts']))
     summary_rows.extend([
-        ['Total Center Expenditures', tot_exp, f'{cnt_exp} Vouchers', 'Operational disbursements & branch overheads'],
-        ['Net Cash Flow / Operating Surplus', net, f'{cnt_col + cnt_exp + cnt_ref} Transactions', 'Operating Surplus' if net >= 0 else 'Operating Deficit'],
+        ('outflow', ['Total Center Expenditures', tot_exp, f'{cnt_exp} Vouchers', 'Operational disbursements & branch overheads']),
+        ('net', ['Net Cash Flow / Operating Surplus', net, f'{cnt_col + cnt_exp + cnt_ref} Transactions', 'Operating Surplus' if net >= 0 else 'Operating Deficit']),
     ])
 
-    for idx, r_data in enumerate(summary_rows, 1):
+    for idx, (row_kind, r_data) in enumerate(summary_rows, 1):
         row_num = 4 + idx
         ws1.row_dimensions[row_num].height = 22
         for c_idx, val in enumerate(r_data, 1):
@@ -1622,9 +1644,9 @@ def export_statement_excel(statement_data, options=None):
             if c_idx == 2:
                 cell.number_format = '₹#,##0'
                 cell.alignment = Alignment(horizontal='right', vertical="center")
-                if idx == 1:
+                if row_kind == 'inflow':
                     cell.font = paid_font
-                elif idx == 2:
+                elif row_kind == 'outflow':
                     cell.font = due_font
                 else:
                     cell.font = paid_font if net >= 0 else due_font
@@ -1980,6 +2002,7 @@ def export_statement_pdf(statement_data, options=None):
     tot_exp = float(summary.get('totalExpenses', 0.0))
     cnt_exp = int(summary.get('expensesCount', 0))
     tot_ref = float(summary.get('totalRefunds', 0.0))
+    cnt_ref = int(summary.get('refundsCount', 0))
     net = tot_col - tot_exp - tot_ref
 
     header_meta = {
@@ -1997,12 +2020,16 @@ def export_statement_pdf(statement_data, options=None):
     ))
 
     # 2. Executive Metrics Summary Bar
+    net_formula_sub = (
+        f"Net of {cnt_ref} Refunds ({format_currency_inr(tot_ref)})"
+        if tot_ref > 0 else ('Surplus Balance' if net >= 0 else 'Operating Deficit')
+    )
     summary_bar_data = [
         [
             Paragraph(f"<font size=7 color='#047857'><b>TOTAL COLLECTIONS</b></font><br/><font size=10 color='#065F46'><b>{format_currency_inr(tot_col)}</b></font><br/><font size=6.5 color='#047857'>{cnt_col} Receipts Realized</font>", styles['Normal']),
             Paragraph(f"<font size=7 color='#BE123C'><b>CENTER EXPENSES</b></font><br/><font size=10 color='#9F1239'><b>{format_currency_inr(tot_exp)}</b></font><br/><font size=6.5 color='#BE123C'>{cnt_exp} Vouchers Disbursed</font>", styles['Normal']),
-            Paragraph(f"<font size=7 color='#{'047857' if net >= 0 else 'BE123C'}'><b>NET CASH MOVEMENT</b></font><br/><font size=10 color='#{'065F46' if net >= 0 else '9F1239'}'><b>{format_currency_inr(net)}</b></font><br/><font size=6.5 color='#64748B'>{'Surplus Balance' if net >= 0 else 'Operating Deficit'}</font>", styles['Normal']),
-            Paragraph(f"<font size=7 color='#1E40AF'><b>STATEMENT STATUS</b></font><br/><font size=10 color='#1E3A8A'><b>RECONCILED</b></font><br/><font size=6.5 color='#1E40AF'>Audit Trail Verified</font>", styles['Normal']),
+            Paragraph(f"<font size=7 color='#{'047857' if net >= 0 else 'BE123C'}'><b>NET CASH MOVEMENT</b></font><br/><font size=10 color='#{'065F46' if net >= 0 else '9F1239'}'><b>{format_currency_inr(net)}</b></font><br/><font size=6.5 color='#64748B'>{safe_xml_text(net_formula_sub)}</font>", styles['Normal']),
+            Paragraph(f"<font size=7 color='#1E40AF'><b>{'REFUNDS / REVERSALS' if tot_ref > 0 else 'STATEMENT STATUS'}</b></font><br/><font size=10 color='#{'BE123C' if tot_ref > 0 else '1E3A8A'}'><b>{format_currency_inr(tot_ref) if tot_ref > 0 else 'RECONCILED'}</b></font><br/><font size=6.5 color='#1E40AF'>{f'{cnt_ref} Voided / Returned' if tot_ref > 0 else 'Audit Trail Verified'}</font>", styles['Normal']),
         ]
     ]
     summary_tbl = Table(summary_bar_data, colWidths=[200, 200, 200, 202])
@@ -2040,17 +2067,17 @@ def export_statement_pdf(statement_data, options=None):
 
     for idx, p in enumerate(collections, 1):
         p_date = p.get('paymentDate', '')[:10] if p.get('paymentDate') else '—'
-        amt = float(p.get('totalAmount', 0.0))
+        amt = float(p.get('totalAmount') or 0.0)
         col_tbl_rows.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(str(p.get('receiptNumber', '—')), cell_bold),
-            Paragraph(str(p.get('studentName', '—')), cell_bold),
-            Paragraph(str(p.get('rollNumber', '—')), cell_center),
-            Paragraph(str(p.get('standard', '—')), cell_normal),
-            Paragraph(str(p.get('branchName', '—')), cell_normal),
-            Paragraph(str(p.get('paymentMode', '—')), cell_center),
-            Paragraph(str(p.get('receivedBy') or 'Staff'), cell_normal),
-            Paragraph(p_date, cell_center),
+            Paragraph(safe_xml_text(p.get('receiptNumber'), '—'), cell_bold),
+            Paragraph(safe_xml_text(p.get('studentName'), '—'), cell_bold),
+            Paragraph(safe_xml_text(p.get('rollNumber'), '—'), cell_center),
+            Paragraph(safe_xml_text(p.get('standard'), '—'), cell_normal),
+            Paragraph(safe_xml_text(p.get('branchName'), '—'), cell_normal),
+            Paragraph(safe_xml_text(p.get('paymentMode'), '—'), cell_center),
+            Paragraph(safe_xml_text(p.get('receivedBy'), 'Staff'), cell_normal),
+            Paragraph(safe_xml_text(p_date), cell_center),
             Paragraph(format_currency_inr(amt), cell_green),
         ])
 
@@ -2097,18 +2124,18 @@ def export_statement_pdf(statement_data, options=None):
 
     for idx, e in enumerate(expenses, 1):
         e_date = e.get('expenseDate', '')[:10] if e.get('expenseDate') else '—'
-        amt = float(e.get('amount', 0.0))
+        amt = float(e.get('amount') or 0.0)
         rec_by = e.get('recordedBy') or e.get('recorded_by') or 'Staff'
         exp_tbl_rows.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(str(e.get('referenceNumber') or f"EXP-{idx:04d}"), cell_bold),
-            Paragraph(str(e.get('categoryName', '—')), cell_bold),
-            Paragraph(str(e.get('description', '—')), cell_normal),
-            Paragraph(str(e.get('vendor') or e.get('paidTo') or '—'), cell_normal),
-            Paragraph(str(e.get('branchName', '—')), cell_normal),
-            Paragraph(str(e.get('paymentMode', '—')), cell_center),
-            Paragraph(rec_by, cell_normal),
-            Paragraph(e_date, cell_center),
+            Paragraph(safe_xml_text(e.get('referenceNumber'), f"EXP-{idx:04d}"), cell_bold),
+            Paragraph(safe_xml_text(e.get('categoryName'), '—'), cell_bold),
+            Paragraph(safe_xml_text(e.get('description'), '—'), cell_normal),
+            Paragraph(safe_xml_text(e.get('vendor') or e.get('paidTo'), '—'), cell_normal),
+            Paragraph(safe_xml_text(e.get('branchName'), '—'), cell_normal),
+            Paragraph(safe_xml_text(e.get('paymentMode'), '—'), cell_center),
+            Paragraph(safe_xml_text(rec_by), cell_normal),
+            Paragraph(safe_xml_text(e_date), cell_center),
             Paragraph(format_currency_inr(amt), cell_red),
         ])
 

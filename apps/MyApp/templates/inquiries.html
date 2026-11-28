@@ -405,7 +405,7 @@
       <div class="flex items-center gap-1">
         {% if page_obj.has_previous %}
         <a
-          href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}&branch={{ branch_filter }}&q={{ search_query }}"
+          href="?page={{ page_obj.previous_page_number }}&status={{ status_filter|urlencode }}&branch={{ branch_filter|urlencode }}&q={{ search_query|urlencode }}"
           class="h-8 px-3 rounded border border-border bg-card hover:bg-accent flex items-center font-medium"
         >
           Previous
@@ -413,7 +413,7 @@
         {% endif %}
         {% if page_obj.has_next %}
         <a
-          href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}&branch={{ branch_filter }}&q={{ search_query }}"
+          href="?page={{ page_obj.next_page_number }}&status={{ status_filter|urlencode }}&branch={{ branch_filter|urlencode }}&q={{ search_query|urlencode }}"
           class="h-8 px-3 rounded border border-border bg-card hover:bg-accent flex items-center font-medium"
         >
           Next
@@ -674,6 +674,16 @@
   }
 
   // History Modal Logic
+  function _escapeInqHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function openHistoryModal(id, studentName, inqNum) {
     document.getElementById('historyModalSubtitle').textContent = `${studentName} · ${inqNum}`;
     const dataContainer = document.getElementById(`history-data-${id}`);
@@ -692,15 +702,15 @@
             el.innerHTML = `
               <div class="absolute -left-[1.8rem] top-1 w-3.5 h-3.5 rounded-full border-2 border-background bg-primary"></div>
               <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-foreground">${item.method}</span>
-                <span class="text-muted-foreground text-[11px]">${item.time}</span>
+                <span class="font-bold text-foreground">${_escapeInqHtml(item.method)}</span>
+                <span class="text-muted-foreground text-[11px]">${_escapeInqHtml(item.time)}</span>
               </div>
-              <p class="text-xs text-foreground/90 mt-1 bg-muted/30 p-2.5 rounded-lg border leading-relaxed">${item.notes}</p>
+              <p class="text-xs text-foreground/90 mt-1 bg-muted/30 p-2.5 rounded-lg border leading-relaxed">${_escapeInqHtml(item.notes)}</p>
               <div class="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
-                <span>By: <strong>${item.recorded_by}</strong></span>
+                <span>By: <strong>${_escapeInqHtml(item.recorded_by)}</strong></span>
                 <span>•</span>
-                <span>Status: <strong>${item.status}</strong></span>
-                ${item.next_date ? `<span>•</span><span>Next: <strong>${item.next_date}</strong></span>` : ''}
+                <span>Status: <strong>${_escapeInqHtml(item.status)}</strong></span>
+                ${item.next_date ? `<span>•</span><span>Next: <strong>${_escapeInqHtml(item.next_date)}</strong></span>` : ''}
               </div>
             `;
             timelineList.appendChild(el);

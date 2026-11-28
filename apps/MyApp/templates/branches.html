@@ -373,11 +373,16 @@
     document.getElementById('branch-phone-input').value = phone || '';
     document.getElementById('branch-address-input').value = address || '';
     const removeLogoBox = document.getElementById('branch-remove-logo-container');
-    if (logoUrl) {
-      document.getElementById('branch-logo-preview-box').innerHTML = '<img src="' + logoUrl + '" class="w-full h-full object-contain">';
+    const previewBox = document.getElementById('branch-logo-preview-box');
+    const isSafeUrl = typeof logoUrl === 'string' && (logoUrl.startsWith('/media/') || logoUrl.startsWith('/static/'));
+    if (isSafeUrl) {
+      const img = document.createElement('img');
+      img.src = logoUrl;
+      img.className = 'w-full h-full object-contain';
+      previewBox.replaceChildren(img);
       if (removeLogoBox) removeLogoBox.classList.remove('hidden');
     } else {
-      document.getElementById('branch-logo-preview-box').innerHTML = '<i data-lucide="image" class="w-5 h-5 text-muted-foreground"></i>';
+      previewBox.innerHTML = '<i data-lucide="image" class="w-5 h-5 text-muted-foreground"></i>';
       if (removeLogoBox) removeLogoBox.classList.add('hidden');
     }
     openModal('branch-modal');
@@ -387,7 +392,11 @@
     if (input.files && input.files[0]) {
       const reader = new FileReader();
       reader.onload = function(e) {
-        document.getElementById('branch-logo-preview-box').innerHTML = '<img src="' + e.target.result + '" class="w-full h-full object-contain">';
+        const previewBox = document.getElementById('branch-logo-preview-box');
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.className = 'w-full h-full object-contain';
+        previewBox.replaceChildren(img);
       }
       reader.readAsDataURL(input.files[0]);
     }

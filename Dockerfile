@@ -8,12 +8,14 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Install essential system dependencies for image & document processing
+# Install essential system dependencies for PostgreSQL tools, PDF fonts & image processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libjpeg62-turbo-dev \
     zlib1g-dev \
     libfreetype6-dev \
+    postgresql-client \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -32,6 +34,9 @@ RUN python manage.py collectstatic --noinput
 RUN mkdir -p /app/media /app/data /app/logs
 
 EXPOSE 8000
+
+# Default runtime to production after build-time collectstatic completes
+ENV DJANGO_ENV=production
 
 # Run with Gunicorn WSGI production server
 CMD ["gunicorn", "SUTAWANE_EDUCATION.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--threads", "2", "--timeout", "120"]

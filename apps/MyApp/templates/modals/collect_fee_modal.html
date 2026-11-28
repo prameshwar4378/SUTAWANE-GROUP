@@ -259,10 +259,10 @@
               type="number"
               name="amount"
               id="modalPaymentAmountInput"
-              min="1"
-              max="{{ pending_fees|floatformat:0 }}"
-              step="1"
-              value="{{ amount_to_pay|floatformat:0 }}"
+              min="0.01"
+              max="{{ pending_fees|floatformat:'-2' }}"
+              step="0.01"
+              value="{{ amount_to_pay|floatformat:'-2' }}"
               placeholder="Enter amount"
               required
               class="w-full h-10 rounded-lg border border-input bg-background pl-8 pr-3 text-base font-bold font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -274,10 +274,10 @@
             <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Quick:</span>
             <button
               type="button"
-              onclick="document.getElementById('modalPaymentAmountInput').value = '{{ pending_fees|floatformat:0 }}'"
+              onclick="document.getElementById('modalPaymentAmountInput').value = '{{ pending_fees|floatformat:'-2' }}'"
               class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/20 transition-colors cursor-pointer"
             >
-              Full Due (₹{{ pending_fees|floatformat:0 }})
+              Full Due (₹{{ pending_fees|floatformat:"-2" }})
             </button>
             <button
               type="button"
@@ -401,7 +401,10 @@
 
 <script>
   (function() {
-    const today = new Date().toISOString().slice(0, 10);
+    const _now = new Date();
+    const today = typeof window.getLocalDateISO === 'function'
+      ? window.getLocalDateISO(_now)
+      : (_now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0'));
     const dateInput = document.getElementById('modalPaymentDateInput');
     if (dateInput && !dateInput.value) {
       dateInput.value = today;

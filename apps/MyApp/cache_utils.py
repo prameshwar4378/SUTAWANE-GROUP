@@ -119,7 +119,9 @@ def get_namespace_version(namespace: str) -> int:
         if ver is None:
             ver = 1
             try:
-                cache.set(ver_key, 1, None)
+                # Atomic add prevents overwriting a concurrent worker's version bump
+                cache.add(ver_key, 1, None)
+                ver = cache.get(ver_key) or 1
             except Exception:
                 pass
         return int(ver)
@@ -136,6 +138,7 @@ def invalidate_namespace(namespace: str) -> int:
     ver_key = f"__ns_ver__{namespace}"
     try:
         try:
+            cache.add(ver_key, 1, None)
             new_ver = cache.incr(ver_key)
         except Exception:
             current = cache.get(ver_key) or 1

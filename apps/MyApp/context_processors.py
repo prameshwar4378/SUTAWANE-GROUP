@@ -79,13 +79,38 @@ def get_cached_sessions():
     return sessions
 
 
+SENSITIVE_SETTING_KEYS = {
+    'whatsapp_meta_access_token',
+    'whatsapp_meta_webhook_token',
+    'whatsapp_meta_app_secret',
+    'whatsapp_bridge_token',
+    'license_is_active',
+    'license_expiry_date',
+}
+
+
+def sanitize_settings_for_context(settings_dict: dict) -> dict:
+    """Returns a copy of settings with private tokens and developer OTP keys stripped."""
+    if not isinstance(settings_dict, dict):
+        return {}
+    clean = {}
+    for k, v in settings_dict.items():
+        key_str = str(k)
+        if key_str.startswith('dev_otp_') or key_str in SENSITIVE_SETTING_KEYS:
+            continue
+        clean[k] = v
+    clean['whatsapp_meta_access_token_configured'] = bool((settings_dict.get('whatsapp_meta_access_token') or '').strip())
+    clean['whatsapp_meta_webhook_token_configured'] = bool((settings_dict.get('whatsapp_meta_webhook_token') or '').strip())
+    return clean
+
+
 def get_cached_settings_dict():
     """Returns system settings dictionary cached with automated signal-based invalidation."""
     cache_key = build_cache_key('context', 'system_settings_dict')
     s_dict = safe_cache_get(cache_key)
     if s_dict is None:
         try:
-            settings_qs = SystemSetting.objects.all()
+            settings_qs = SystemSetting.objects.exclude(key__startswith='dev_otp_')
             s_dict = {s.key: s.value for s in settings_qs}
             safe_cache_set(cache_key, s_dict, TTL_CONTEXT)
         except Exception:
@@ -157,15 +182,13 @@ def global_context(request):
         if session is None:
             session = {}
 
-        # 0. User Session & Permissions Context
+        # 0. User Session & Permissions Context (NEVER fall back to CLASS_OWNER for anonymous/inactive sessions)
         current_user = getattr(request, 'current_user', None)
-        if not current_user:
+        if not current_user and session:
             try:
                 user_id = session.get('user_id')
                 if user_id:
                     current_user = User.objects.filter(id=user_id, is_active=True).first()
-                if not current_user:
-                    current_user = User.objects.filter(role='CLASS_OWNER', is_active=True).first()
             except Exception:
                 current_user = None
 
@@ -176,39 +199,48 @@ def global_context(request):
 
         # 1. Active Branches & Selected Branch (In-Memory Cached)
         branches = get_cached_branches()
-        selected_branch_id = session.get('selected_branch_id', 'ALL')
+        selected_branch_id = session.get('selected_branch_id', 'ALL') if session else 'ALL'
 
         # Strict branch restriction for Branch Managers
-        if is_branch_manager and current_user.branch_id and user_permissions.get('restricted_to_assigned_branch', True):
-            selected_branch_id = str(current_user.branch_id)
-            selected_branch = current_user.branch
+        if is_branch_manager and current_user and user_permissions.get('restricted_to_assigned_branch', True):
+            if current_user.branch_id:
+                selected_branch = next((b for b in branches if str(b.id) == str(current_user.branch_id)), None)
+                if selected_branch:
+                    selected_branch_id = str(selected_branch.id)
+                else:
+                    selected_branch_id = 'ALL'
+            else:
+                selected_branch = None
+                selected_branch_id = 'ALL'
         else:
             selected_branch = None
             if selected_branch_id and selected_branch_id != 'ALL':
                 selected_branch = next((b for b in branches if str(b.id) == str(selected_branch_id)), None)
                 if not selected_branch:
                     selected_branch_id = 'ALL'
+                    if current_user and session:
+                        try:
+                            session['selected_branch_id'] = 'ALL'
+                        except Exception:
+                            pass
 
         # 2. Active Academic Sessions & Selected Session (In-Memory Cached)
         sessions = get_cached_sessions()
-        selected_session_id = session.get('selected_session_id')
-        
+        selected_session_id = session.get('selected_session_id') if session else None
+
         if not selected_session_id:
             current_sess = next((s for s in sessions if s.is_current), None)
             if current_sess:
                 selected_session_id = str(current_sess.id)
-                try:
-                    session['selected_session_id'] = selected_session_id
-                except Exception:
-                    pass
             elif sessions:
                 selected_session_id = str(sessions[0].id)
+            else:
+                selected_session_id = 'ALL'
+            if current_user and session:
                 try:
                     session['selected_session_id'] = selected_session_id
                 except Exception:
                     pass
-            else:
-                selected_session_id = 'ALL'
 
         selected_session = None
         if selected_session_id and selected_session_id != 'ALL':
@@ -218,19 +250,17 @@ def global_context(request):
                 if current_sess:
                     selected_session_id = str(current_sess.id)
                     selected_session = current_sess
+                else:
+                    selected_session_id = 'ALL'
+                if current_user and session:
                     try:
                         session['selected_session_id'] = selected_session_id
                     except Exception:
                         pass
-                else:
-                    selected_session_id = 'ALL'
-                    try:
-                        session['selected_session_id'] = 'ALL'
-                    except Exception:
-                        pass
 
         # 3. System Branding & Settings (In-Memory Cached with Dedicated Branch Branding)
-        settings_dict = get_cached_settings_dict()
+        raw_settings_dict = get_cached_settings_dict()
+        settings_dict = sanitize_settings_for_context(raw_settings_dict)
         branch_branding = get_branch_branding(selected_branch)
         institute_name = branch_branding['class_name']
         
@@ -240,9 +270,9 @@ def global_context(request):
         if active_logo_url and active_logo_url.startswith('/api/uploads/'):
             active_logo_url = active_logo_url.replace('/api/uploads/', '/media/')
 
-        # Validate file exists on disk if it points to /media/ (with fast cache)
+        # Validate file exists on disk if it points to /media/ (versioned cache key in context namespace)
         if active_logo_url and active_logo_url.startswith('/media/'):
-            cache_key = f"logo_exists_{active_logo_url}"
+            cache_key = build_cache_key('context', f"logo_exists_{active_logo_url}")
             exists_on_disk = safe_cache_get(cache_key)
             if exists_on_disk is None:
                 rel_p = active_logo_url[len('/media/'):]
@@ -278,7 +308,7 @@ def global_context(request):
             'is_developer': is_developer,
             'is_class_owner': is_class_owner,
             'is_branch_manager': is_branch_manager,
-            'assigned_branch': current_user.branch if (current_user and is_branch_manager) else None,
+            'assigned_branch': selected_branch if (current_user and is_branch_manager) else None,
             'user_permissions': user_permissions,
             'is_sidebar_collapsed': is_sidebar_collapsed,
             'whatsapp_enabled': whatsapp_enabled,
@@ -288,7 +318,7 @@ def global_context(request):
             'website_campuses': get_cached_website_campuses(),
             'website_batches': get_cached_website_batches(),
             'website_banner': get_cached_website_banner(),
-            'is_user_authenticated': bool(session.get('user_id')),
+            'is_user_authenticated': bool(current_user),
         }
     except Exception:
         # Failsafe fallback context so template rendering never breaks

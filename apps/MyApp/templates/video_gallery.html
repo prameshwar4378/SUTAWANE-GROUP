@@ -38,6 +38,10 @@
         <button type="button" class="modern-filter-btn active" data-video-filter="all">All Videos</button>
         {% for cat in gallery_categories %}
         <button type="button" class="modern-filter-btn" data-video-filter="{{ cat.slug }}">{{ cat.name }}</button>
+        {% empty %}
+        <button type="button" class="modern-filter-btn" data-video-filter="topper">Toppers</button>
+        <button type="button" class="modern-filter-btn" data-video-filter="lecture">Lectures</button>
+        <button type="button" class="modern-filter-btn" data-video-filter="seminar">Seminars</button>
         {% endfor %}
       </div>
 
@@ -64,7 +68,7 @@
         >
           <div class="video-thumb-container">
             <span class="video-card-badge">{{ video.category_display }}</span>
-            <img class="video-card-thumb" src="{{ video.effective_thumbnail_url }}" alt="{{ video.title }}" onerror="this.src='/static/images/default-course.png';">
+            <img class="video-card-thumb" src="{{ video.effective_thumbnail_url }}" alt="{{ video.title }}" onerror="this.onerror=null;this.src='/static/images/icon.png';">
             <div class="video-play-orb">▶</div>
           </div>
           <div class="video-card-body">
@@ -374,13 +378,17 @@
       const cards = document.querySelectorAll('.modern-video-card');
 
       cards.forEach(card => {
+        if (card._hideTimer) {
+          clearTimeout(card._hideTimer);
+          card._hideTimer = null;
+        }
         if (filter === 'all' || card.getAttribute('data-cat') === filter) {
           card.style.display = 'flex';
           setTimeout(() => { card.style.opacity = '1'; card.style.transform = ''; }, 10);
         } else {
           card.style.opacity = '0';
           card.style.transform = 'scale(0.96)';
-          setTimeout(() => { card.style.display = 'none'; }, 200);
+          card._hideTimer = setTimeout(() => { card.style.display = 'none'; }, 200);
         }
       });
     });

@@ -242,7 +242,7 @@
                 name="total_fees"
                 value="{{ fee_plan.net_payable|default:fee_plan.total_fees|floatformat:0 }}"
                 min="{{ already_paid|floatformat:0 }}"
-                step="500"
+                step="1"
                 class="w-full h-9 pl-7 pr-3 rounded-xl border border-input bg-background text-xs font-black text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 required
               />

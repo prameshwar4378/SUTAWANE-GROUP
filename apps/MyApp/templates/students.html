@@ -160,7 +160,7 @@
     </form>
   </div>
 
-  <div id="studentsContentArea" class="space-y-6">
+  <div id="studentsContentArea" data-total-pages="{{ page_obj.paginator.num_pages|default:1 }}" class="space-y-6">
     <!-- Financial KPI Summary Cards Ribbon -->
     <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3">
       <!-- Total Students Card -->
@@ -276,7 +276,7 @@
 
           <!-- Export to Excel Button -->
           <a
-            href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=excel"
+            href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}export=excel"
             class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950/30 h-8 px-2.5 gap-1.5 transition-colors cursor-pointer shadow-2xs"
             title="Export filtered records to formatted multi-sheet Excel (.xlsx)"
           >
@@ -286,7 +286,7 @@
 
           <!-- Export to PDF Button -->
           <a
-            href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=pdf"
+            href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}export=pdf"
             target="_blank"
             class="inline-flex items-center justify-center rounded-md text-xs font-medium border border-rose-500/40 text-rose-700 dark:text-rose-400 bg-background hover:bg-rose-50 dark:hover:bg-rose-950/30 h-8 px-2.5 gap-1.5 transition-colors cursor-pointer shadow-2xs"
             title="Export Landscape A4 Official Directory PDF"
@@ -570,8 +570,8 @@
           <!-- First Page (<<) -->
           {% if page_obj.number > 1 %}
             <a
-              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1"
-              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1"
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page=1"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page=1"
               hx-target="#studentsContentArea"
               hx-select="#studentsContentArea"
               hx-swap="outerHTML"
@@ -590,8 +590,8 @@
           <!-- Previous Page (<) -->
           {% if page_obj.has_previous %}
             <a
-              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
-              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
               hx-target="#studentsContentArea"
               hx-select="#studentsContentArea"
               hx-swap="outerHTML"
@@ -620,8 +620,8 @@
                 </span>
               {% else %}
                 <a
-                  href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ p }}"
-                  hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ p }}"
+                  href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ p }}"
+                  hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ p }}"
                   hx-target="#studentsContentArea"
                   hx-select="#studentsContentArea"
                   hx-swap="outerHTML"
@@ -637,8 +637,8 @@
           <!-- Next Page (>) -->
           {% if page_obj.has_next %}
             <a
-              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
-              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
               hx-target="#studentsContentArea"
               hx-select="#studentsContentArea"
               hx-swap="outerHTML"
@@ -659,8 +659,8 @@
           <!-- Last Page (>>) -->
           {% if page_obj.number < page_obj.paginator.num_pages %}
             <a
-              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
-              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
+              href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
+              hx-get="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
               hx-target="#studentsContentArea"
               hx-select="#studentsContentArea"
               hx-swap="outerHTML"
@@ -1205,7 +1205,9 @@
     // Set default due date +30 days
     const d = new Date();
     d.setDate(d.getDate() + 30);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = typeof window.getLocalDateISO === 'function'
+      ? window.getLocalDateISO(d)
+      : (d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
     const dueInput = document.getElementById('admDueDateInput');
     if (dueInput && !dueInput.value) { dueInput.value = dateStr; }
 
@@ -1239,11 +1241,6 @@
 
   function closeDeleteStudentModal() {
     document.getElementById('deleteStudentModal').classList.add('hidden');
-  }
-
-  function toggleSelectAll(masterCb) {
-    const checkboxes = document.querySelectorAll('.student-select-cb');
-    checkboxes.forEach(cb => { cb.checked = masterCb.checked; });
   }
 
   function sendWhatsAppReminder(phone, name, code, roll, standard, pending, priorDues, totalDue, branch, session) {
@@ -1307,7 +1304,11 @@
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Students_Directory_${new Date().toISOString().slice(0,10)}.csv`);
+    const _csvNow = new Date();
+    const _csvDate = typeof window.getLocalDateISO === 'function'
+      ? window.getLocalDateISO(_csvNow)
+      : (_csvNow.getFullYear() + '-' + String(_csvNow.getMonth() + 1).padStart(2, '0') + '-' + String(_csvNow.getDate()).padStart(2, '0'));
+    link.setAttribute("download", `Students_Directory_${_csvDate}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1439,7 +1440,8 @@
   // --- Jump to Page Controller ---
   function jumpToPage(pageNum) {
     const p = parseInt(pageNum, 10);
-    const maxPages = parseInt("{{ page_obj.paginator.num_pages|default:1 }}", 10);
+    const areaEl = document.getElementById('studentsContentArea');
+    const maxPages = parseInt((areaEl && areaEl.dataset.totalPages) || "{{ page_obj.paginator.num_pages|default:1 }}", 10);
     if (!p || p < 1 || p > maxPages) {
       alert('Please enter a valid page number between 1 and ' + maxPages);
       return;
@@ -1470,7 +1472,8 @@
 
   function initRowClick() {
     const table = document.getElementById('studentsMainTable');
-    if (!table) return;
+    if (!table || table.dataset.rowClickBound === '1') return;
+    table.dataset.rowClickBound = '1';
 
     table.addEventListener('click', function(e) {
       // Ignore clicks on buttons, links, inputs, selects, form elements, labels, or within the actions column / checkbox column
@@ -1507,6 +1510,7 @@
   document.body.addEventListener('htmx:afterSwap', function() {
     applyColumnVisibility();
     initRowClick();
+    updateBatchSelection();
     if (window.lucide) {
       lucide.createIcons();
     }

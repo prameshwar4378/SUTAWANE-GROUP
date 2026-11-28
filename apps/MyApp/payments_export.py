@@ -5,7 +5,7 @@ the exact institutional snapshot design of Sutawane Classes software.
 """
 
 import io
-from datetime import datetime
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -29,6 +29,8 @@ from .export_theme import (
     ExecutiveLandscapeCanvas,
     FONT_FAMILY,
     FONT_FAMILY_BOLD,
+    safe_xml_text,
+    sanitize_excel_sheet_title,
 )
 
 
@@ -47,9 +49,9 @@ def export_payments_to_excel(payments_list, meta=None):
     - Reconciled totals row with #F1F5F9 fill and double bottom border
     """
     meta = meta or {}
-    branch_name = meta.get('branch_name', 'All Branches')
-    session_name = meta.get('session_name', 'All Sessions')
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    branch_name = meta.get('branch_name') or 'All Branches'
+    session_name = meta.get('session_name') or 'All Sessions'
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
 
@@ -204,7 +206,7 @@ def export_payments_to_excel(payments_list, meta=None):
                 v_str = str(cell.value or '')
                 if len(v_str) > max_len:
                     max_len = len(v_str)
-            ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+            ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)
 
     # 1. Master Consolidated Sheet
     ws_master = wb.active
@@ -219,7 +221,7 @@ def export_payments_to_excel(payments_list, meta=None):
 
     if len(mode_buckets) > 1:
         for mode_name, mode_records in sorted(mode_buckets.items()):
-            sheet_title = f"{mode_name} Collections"[:30]
+            sheet_title = sanitize_excel_sheet_title(f"{mode_name} Collections", default='Mode', existing=wb.sheetnames)
             ws_mode = wb.create_sheet(title=sheet_title)
             populate_sheet(ws_mode, f"{mode_name} Collections", mode_records, f"{mode_name} • {branch_name}")
 
@@ -381,14 +383,14 @@ def export_payments_to_pdf(payments_list, meta=None):
 
         table_data.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(p.receipt_number, cell_bold),
-            Paragraph(p_date, cell_center),
-            Paragraph(p.student.full_name, cell_bold),
-            Paragraph(roll_no, cell_center),
-            Paragraph(std_name, cell_normal),
-            Paragraph(b_name, cell_normal),
-            Paragraph(p.payment_mode, cell_center),
-            Paragraph(p.received_by_display, cell_normal),
+            Paragraph(safe_xml_text(p.receipt_number), cell_bold),
+            Paragraph(safe_xml_text(p_date), cell_center),
+            Paragraph(safe_xml_text(p.student.full_name if p.student else '—'), cell_bold),
+            Paragraph(safe_xml_text(roll_no), cell_center),
+            Paragraph(safe_xml_text(std_name), cell_normal),
+            Paragraph(safe_xml_text(b_name), cell_normal),
+            Paragraph(safe_xml_text(p.payment_mode), cell_center),
+            Paragraph(safe_xml_text(p.received_by_display, 'Staff'), cell_normal),
             amt_par,
             status_par,
         ])

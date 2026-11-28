@@ -8,7 +8,7 @@
 
         <!-- Date -->
         <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-expenseDate">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=expenseDate&direction={% if filters.sort == 'expenseDate' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=expenseDate&direction={% if filters.sort == 'expenseDate' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
             <span>Date</span>
             {% if filters.sort == 'expenseDate' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -20,7 +20,7 @@
 
         <!-- Category -->
         <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-category">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=category&direction={% if filters.sort == 'category' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=category&direction={% if filters.sort == 'category' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
             <span>Category</span>
             {% if filters.sort == 'category' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -32,7 +32,7 @@
 
         <!-- Description -->
         <th class="py-3 px-3 text-left text-xs font-semibold min-w-[200px] col-description">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=description&direction={% if filters.sort == 'description' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=description&direction={% if filters.sort == 'description' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
             <span>Description</span>
             {% if filters.sort == 'description' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -44,7 +44,7 @@
 
         <!-- Branch -->
         <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-branch">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=branch&direction={% if filters.sort == 'branch' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=branch&direction={% if filters.sort == 'branch' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
             <span>Branch</span>
             {% if filters.sort == 'branch' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -56,7 +56,7 @@
 
         <!-- Vendor / Payee -->
         <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-vendor">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=vendor&direction={% if filters.sort == 'vendor' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=vendor&direction={% if filters.sort == 'vendor' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
             <span>Vendor / Payee</span>
             {% if filters.sort == 'vendor' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -68,7 +68,7 @@
 
         <!-- Payment Mode -->
         <th class="py-3 px-3 text-center text-xs font-semibold whitespace-nowrap col-paymentMode">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=paymentMode&direction={% if filters.sort == 'paymentMode' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=paymentMode&direction={% if filters.sort == 'paymentMode' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-center gap-1 hover:text-amber-300 transition-colors">
             <span>Mode</span>
             {% if filters.sort == 'paymentMode' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -80,7 +80,7 @@
 
         <!-- Reference / Bill No -->
         <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-referenceNumber">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=referenceNumber&direction={% if filters.sort == 'referenceNumber' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=referenceNumber&direction={% if filters.sort == 'referenceNumber' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
             <span>Ref / UTR</span>
             {% if filters.sort == 'referenceNumber' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -95,7 +95,7 @@
 
         <!-- Amount -->
         <th class="py-3 px-3 text-right text-xs font-semibold whitespace-nowrap col-amount">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=amount&direction={% if filters.sort == 'amount' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-end gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=amount&direction={% if filters.sort == 'amount' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center justify-end gap-1 hover:text-amber-300 transition-colors">
             <span>Amount (₹)</span>
             {% if filters.sort == 'amount' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -107,7 +107,7 @@
 
         <!-- Recorded By -->
         <th class="py-3 px-3 text-left text-xs font-semibold whitespace-nowrap col-recordedBy">
-          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=recordedBy&direction={% if filters.sort == 'recordedBy' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
+          <a href="?{% for k, v in filters.items %}{% if k != 'sort' and k != 'direction' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}sort=recordedBy&direction={% if filters.sort == 'recordedBy' and filters.direction == 'asc' %}desc{% else %}asc{% endif %}" class="flex items-center gap-1 hover:text-amber-300 transition-colors">
             <span>Recorded By</span>
             {% if filters.sort == 'recordedBy' %}
               {% if filters.direction == 'asc' %}<i data-lucide="arrow-up" class="w-3.5 h-3.5 text-amber-300"></i>{% else %}<i data-lucide="arrow-down" class="w-3.5 h-3.5 text-amber-300"></i>{% endif %}
@@ -275,7 +275,7 @@
   <div class="flex items-center gap-2">
     {% if page_obj.has_previous %}
       <a
-        href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+        href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
         class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
       >
         <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
@@ -294,7 +294,7 @@
 
     {% if page_obj.has_next %}
       <a
-        href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+        href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
         class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
       >
         <span>Next</span>

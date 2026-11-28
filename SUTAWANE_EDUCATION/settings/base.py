@@ -34,7 +34,7 @@ def parse_csv_env(name: str, default: str = '') -> list[str]:
 
 
 def build_caches(default_backend: str = 'locmem') -> dict:
-    """Configure Redis, FileBasedCache, or LocMemCache for the current environment."""
+    """Configure Redis, PostgreSQL DatabaseCache, FileBasedCache, or LocMemCache."""
     redis_url = os.getenv('REDIS_URL') or os.getenv('CACHE_URL')
     cache_choice = os.getenv('DJANGO_CACHE_BACKEND', '').strip().lower() or default_backend
 
@@ -48,6 +48,20 @@ def build_caches(default_backend: str = 'locmem') -> dict:
                 'OPTIONS': {
                     'socket_connect_timeout': 3,
                     'socket_timeout': 3,
+                },
+            }
+        }
+
+    if cache_choice in ('db', 'database', 'databasecache'):
+        return {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+                'LOCATION': os.getenv('DJANGO_CACHE_TABLE', 'sutawane_cache_table'),
+                'TIMEOUT': 300,
+                'KEY_PREFIX': 'sutawane',
+                'OPTIONS': {
+                    'MAX_ENTRIES': 20000,
+                    'CULL_FREQUENCY': 4,
                 },
             }
         }
@@ -225,7 +239,7 @@ EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'prameshwar4378@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'pkppqklbhjjtbont')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', '"Sutawane Software Support" <prameshwar4378@gmail.com>')
 SERVER_EMAIL = os.getenv('SERVER_EMAIL', 'prameshwar4378@gmail.com')
 EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))

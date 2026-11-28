@@ -151,7 +151,7 @@
         <div class="flex items-center gap-4">
           {% if institute.logo_path %}
           <div class="w-14 h-14 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-50 flex items-center justify-center p-1">
-            <img src="/media/photos/logo-master-1792762519682.jpg" alt="Logo" class="max-w-full max-h-full object-contain" onerror="this.style.display='none'">
+            <img src="{{ active_logo_url|default:'/static/images/logo-master.png' }}" alt="Logo" class="max-w-full max-h-full object-contain" onerror="this.onerror=null;this.style.display='none'">
           </div>
           {% else %}
           <div class="w-14 h-14 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-xs">

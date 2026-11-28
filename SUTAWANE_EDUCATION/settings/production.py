@@ -27,6 +27,7 @@ _prod_secret = os.getenv('DJANGO_SECRET_KEY', '').strip()
 _placeholder_secrets = {
     'change-this-to-a-strong-random-secret-key-in-production',
     'replace-with-strong-random-secret-key',
+    'django-insecure-lpe15v1#%e4koyiyw7z@fz6@o3fx0q)s2zc^49q$sc-l!=86y%',
 }
 if not _prod_secret or _prod_secret in _placeholder_secrets:
     raise ImproperlyConfigured(
@@ -78,8 +79,8 @@ DATABASES = {
     }
 }
 
-# Multi-worker safe caching (Redis if configured, otherwise FileBasedCache shared across Gunicorn workers)
-CACHES = build_caches(default_backend='filebased')
+# Multi-worker safe caching (Redis if configured, otherwise PostgreSQL DatabaseCache shared across Gunicorn workers)
+CACHES = build_caches(default_backend='database')
 
 # External Production Storage Paths (survive code pulls and redeployments)
 _default_prod_media = Path('/home/sutawane/media')

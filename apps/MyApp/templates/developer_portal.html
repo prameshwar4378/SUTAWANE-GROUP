@@ -50,6 +50,7 @@
 
     <form method="POST" action="{% url 'developer_portal' %}" class="space-y-4">
       {% csrf_token %}
+      <button type="submit" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" tabindex="-1" aria-hidden="true"></button>
       <input type="hidden" name="action" value="update_license">
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -342,6 +343,7 @@
         <!-- Direct Set Form -->
         <form method="POST" action="{% url 'developer_portal' %}" class="space-y-3">
           {% csrf_token %}
+          <button type="submit" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" tabindex="-1" aria-hidden="true"></button>
           <input type="hidden" name="action" value="update_whatsapp_quota">
           <input type="hidden" name="sub_action" value="set_balance">
           <input type="hidden" name="rate_per_message" value="{{ whatsapp_quota.rate }}">
@@ -438,6 +440,7 @@
 
         <form method="POST" action="{% url 'developer_portal' %}" class="space-y-3">
           {% csrf_token %}
+          <button type="submit" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" tabindex="-1" aria-hidden="true"></button>
           <input type="hidden" name="action" value="update_whatsapp_quota">
 
           <div class="grid grid-cols-2 gap-3">
@@ -653,7 +656,7 @@
       </div>
       <div>
         <h2 class="text-sm font-bold text-foreground">Database Diagnostics &amp; Operational Metrics</h2>
-        <p class="text-[11px] text-muted-foreground">Live SQLite database record metrics</p>
+        <p class="text-[11px] text-muted-foreground">Live persistent database record metrics</p>
       </div>
     </div>
 

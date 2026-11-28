@@ -441,8 +441,9 @@
   </div>
 </div>
 
+{{ sessions_list_json|json_script:"sessions-json-data" }}
 <script>
-  const existingSessions = {{ sessions_json|safe }};
+  const existingSessions = JSON.parse(document.getElementById('sessions-json-data').textContent || '[]');
 
   function formatShortDate(dStr) {
     if (!dStr) return '';

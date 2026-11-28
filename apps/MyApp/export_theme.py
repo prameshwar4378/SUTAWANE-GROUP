@@ -6,8 +6,11 @@ and automated Openpyxl Excel layout formatting with multi-sheet data isolation s
 
 import os
 import io
+import re
 from datetime import datetime
+from xml.sax.saxutils import escape as xml_escape
 from django.conf import settings
+from django.utils import timezone
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.platypus import Paragraph, Spacer, Table, TableStyle, Image
@@ -52,6 +55,13 @@ def _init_fonts():
             try:
                 pdfmetrics.registerFont(TTFont(fname, f_reg))
                 pdfmetrics.registerFont(TTFont(f"{fname}-Bold", f_bld))
+                pdfmetrics.registerFontFamily(
+                    fname,
+                    normal=fname,
+                    bold=f"{fname}-Bold",
+                    italic=fname,
+                    boldItalic=f"{fname}-Bold",
+                )
                 FONT_FAMILY = fname
                 FONT_FAMILY_BOLD = f"{fname}-Bold"
                 HAS_UNICODE_FONT = True
@@ -60,6 +70,30 @@ def _init_fonts():
                 continue
 
 _init_fonts()
+
+
+def safe_xml_text(val, default=''):
+    """Escape dynamic text for ReportLab Paragraph XML markup."""
+    if val is None or val == '':
+        return xml_escape(str(default))
+    return xml_escape(str(val))
+
+
+def sanitize_excel_sheet_title(title, default='Sheet', existing=None):
+    """Sanitize and clamp Excel worksheet tab names to valid <=31-char unique titles."""
+    cleaned = re.sub(r'[\\/*?:\[\]]', '_', str(title or default)).strip().strip("'")
+    if not cleaned:
+        cleaned = default
+    base = cleaned[:31]
+    if existing is None:
+        return base
+    candidate = base
+    counter = 2
+    while candidate in existing:
+        suffix = f" ({counter})"
+        candidate = f"{base[:max(1, 31 - len(suffix))]}{suffix}"
+        counter += 1
+    return candidate
 
 
 # =============================================================================
@@ -279,9 +313,9 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
     institute_name = (institute_name or 'SUTAWANE CLASSES').upper()
     tagline = tagline or 'Excellence in Coaching & Board Preparations'
 
-    branch_name = meta.get('branch_name', 'All Branches')
-    session_name = meta.get('session_name', 'All Sessions')
-    date_str = meta.get('date_str') or datetime.now().strftime("%d %b %Y, %I:%M %p")
+    branch_name = meta.get('branch_name') or 'All Branches'
+    session_name = meta.get('session_name') or 'All Sessions'
+    date_str = meta.get('date_str') or timezone.localtime().strftime("%d %b %Y, %I:%M %p")
     records_count = meta.get('records_count')
 
     # Typography styles
@@ -337,15 +371,15 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
 
     # Left block: Title, Subtitle, Tagline
     left_flowables = [
-        Paragraph(institute_name, title_style),
+        Paragraph(safe_xml_text(institute_name), title_style),
         Spacer(1, 2),
-        Paragraph(doc_title.upper(), subtitle_style),
+        Paragraph(safe_xml_text((doc_title or '').upper()), subtitle_style),
         Spacer(1, 2),
-        Paragraph(tagline, tagline_style),
+        Paragraph(safe_xml_text(tagline), tagline_style),
     ]
 
     # Right block: Scope Metadata Card Table (Use &bull; for crisp universal bullet)
-    scope_display = f"{branch_name} &bull; {session_name}"
+    scope_display = f"{safe_xml_text(branch_name)} &bull; {safe_xml_text(session_name)}"
     
     badge_lbl = report_badge_label or "RECORDS:"
     if report_badge_value is not None:
@@ -357,14 +391,14 @@ def build_executive_pdf_header(doc_title, meta=None, report_badge_label=None, re
 
     meta_rows = [
         [Paragraph("SCOPE:", meta_lbl_style), Paragraph(scope_display, meta_val_style)],
-        [Paragraph("DATE:", meta_lbl_style), Paragraph(date_str, meta_val_style)],
+        [Paragraph("DATE:", meta_lbl_style), Paragraph(safe_xml_text(date_str), meta_val_style)],
     ]
     if meta.get('overall_pending_total') is not None:
         meta_rows.append([
             Paragraph("ALL SESSIONS DUE:", meta_lbl_style),
-            Paragraph(format_currency_inr(meta.get('overall_pending_total')), meta_val_red_style)
+            Paragraph(safe_xml_text(format_currency_inr(meta.get('overall_pending_total'))), meta_val_red_style)
         ])
-    meta_rows.append([Paragraph(badge_lbl, meta_lbl_style), Paragraph(str(badge_val), meta_val_red_style)])
+    meta_rows.append([Paragraph(safe_xml_text(badge_lbl), meta_lbl_style), Paragraph(safe_xml_text(badge_val), meta_val_red_style)])
 
     meta_table = Table(meta_rows, colWidths=[70, 168])
     meta_table.setStyle(TableStyle([
@@ -471,10 +505,11 @@ def format_excel_worksheet(ws, title_text, meta_text=None, header_row=4, total_r
         col_letter = get_column_letter(col[0].column)
         max_len = 0
         for cell in col:
-            # Skip merged title rows 1 and 2 for width calculation
+            # Skip merged title rows 1, 2 and spacer row 3 for width calculation
             if cell.row in (1, 2, 3):
                 continue
             val_str = str(cell.value or '')
-            if len(val_str) > max_len:
-                max_len = len(val_str)
-        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+            line_max = max((len(line) for line in val_str.split('\n')), default=0)
+            if line_max > max_len:
+                max_len = line_max
+        ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)

@@ -7,6 +7,7 @@ echo "  SUTAWANE CLASSES MANAGEMENT SOFTWARE - PRODUCTION SERVER"
 echo "============================================================"
 echo "1. Applying database migrations..."
 python manage.py migrate --noinput
+python manage.py createcachetable --database default || true
 
 echo "2. Collecting and compressing static assets..."
 python manage.py collectstatic --noinput

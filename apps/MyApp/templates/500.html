@@ -80,7 +80,8 @@
       </div>
     </div>
 
-    <!-- Actionable Root-Cause Diagnostic Hint -->
+    <!-- Actionable Root-Cause Diagnostic Hint & Stack Trace (only visible when DEBUG or Developer logged in) -->
+    {% if can_see_debug %}
     {% if error_hint %}
     <div class="bg-amber-950/40 border border-amber-500/40 rounded-xl p-4 space-y-2 text-xs">
       <div class="flex items-center gap-2 font-bold text-amber-400">
@@ -103,6 +104,7 @@
     </div>
     {% endif %}
 
+    {% if error_details %}
     <!-- Technical Details & Stack Trace Accordion -->
     <div class="border border-slate-800 rounded-xl bg-slate-950/50 overflow-hidden">
       <button
@@ -134,10 +136,11 @@
           </button>
         </div>
 
-        <pre id="rawErrorText" class="custom-scrollbar bg-slate-900 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-64 whitespace-pre leading-relaxed select-all">{% if error_details %}{{ error_details }}{% else %}No detailed traceback captured for this request.
-Check server production logs or run `python manage.py runserver` with DEBUG=True to view interactive debugging output.{% endif %}</pre>
+        <pre id="rawErrorText" class="custom-scrollbar bg-slate-900 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-64 whitespace-pre leading-relaxed select-all">{{ error_details }}</pre>
       </div>
     </div>
+    {% endif %}
+    {% endif %}
 
     <!-- Navigation Action Buttons -->
     <div class="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -193,13 +196,36 @@ Check server production logs or run `python manage.py runserver` with DEBUG=True
     function copyErrorDetails() {
       const text = document.getElementById('rawErrorText').innerText;
       const copyText = `Target URL: ${window.location.href}\n\n${text}`;
-      navigator.clipboard.writeText(copyText).then(function() {
+      const onSuccess = function() {
         const btnText = document.getElementById('copyBtnText');
-        btnText.textContent = 'Copied!';
-        setTimeout(function() {
-          btnText.textContent = 'Copy Details';
-        }, 2000);
-      });
+        if (btnText) {
+          btnText.textContent = 'Copied!';
+          setTimeout(function() {
+            btnText.textContent = 'Copy Details';
+          }, 2000);
+        }
+      };
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(copyText).then(onSuccess).catch(function() {
+          fallbackCopy(copyText, onSuccess);
+        });
+      } else {
+        fallbackCopy(copyText, onSuccess);
+      }
+
+      function fallbackCopy(val, cb) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = val;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          if (document.execCommand('copy') && cb) cb();
+          document.body.removeChild(ta);
+        } catch (e) {}
+      }
     }
 
     document.addEventListener("DOMContentLoaded", function () {

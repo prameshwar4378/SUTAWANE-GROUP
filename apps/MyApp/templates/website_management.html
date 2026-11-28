@@ -621,7 +621,7 @@
                         src="{{ item.effective_thumbnail_url|default:item.file_url }}"
                         alt="{{ item.title }}"
                         class="w-full h-full object-cover"
-                        onerror="this.src='/static/images/default-course.png';"
+                        onerror="this.onerror=null;this.src='/static/images/icon.png';"
                         loading="lazy"
                       />
                       {% if item.media_type == 'VIDEO' %}
@@ -3119,6 +3119,9 @@
       opt.textContent = name;
       select.appendChild(opt);
     }
+    if (window.SearchableSelect && window.SearchableSelect.refresh) {
+      window.SearchableSelect.refresh(select);
+    }
   }
 
   function syncGalleryCategoryOptionInDropdowns(id, newName) {
@@ -3132,6 +3135,9 @@
         opt.textContent = newName;
       }
     });
+    if (window.SearchableSelect && window.SearchableSelect.refresh) {
+      window.SearchableSelect.refresh(select);
+    }
   }
 
   function removeGalleryCategoryOptionFromDropdowns(id) {
@@ -3144,6 +3150,9 @@
         opt.remove();
       }
     });
+    if (window.SearchableSelect && window.SearchableSelect.refresh) {
+      window.SearchableSelect.refresh(select);
+    }
   }
 
   function escapeGalleryHtml(str) {
@@ -3255,7 +3264,7 @@
         editNoticeQuill.root.innerHTML = data.content || '';
       }
 
-      // Populate existing docs list
+      // Populate existing docs list safely
       const docsList = document.getElementById('editNoticeDocsList');
       if (docsList) {
         if (data.documents && data.documents.length > 0) {
@@ -3263,18 +3272,24 @@
             <div class="flex items-center justify-between p-2 rounded-lg bg-muted/40 border text-xs">
               <div class="flex items-center gap-2 min-w-0 flex-1">
                 <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
-                <span class="font-medium text-foreground truncate">${doc.file_name}</span>
-                <span class="text-muted-foreground text-[10px]">(${doc.file_size || ''})</span>
+                <span class="font-medium text-foreground truncate">${escapeGalleryHtml(doc.file_name)}</span>
+                <span class="text-muted-foreground text-[10px]">(${escapeGalleryHtml(doc.file_size || '')})</span>
               </div>
               <button
                 type="button"
-                onclick="deleteNoticeDocument('${doc.id}', '${doc.file_name.replace(/'/g, "\\'")}')"
-                class="text-destructive hover:text-destructive/80 text-[11px] font-semibold px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors shrink-0 cursor-pointer"
+                data-doc-id="${escapeGalleryHtml(doc.id)}"
+                data-doc-name="${escapeGalleryHtml(doc.file_name)}"
+                class="btn-delete-notice-doc text-destructive hover:text-destructive/80 text-[11px] font-semibold px-2 py-0.5 rounded hover:bg-destructive/10 transition-colors shrink-0 cursor-pointer"
               >
                 Remove
               </button>
             </div>
           `).join('');
+          docsList.querySelectorAll('.btn-delete-notice-doc').forEach(btn => {
+            btn.addEventListener('click', () => {
+              deleteNoticeDocument(btn.dataset.docId, btn.dataset.docName);
+            });
+          });
           if (window.lucide) lucide.createIcons();
         } else {
           docsList.innerHTML = '<p class="text-xs text-muted-foreground italic">No documents attached.</p>';

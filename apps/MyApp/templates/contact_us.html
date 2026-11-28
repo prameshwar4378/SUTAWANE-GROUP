@@ -450,7 +450,7 @@
     <div class="branch-switcher-strip" role="tablist" aria-label="Branch Selector">
       {% if website_campuses %}
         {% for c in website_campuses %}
-        <button type="button" class="branch-tab-btn {% if forloop.first %}active{% endif %}" id="tab-{{ c.campus_key }}" onclick="switchBranch('{{ c.campus_key }}')">
+        <button type="button" class="branch-tab-btn {% if forloop.first %}active{% endif %}" id="tab-{{ c.campus_key }}" onclick="switchBranch('{{ c.campus_key|escapejs }}')">
           <span>{{ c.icon|default:'🏢' }} {{ c.name }}</span>
           <span class="tab-badge">{{ c.badge }}</span>
         </button>
@@ -714,7 +714,7 @@
   const branchData = {
     {% if website_campuses %}
       {% for c in website_campuses %}
-      "{{ c.campus_key }}": {
+      "{{ c.campus_key|escapejs }}": {
         key: "{{ c.campus_key|escapejs }}",
         name: "{{ c.name|escapejs }}",
         badge: "{{ c.badge|escapejs }}",
@@ -807,7 +807,7 @@
     {% endif %}
   };
 
-  let activeBranchKey = '{{ website_campuses.0.campus_key|default:"vaijapur" }}';
+  let activeBranchKey = '{{ website_campuses.0.campus_key|default:"vaijapur"|escapejs }}';
 
   function switchBranch(key) {
     if (!branchData[key]) return;

@@ -5,7 +5,7 @@ publication-grade Landscape A4 ReportLab PDFs for auditing individual staff oper
 """
 
 import io
-from datetime import datetime
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -21,7 +21,7 @@ from .export_theme import (
     COLOR_BG_TOTALS, COLOR_SLATE_TEXT,
     FONT_FAMILY, FONT_FAMILY_BOLD,
     ExecutiveLandscapeCanvas, build_executive_pdf_header,
-    format_currency_inr
+    format_currency_inr, safe_xml_text
 )
 
 
@@ -46,7 +46,7 @@ def export_user_report_excel(report_data, meta=None):
     branch_label = meta.get('branch_label') or report_data.get('branch_label') or 'All Branches'
     session_label = meta.get('session_label') or report_data.get('session_label') or 'All Sessions'
     summary = report_data.get('summary', {})
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
@@ -185,9 +185,9 @@ def export_user_report_excel(report_data, meta=None):
         m_row += 1
 
     for col in ws1.columns:
-        max_len = max(len(str(c.value or '')) for c in col)
+        max_len = max((len(str(c.value or '')) for c in col if c.row not in (1, 2, 3)), default=12)
         col_letter = get_column_letter(col[0].column)
-        ws1.column_dimensions[col_letter].width = max(max_len + 4, 14)
+        ws1.column_dimensions[col_letter].width = min(max(max_len + 4, 14), 48)
 
     # -------------------------------------------------------------------------
     # SHEET 2: FEE COLLECTIONS REGISTER
@@ -224,26 +224,34 @@ def export_user_report_excel(report_data, meta=None):
 
     cur_row = 5
     tot_col_sheet = 0.0
+    active_col_cnt = 0
+    voided_col_cnt = 0
     for idx, p in enumerate(report_data.get('collections', []), start=1):
-        amt = float(p.get('amount', 0.0))
-        tot_col_sheet += amt
+        amt = float(p.get('amount') or 0.0)
+        p_status = str(p.get('status') or 'ACTIVE').upper()
+        is_voided = bool(p.get('is_reversed')) or p_status in ('VOIDED', 'REVERSED', 'REFUNDED')
+        if is_voided:
+            voided_col_cnt += 1
+        else:
+            tot_col_sheet += amt
+            active_col_cnt += 1
         ws2.row_dimensions[cur_row].height = 20
 
         row_vals = [
             idx,
-            p.get('receipt_number', '—'),
-            p.get('payment_date', '—'),
-            p.get('student_code', '—'),
-            p.get('student_name', '—'),
-            p.get('roll_number', '—'),
-            p.get('standard', '—'),
-            p.get('branch_name', '—'),
-            p.get('session_name', '—'),
-            p.get('payment_mode', '—'),
+            p.get('receipt_number') or '—',
+            p.get('payment_date') or '—',
+            p.get('student_code') or '—',
+            p.get('student_name') or '—',
+            p.get('roll_number') or '—',
+            p.get('standard') or '—',
+            p.get('branch_name') or '—',
+            p.get('session_name') or '—',
+            p.get('payment_mode') or '—',
             amt,
-            p.get('status', 'ACTIVE'),
-            p.get('received_by', 'Staff'),
-            p.get('created_by', 'Staff'),
+            p_status,
+            p.get('received_by') or 'Staff',
+            p.get('created_by') or 'Staff',
         ]
 
         for c_idx, val in enumerate(row_vals, start=1):
@@ -252,9 +260,12 @@ def export_user_report_excel(report_data, meta=None):
             cell.border = THIN_BORDER
             if c_idx == 11:
                 cell.number_format = '₹#,##0.00'
-                cell.font = paid_font
+                cell.font = outflow_font if is_voided else paid_font
                 cell.alignment = Alignment(horizontal="right", vertical="center")
-            elif c_idx in [1, 3, 4, 6, 10, 12]:
+            elif c_idx == 12:
+                cell.font = outflow_font if is_voided else paid_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            elif c_idx in [1, 3, 4, 6, 10]:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
@@ -262,10 +273,14 @@ def export_user_report_excel(report_data, meta=None):
                     cell.font = bold_font
         cur_row += 1
 
-    # Totals Row
+    # Totals Row (reconciled to realized/active receipts only)
     ws2.row_dimensions[cur_row].height = 24
     ws2.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=10)
-    lbl = ws2.cell(row=cur_row, column=1, value=f"TOTAL REALIZED INFLOWS ({len(report_data.get('collections', []))} Receipts)")
+    tot_lbl_col = (
+        f"TOTAL REALIZED INFLOWS ({active_col_cnt} Active, {voided_col_cnt} Voided)"
+        if voided_col_cnt > 0 else f"TOTAL REALIZED INFLOWS ({active_col_cnt} Receipts)"
+    )
+    lbl = ws2.cell(row=cur_row, column=1, value=tot_lbl_col)
     lbl.font = totals_bold
     lbl.alignment = Alignment(horizontal="right", vertical="center")
 
@@ -280,9 +295,9 @@ def export_user_report_excel(report_data, meta=None):
         c.fill = TOTALS_FILL
 
     for col in ws2.columns:
-        max_len = max(len(str(c.value or '')) for c in col)
+        max_len = max((len(str(c.value or '')) for c in col if c.row not in (1, 2, 3)), default=10)
         col_letter = get_column_letter(col[0].column)
-        ws2.column_dimensions[col_letter].width = max(max_len + 3, 12)
+        ws2.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 48)
 
     # -------------------------------------------------------------------------
     # SHEET 3: CENTER DISBURSEMENTS & EXPENSES
@@ -370,9 +385,9 @@ def export_user_report_excel(report_data, meta=None):
         c.fill = TOTALS_FILL
 
     for col in ws3.columns:
-        max_len = max(len(str(c.value or '')) for c in col)
+        max_len = max((len(str(c.value or '')) for c in col if c.row not in (1, 2, 3)), default=10)
         col_letter = get_column_letter(col[0].column)
-        ws3.column_dimensions[col_letter].width = max(max_len + 3, 12)
+        ws3.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 48)
 
     # -------------------------------------------------------------------------
     # SHEET 4: STUDENT ADMISSIONS ENROLLED
@@ -480,9 +495,9 @@ def export_user_report_excel(report_data, meta=None):
         c.fill = TOTALS_FILL
 
     for col in ws4.columns:
-        max_len = max(len(str(c.value or '')) for c in col)
+        max_len = max((len(str(c.value or '')) for c in col if c.row not in (1, 2, 3)), default=10)
         col_letter = get_column_letter(col[0].column)
-        ws4.column_dimensions[col_letter].width = max(max_len + 3, 12)
+        ws4.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 48)
 
     # -------------------------------------------------------------------------
     # SHEET 5: FEE DISCOUNTS AUTHORIZED
@@ -569,9 +584,9 @@ def export_user_report_excel(report_data, meta=None):
         c.fill = TOTALS_FILL
 
     for col in ws5.columns:
-        max_len = max(len(str(c.value or '')) for c in col)
+        max_len = max((len(str(c.value or '')) for c in col if c.row not in (1, 2, 3)), default=10)
         col_letter = get_column_letter(col[0].column)
-        ws5.column_dimensions[col_letter].width = max(max_len + 3, 12)
+        ws5.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 48)
 
     output = io.BytesIO()
     wb.save(output)
@@ -736,7 +751,7 @@ def export_user_report_pdf(report_data, meta=None):
 
     # 3. Part A: Fee Collections Inflows Table (Total width 802pt)
     # [22, 115, 60, 135, 55, 80, 80, 50, 105, 100] = 802
-    story.append(Paragraph(f"<b>Part A: Fee Payments Collected by {user_name} ({len(collections)} Receipts Realized)</b>", section_title))
+    story.append(Paragraph(f"<b>Part A: Fee Payments Collected by {safe_xml_text(user_name)} ({cnt_col} Receipts Realized)</b>", section_title))
     story.append(Spacer(1, 4))
 
     col_headers_pdf = [
@@ -753,24 +768,29 @@ def export_user_report_pdf(report_data, meta=None):
     ]
     col_rows_pdf = [col_headers_pdf]
     for idx, p in enumerate(collections, start=1):
-        amt = float(p.get('amount', 0.0))
+        amt = float(p.get('amount') or 0.0)
+        p_status = str(p.get('status') or 'ACTIVE').upper()
+        is_voided = bool(p.get('is_reversed')) or p_status in ('VOIDED', 'REVERSED', 'REFUNDED')
+        rec_num_txt = safe_xml_text(p.get('receipt_number'), '—')
+        if is_voided:
+            rec_num_txt = f"{rec_num_txt} <font color='#BE123C'>[VOIDED]</font>"
         col_rows_pdf.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(str(p.get('receipt_number', '—')), cell_bold),
-            Paragraph(str(p.get('payment_date', '—')), cell_center),
-            Paragraph(str(p.get('student_name', '—')), cell_bold),
-            Paragraph(str(p.get('roll_number', '—')), cell_center),
-            Paragraph(str(p.get('standard', '—')), cell_normal),
-            Paragraph(str(p.get('branch_name', '—')), cell_normal),
-            Paragraph(str(p.get('payment_mode', '—')), cell_center),
-            Paragraph(str(p.get('received_by', 'Staff')), cell_normal),
-            Paragraph(format_currency_inr(amt), cell_green),
+            Paragraph(rec_num_txt, cell_bold),
+            Paragraph(safe_xml_text(p.get('payment_date'), '—'), cell_center),
+            Paragraph(safe_xml_text(p.get('student_name'), '—'), cell_bold),
+            Paragraph(safe_xml_text(p.get('roll_number'), '—'), cell_center),
+            Paragraph(safe_xml_text(p.get('standard'), '—'), cell_normal),
+            Paragraph(safe_xml_text(p.get('branch_name'), '—'), cell_normal),
+            Paragraph(safe_xml_text(p.get('payment_mode'), '—'), cell_center),
+            Paragraph(safe_xml_text(p.get('received_by'), 'Staff'), cell_normal),
+            Paragraph(safe_xml_text(format_currency_inr(amt)), cell_red if is_voided else cell_green),
         ])
 
     col_rows_pdf.append([
-        Paragraph(f"<b>TOTAL INFLOWS ({len(collections)} Receipts Realized)</b>", cell_bold),
+        Paragraph(f"<b>TOTAL REALIZED INFLOWS ({cnt_col} Active Receipts)</b>", cell_bold),
         "", "", "", "", "", "", "", "",
-        Paragraph(format_currency_inr(tot_col), cell_green),
+        Paragraph(safe_xml_text(format_currency_inr(tot_col)), cell_green),
     ])
 
     col_tbl = Table(col_rows_pdf, colWidths=[22, 115, 60, 135, 55, 80, 80, 50, 105, 100])
@@ -790,7 +810,7 @@ def export_user_report_pdf(report_data, meta=None):
 
     # 4. Part B: Center Expenditures Table (Total width 802pt)
     # [22, 100, 60, 110, 175, 110, 75, 50, 100] = 802
-    story.append(Paragraph(f"<b>Part B: Center Expenses Recorded by {user_name} ({len(expenses)} Vouchers Incurred)</b>", section_title))
+    story.append(Paragraph(f"<b>Part B: Center Expenses Recorded by {safe_xml_text(user_name)} ({len(expenses)} Vouchers Incurred)</b>", section_title))
     story.append(Spacer(1, 4))
 
     exp_headers_pdf = [
@@ -806,17 +826,17 @@ def export_user_report_pdf(report_data, meta=None):
     ]
     exp_rows_pdf = [exp_headers_pdf]
     for idx, e in enumerate(expenses, start=1):
-        amt = float(e.get('amount', 0.0))
+        amt = float(e.get('amount') or 0.0)
         exp_rows_pdf.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(str(e.get('reference_number', '—')), cell_bold),
-            Paragraph(str(e.get('expense_date', '—')), cell_center),
-            Paragraph(str(e.get('category_name', 'General')), cell_bold),
-            Paragraph(str(e.get('description', '—')), cell_normal),
-            Paragraph(str(e.get('vendor', '—')), cell_normal),
-            Paragraph(str(e.get('branch_name', '—')), cell_normal),
-            Paragraph(str(e.get('payment_mode', '—')), cell_center),
-            Paragraph(format_currency_inr(amt), cell_red),
+            Paragraph(safe_xml_text(e.get('reference_number'), '—'), cell_bold),
+            Paragraph(safe_xml_text(e.get('expense_date'), '—'), cell_center),
+            Paragraph(safe_xml_text(e.get('category_name'), 'General'), cell_bold),
+            Paragraph(safe_xml_text(e.get('description'), '—'), cell_normal),
+            Paragraph(safe_xml_text(e.get('vendor'), '—'), cell_normal),
+            Paragraph(safe_xml_text(e.get('branch_name'), '—'), cell_normal),
+            Paragraph(safe_xml_text(e.get('payment_mode'), '—'), cell_center),
+            Paragraph(safe_xml_text(format_currency_inr(amt)), cell_red),
         ])
 
     exp_rows_pdf.append([
@@ -842,7 +862,7 @@ def export_user_report_pdf(report_data, meta=None):
 
     # 5. Part C: Student Admissions Registered Table (Total width 802pt)
     # [22, 90, 50, 140, 100, 90, 60, 60, 90, 100] = 802
-    story.append(Paragraph(f"<b>Part C: Student Admissions Configured by {user_name} ({len(admissions)} Enrollments)</b>", section_title))
+    story.append(Paragraph(f"<b>Part C: Student Admissions Configured by {safe_xml_text(user_name)} ({len(admissions)} Enrollments)</b>", section_title))
     story.append(Spacer(1, 4))
 
     adm_headers_pdf = [
@@ -861,21 +881,21 @@ def export_user_report_pdf(report_data, meta=None):
     tot_adm_agr = 0.0
     tot_adm_net = 0.0
     for idx, a in enumerate(admissions, start=1):
-        a_fee = float(a.get('total_fees', 0.0))
-        n_fee = float(a.get('net_payable', 0.0))
+        a_fee = float(a.get('total_fees') or 0.0)
+        n_fee = float(a.get('net_payable') or 0.0)
         tot_adm_agr += a_fee
         tot_adm_net += n_fee
         adm_rows_pdf.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(str(a.get('student_code', '—')), cell_bold),
-            Paragraph(str(a.get('roll_number', '—')), cell_center),
-            Paragraph(str(a.get('student_name', '—')), cell_bold),
-            Paragraph(str(a.get('standard', '—')), cell_normal),
-            Paragraph(str(a.get('branch_name', '—')), cell_normal),
-            Paragraph(str(a.get('session_name', '—')), cell_center),
-            Paragraph(str(a.get('admission_date', '—')), cell_center),
-            Paragraph(format_currency_inr(a_fee), cell_normal),
-            Paragraph(format_currency_inr(n_fee), cell_green),
+            Paragraph(safe_xml_text(a.get('student_code'), '—'), cell_bold),
+            Paragraph(safe_xml_text(a.get('roll_number'), '—'), cell_center),
+            Paragraph(safe_xml_text(a.get('student_name'), '—'), cell_bold),
+            Paragraph(safe_xml_text(a.get('standard'), '—'), cell_normal),
+            Paragraph(safe_xml_text(a.get('branch_name'), '—'), cell_normal),
+            Paragraph(safe_xml_text(a.get('session_name'), '—'), cell_center),
+            Paragraph(safe_xml_text(a.get('admission_date'), '—'), cell_center),
+            Paragraph(safe_xml_text(format_currency_inr(a_fee)), cell_normal),
+            Paragraph(safe_xml_text(format_currency_inr(n_fee)), cell_green),
         ])
 
     adm_rows_pdf.append([

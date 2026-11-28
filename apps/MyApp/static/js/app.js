@@ -258,8 +258,14 @@ window.toggleSidebar = function () {
 
   window.renderIcons();
 
-  // Persist state to session
-  fetch('/toggle-sidebar/', { credentials: 'same-origin' }).catch(() => {});
+  // Persist state to session via CSRF-protected POST
+  const cookieMatch = document.cookie.match(/csrftoken=([\w-]+)/);
+  const csrfToken = cookieMatch ? cookieMatch[1] : (document.querySelector('[name=csrfmiddlewaretoken]')?.value || '');
+  fetch('/toggle-sidebar/', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: csrfToken ? { 'X-CSRFToken': csrfToken } : {},
+  }).catch(() => {});
 };
 
 // -------------------------------------------------------------------
@@ -374,13 +380,18 @@ function initHeaderSearch() {
       students.forEach((s) => {
         const item = document.createElement('div');
         item.className = 'p-2.5 px-3.5 flex items-center justify-between gap-3 hover:bg-muted/50 cursor-pointer transition-colors bg-card';
-        const initial = s.full_name ? s.full_name.trim().charAt(0).toUpperCase() : '?';
-        const photoMarkup = s.photo_url
-          ? `<img src="${s.photo_url}" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentElement.innerText='${initial}';">`
+        const initialRaw = s.full_name ? s.full_name.trim().charAt(0).toUpperCase() : '?';
+        const initial = escapeHtml(initialRaw);
+        const safeId = encodeURIComponent(s.id || '');
+        const safeAdmId = encodeURIComponent(s.admission_id || '');
+        const rawPhoto = typeof s.photo_url === 'string' ? s.photo_url.trim() : '';
+        const isSafePhoto = rawPhoto.startsWith('/media/') || rawPhoto.startsWith('/static/');
+        const photoMarkup = isSafePhoto
+          ? `<img src="${escapeHtml(rawPhoto)}" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentElement.textContent='${initial}';">`
           : initial;
 
         item.innerHTML = `
-          <div class="flex items-center gap-3 min-w-0 flex-1" onclick="location.href='/students/${s.id}/'">
+          <div class="flex items-center gap-3 min-w-0 flex-1" data-student-href="/students/${safeId}/">
             <div class="w-8 h-8 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-border">
               ${photoMarkup}
             </div>
@@ -401,7 +412,7 @@ function initHeaderSearch() {
                 : `<span class="text-[10px] text-emerald-600 font-semibold whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 px-2 py-0.5 rounded-md">Cleared</span>`
             }
             <a
-              href="/fees/collect/?student_id=${s.id}&admission_id=${s.admission_id || ''}&amount=${s.pending_fees > 0 ? s.pending_fees : ''}"
+              href="/fees/collect/?student_id=${safeId}&admission_id=${safeAdmId}&amount=${s.pending_fees > 0 ? encodeURIComponent(s.pending_fees) : ''}"
               class="h-6.5 px-2.5 text-[10px] font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 shadow-2xs whitespace-nowrap transition-colors"
               title="Collect fees for ${escapeHtml(s.full_name)}"
               onclick="event.stopPropagation();"
@@ -411,6 +422,12 @@ function initHeaderSearch() {
             </a>
           </div>
         `;
+        const clickable = item.querySelector('[data-student-href]');
+        if (clickable) {
+          clickable.addEventListener('click', function () {
+            window.location.href = clickable.getAttribute('data-student-href');
+          });
+        }
         itemsList.appendChild(item);
       });
     }
@@ -428,6 +445,7 @@ function initHeaderSearch() {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+  window.escapeHtml = window.escapeHtml || escapeHtml;
 }
 
 // -------------------------------------------------------------------
@@ -613,10 +631,16 @@ window.printDocument = function (mode) {
 
   // Handle Form Submissions (Both standard full-page POSTs and HTMX)
   document.addEventListener('submit', function (e) {
+    if (e.defaultPrevented) return;
     const form = e.target;
     if (!form || form.hasAttribute('data-no-loading') || form.classList.contains('no-loading')) {
       return;
     }
+
+    // Remove any leftover dynamic submit action inputs from earlier cancelled submits
+    form.querySelectorAll('.__dynamic_submit_action__').forEach(function (el) {
+      el.remove();
+    });
 
     // Verify HTML5 validation status - do NOT lock if browser validation blocks submission
     if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
@@ -656,7 +680,7 @@ window.printDocument = function (mode) {
         }, 4000);
       }
     }
-  }, true);
+  }, false);
 
   // Handle Standalone Click Action Buttons (e.g. data-single-click or .btn-single-click)
   document.addEventListener('click', function (e) {
@@ -905,6 +929,7 @@ window.printDocument = function (mode) {
 
   // Form Submission Trigger
   document.addEventListener('submit', function (e) {
+    if (e.defaultPrevented) return;
     const form = e.target;
     if (!form || form.hasAttribute('data-no-loader') || form.classList.contains('no-loader')) {
       return;
@@ -921,7 +946,7 @@ window.printDocument = function (mode) {
       immediateOverlay: isExplicitHeavy,
       message: customMsg
     });
-  }, true);
+  }, false);
 
   // HTMX Integration
   document.addEventListener('htmx:beforeRequest', function (e) {
@@ -969,4 +994,50 @@ window.printDocument = function (mode) {
     showOverlay: showOverlay,
     hideOverlay: hideOverlay,
   };
+
+  window.showScreenLoader = function (message) {
+    return start({
+      immediateOverlay: true,
+      message: message || 'Processing...'
+    });
+  };
 })();
+
+window.getLocalDateISO = function (dateObj) {
+  const d = dateObj instanceof Date ? dateObj : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+};
+
+window.copyTextSafe = function (text) {
+  const value = text == null ? '' : String(text);
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(value).catch(function () {
+      return fallbackExecCopy(value);
+    });
+  }
+  return fallbackExecCopy(value);
+
+  function fallbackExecCopy(str) {
+    return new Promise(function (resolve, reject) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = str;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) resolve();
+        else reject(new Error('execCommand copy failed'));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+};

@@ -32,6 +32,7 @@ from .export_theme import (
     format_number_inr,
     FONT_FAMILY,
     FONT_FAMILY_BOLD,
+    safe_xml_text,
 )
 
 # OpenPyXL Styles
@@ -248,23 +249,23 @@ def export_student_ledger_pdf(ledger_data):
 
     inst_name = (institute.get('name') or 'SUTAWANE CLASSES').upper()
     inst_tagline = institute.get('tagline') or 'Excellence in Coaching & Board Preparations'
-    inst_contact = f"{institute.get('address', '')} • Phone: {institute.get('phone', '')}"
+    inst_contact = f"{safe_xml_text(institute.get('address'), '')} &bull; Phone: {safe_xml_text(institute.get('phone'), '')}"
 
     left_header = [
-        Paragraph(inst_name, title_style),
+        Paragraph(safe_xml_text(inst_name), title_style),
         Spacer(1, 1),
         Paragraph("OFFICIAL STUDENT ACCOUNT STATEMENT", subtitle_style),
         Spacer(1, 1),
-        Paragraph(inst_tagline, tagline_style),
+        Paragraph(safe_xml_text(inst_tagline), tagline_style),
         Paragraph(inst_contact, cell_muted_style),
     ]
 
     badge_status = summary.get('status_label', 'VERIFIED')
     meta_rows = [
         [Paragraph("SCOPE:", meta_lbl_style), Paragraph("All Academic Sessions", meta_val_style)],
-        [Paragraph("DATE:", meta_lbl_style), Paragraph(ledger_data.get('generated_at_str', ''), meta_val_style)],
-        [Paragraph("STATUS:", meta_lbl_style), Paragraph(badge_status, meta_val_red_style if summary['pending_fees'] > 0 else meta_val_style)],
-        [Paragraph("CLEARANCE:", meta_lbl_style), Paragraph(f"{summary['clearance_percentage']}%", meta_val_style)],
+        [Paragraph("DATE:", meta_lbl_style), Paragraph(safe_xml_text(ledger_data.get('generated_at_str', '')), meta_val_style)],
+        [Paragraph("STATUS:", meta_lbl_style), Paragraph(safe_xml_text(badge_status), meta_val_red_style if summary['pending_fees'] > 0 else meta_val_style)],
+        [Paragraph("CLEARANCE:", meta_lbl_style), Paragraph(f"{safe_xml_text(summary['clearance_percentage'])}%", meta_val_style)],
     ]
     meta_table = Table(meta_rows, colWidths=[55, 125])
     meta_table.setStyle(TableStyle([
@@ -305,20 +306,20 @@ def export_student_ledger_pdf(ledger_data):
     # 2. Student Bio & Photograph Identification Strip
     # -------------------------------------------------------------
     photo_disk_path = student.get('photo_disk_path')
-    photo_fallback = f"<font size=14 color='#1A2B4C'><b>{student.get('initials', 'SC')}</b></font>"
+    photo_fallback = f"<font size=14 color='#1A2B4C'><b>{safe_xml_text(student.get('initials', 'SC'))}</b></font>"
     photo_flowable = get_optimized_image_flowable(photo_disk_path, max_w=54, max_h=54, fallback_text=photo_fallback, title_style=title_style) or Paragraph(photo_fallback, title_style)
 
     bio_col1 = [
-        Paragraph(f"<b>{student.get('full_name', '')}</b>", ParagraphStyle('BName', parent=title_style, fontSize=11, leading=13)),
+        Paragraph(f"<b>{safe_xml_text(student.get('full_name', ''))}</b>", ParagraphStyle('BName', parent=title_style, fontSize=11, leading=13)),
         Spacer(1, 1),
-        Paragraph(f"Student Code: <b>{student.get('student_code', '')}</b>", cell_bold_style),
-        Paragraph(f"Campus Branch: {student.get('primary_branch', 'Main Campus')}", cell_regular_style),
+        Paragraph(f"Student Code: <b>{safe_xml_text(student.get('student_code', ''))}</b>", cell_bold_style),
+        Paragraph(f"Campus Branch: {safe_xml_text(student.get('primary_branch', 'Main Campus'))}", cell_regular_style),
     ]
 
     bio_col2 = [
-        Paragraph(f"Parent Mobile: <b>{student.get('parent_phone', '')}</b>", cell_regular_style),
-        Paragraph(f"Student Mobile: {student.get('student_phone', '-')}", cell_regular_style),
-        Paragraph(f"Address: {student.get('address', '-')}", cell_muted_style),
+        Paragraph(f"Parent Mobile: <b>{safe_xml_text(student.get('parent_phone', ''))}</b>", cell_regular_style),
+        Paragraph(f"Student Mobile: {safe_xml_text(student.get('student_phone', '-'))}", cell_regular_style),
+        Paragraph(f"Address: {safe_xml_text(student.get('address', '-'))}", cell_muted_style),
     ]
 
     bio_table = Table([[photo_flowable, bio_col1, bio_col2]], colWidths=[60, 265, 230])
@@ -380,7 +381,7 @@ def export_student_ledger_pdf(ledger_data):
         s_pend = format_currency_inr(session_grp.get('total_pending', 0))
 
         # Session Header Banner
-        sess_hdr_text = f"<b>{sess_name.upper()}</b>  •  Agreed: {s_payable}  •  Collected: {s_paid}  •  Balance Due: {s_pend}"
+        sess_hdr_text = f"<b>{safe_xml_text((sess_name or '').upper())}</b>  &bull;  Agreed: {safe_xml_text(s_payable)}  &bull;  Collected: {safe_xml_text(s_paid)}  &bull;  Balance Due: {safe_xml_text(s_pend)}"
         sess_hdr_para = Paragraph(sess_hdr_text, th_style)
         sess_bar = Table([[sess_hdr_para]], colWidths=[content_w], rowHeights=[18])
         sess_bar.setStyle(TableStyle([
@@ -397,10 +398,10 @@ def export_student_ledger_pdf(ledger_data):
         for b_idx, batch in enumerate(session_grp.get('batches', []), start=1):
             # Batch subheader
             b_info = (
-                f"<b>Batch {b_idx}: {batch['standard']}</b> (Roll: {batch['roll_number']}, Campus: {batch['branch_name']}) — "
-                f"Net Fee: {format_currency_inr(batch['net_payable'])} | "
-                f"Paid: {format_currency_inr(batch['paid_amount'])} | "
-                f"Balance: {format_currency_inr(batch['pending_amount'])} [{batch['status']}]"
+                f"<b>Batch {b_idx}: {safe_xml_text(batch['standard'])}</b> (Roll: {safe_xml_text(batch['roll_number'])}, Campus: {safe_xml_text(batch['branch_name'])}) — "
+                f"Net Fee: {safe_xml_text(format_currency_inr(batch['net_payable']))} | "
+                f"Paid: {safe_xml_text(format_currency_inr(batch['paid_amount']))} | "
+                f"Balance: {safe_xml_text(format_currency_inr(batch['pending_amount']))} [{safe_xml_text(batch['status'])}]"
             )
             b_para = Paragraph(b_info, cell_bold_style)
             b_bar = Table([[b_para]], colWidths=[content_w])
@@ -431,12 +432,12 @@ def export_student_ledger_pdf(ledger_data):
                     due_date_str = inst['due_date'].strftime('%d-%b-%Y') if inst.get('due_date') else '-'
                     inst_rows.append([
                         Paragraph(str(inst['installment_no']), cell_regular_style),
-                        Paragraph(inst['label'], cell_regular_style),
-                        Paragraph(due_date_str, cell_regular_style),
-                        Paragraph(format_currency_inr(inst['amount_due']), cell_right_reg),
-                        Paragraph(format_currency_inr(inst['paid_amount']), cell_green_bold),
-                        Paragraph(format_currency_inr(inst['pending_amount']), cell_red_bold if inst['pending_amount'] > 0 else cell_right_reg),
-                        Paragraph(inst['status'], cell_bold_style),
+                        Paragraph(safe_xml_text(inst['label']), cell_regular_style),
+                        Paragraph(safe_xml_text(due_date_str), cell_regular_style),
+                        Paragraph(safe_xml_text(format_currency_inr(inst['amount_due'])), cell_right_reg),
+                        Paragraph(safe_xml_text(format_currency_inr(inst['paid_amount'])), cell_green_bold),
+                        Paragraph(safe_xml_text(format_currency_inr(inst['pending_amount'])), cell_red_bold if inst['pending_amount'] > 0 else cell_right_reg),
+                        Paragraph(safe_xml_text(inst['status']), cell_bold_style),
                     ])
                 inst_table = Table(inst_rows, colWidths=[20, 150, 75, 80, 80, 80, 70])
                 inst_table.setStyle(TableStyle([
@@ -472,13 +473,13 @@ def export_student_ledger_pdf(ledger_data):
         prev_rows = [prev_headers]
         for due in previous_dues:
             prev_rows.append([
-                Paragraph(due['original_session'], cell_regular_style),
-                Paragraph(due['current_session'], cell_regular_style),
-                Paragraph(due['description'], cell_muted_style),
-                Paragraph(format_currency_inr(due['outstanding_amount']), cell_right_reg),
-                Paragraph(format_currency_inr(due['collected_amount']), cell_green_bold),
-                Paragraph(format_currency_inr(due['pending_amount']), cell_red_bold if due['pending_amount'] > 0 else cell_right_reg),
-                Paragraph(due['status'], cell_bold_style),
+                Paragraph(safe_xml_text(due['original_session']), cell_regular_style),
+                Paragraph(safe_xml_text(due['current_session']), cell_regular_style),
+                Paragraph(safe_xml_text(due['description']), cell_muted_style),
+                Paragraph(safe_xml_text(format_currency_inr(due['outstanding_amount'])), cell_right_reg),
+                Paragraph(safe_xml_text(format_currency_inr(due['collected_amount'])), cell_green_bold),
+                Paragraph(safe_xml_text(format_currency_inr(due['pending_amount'])), cell_red_bold if due['pending_amount'] > 0 else cell_right_reg),
+                Paragraph(safe_xml_text(due['status']), cell_bold_style),
             ])
         prev_table = Table(prev_rows, colWidths=[90, 90, 135, 60, 60, 60, 60])
         prev_table.setStyle(TableStyle([
@@ -514,16 +515,25 @@ def export_student_ledger_pdf(ledger_data):
     for p in payments_ledger:
         p_date_str = p['payment_date'].strftime('%d-%b-%Y') if p.get('payment_date') else '-'
         rcv_staff = p.get('received_by') or 'Staff'
+        is_rev = bool(p.get('is_reversed'))
+        rec_display = (
+            f"{safe_xml_text(p['receipt_number'])} <font color='#DC2626'>[VOIDED]</font>"
+            if is_rev else safe_xml_text(p['receipt_number'])
+        )
+        amt_display = (
+            f"<font color='#DC2626'>{safe_xml_text(format_currency_inr(p['amount']))} (Voided)</font>"
+            if is_rev else safe_xml_text(format_currency_inr(p['amount']))
+        )
         ledger_rows.append([
             Paragraph(str(p['index']), cell_regular_style),
-            Paragraph(p['receipt_number'], cell_bold_style),
-            Paragraph(p_date_str, cell_regular_style),
-            Paragraph(p['session_name'], cell_regular_style),
-            Paragraph(p['standard'], cell_regular_style),
-            Paragraph(p['payment_mode'], cell_regular_style),
-            Paragraph(rcv_staff, cell_regular_style),
-            Paragraph(format_currency_inr(p['amount']), cell_green_bold),
-            Paragraph(format_currency_inr(p['running_total']), cell_right_bold),
+            Paragraph(rec_display, cell_bold_style),
+            Paragraph(safe_xml_text(p_date_str), cell_regular_style),
+            Paragraph(safe_xml_text(p['session_name']), cell_regular_style),
+            Paragraph(safe_xml_text(p['standard']), cell_regular_style),
+            Paragraph(safe_xml_text(p['payment_mode']), cell_regular_style),
+            Paragraph(safe_xml_text(rcv_staff), cell_regular_style),
+            Paragraph(amt_display, cell_red_bold if is_rev else cell_green_bold),
+            Paragraph(safe_xml_text(format_currency_inr(p['running_total'])), cell_right_bold),
         ])
 
     # Grand Totals Row
@@ -557,16 +567,16 @@ def export_student_ledger_pdf(ledger_data):
     # 7. Official Verification & Signatures Block
     # -------------------------------------------------------------
     sig_note = Paragraph(
-        f"<i>{institute.get('receipt_footer', '')} • This document is an official confidential account statement "
-        f"generated by Sutawane Classes Management Software on {ledger_data.get('generated_at_str', '')}.</i>",
+        f"<i>{safe_xml_text(institute.get('receipt_footer', ''))} &bull; This document is an official confidential account statement "
+        f"generated by Sutawane Classes Management Software on {safe_xml_text(ledger_data.get('generated_at_str', ''))}.</i>",
         cell_muted_style
     )
     sig_box_w = content_w / 3.0
     sig_rows = [
         [
-            Paragraph("____________________________<br/><b>Student / Parent Signature</b><br/><font size=6 color='#64748B'>Acknowledged & Verified</font>", cell_regular_style),
+            Paragraph("____________________________<br/><b>Student / Parent Signature</b><br/><font size=6 color='#64748B'>Acknowledged &amp; Verified</font>", cell_regular_style),
             Paragraph("____________________________<br/><b>Branch Accountant Stamp</b><br/><font size=6 color='#64748B'>Account Verified</font>", cell_regular_style),
-            Paragraph(f"____________________________<br/><b>Authorized Signatory</b><br/><font size=6 color='#64748B'>{institute.get('name', 'Sutawane Classes')}</font>", cell_regular_style),
+            Paragraph(f"____________________________<br/><b>Authorized Signatory</b><br/><font size=6 color='#64748B'>{safe_xml_text(institute.get('name', 'Sutawane Classes'))}</font>", cell_regular_style),
         ]
     ]
     sig_table = Table(sig_rows, colWidths=[sig_box_w, sig_box_w, sig_box_w])
@@ -774,9 +784,9 @@ def export_student_ledger_excel(ledger_data):
 
     # Auto-width
     for col in ws1.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
+        max_len = max((len(str(cell.value or '')) for cell in col if cell.row not in (1, 2, 3)), default=10)
         col_letter = get_column_letter(col[0].column)
-        ws1.column_dimensions[col_letter].width = max(max_len + 4, 12)
+        ws1.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)
 
     # -------------------------------------------------------------
     # Sheet 2: Installment Milestones
@@ -876,9 +886,9 @@ def export_student_ledger_excel(ledger_data):
             cell.fill = TOTALS_FILL
 
     for col in ws2.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
+        max_len = max((len(str(cell.value or '')) for cell in col if cell.row not in (1, 2, 3)), default=10)
         col_letter = get_column_letter(col[0].column)
-        ws2.column_dimensions[col_letter].width = max(max_len + 4, 12)
+        ws2.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)
 
     # -------------------------------------------------------------
     # Sheet 3: Payment Receipts Ledger
@@ -912,11 +922,17 @@ def export_student_ledger_excel(ledger_data):
 
     cur_row3 = 5
     start_row3 = 5
+    realized_sum = 0.0
 
     for p in payments_ledger:
+        is_rev = bool(p.get('is_reversed'))
+        amt_val = float(p.get('amount') or 0.0)
+        if not is_rev:
+            realized_sum += amt_val
         ws3.row_dimensions[cur_row3].height = 20
         ws3.cell(row=cur_row3, column=1, value=p['index']).alignment = Alignment(horizontal="center")
-        ws3.cell(row=cur_row3, column=2, value=p['receipt_number']).font = bold_font
+        rec_cell = ws3.cell(row=cur_row3, column=2, value=f"{p['receipt_number']} (VOIDED)" if is_rev else p['receipt_number'])
+        rec_cell.font = due_font if is_rev else bold_font
         
         p_dt = p['payment_date'].strftime('%d-%b-%Y') if p.get('payment_date') else '-'
         ws3.cell(row=cur_row3, column=3, value=p_dt).alignment = Alignment(horizontal="center")
@@ -927,9 +943,9 @@ def export_student_ledger_excel(ledger_data):
         ws3.cell(row=cur_row3, column=8, value=p.get('received_by') or 'Staff')
         ws3.cell(row=cur_row3, column=9, value=p['allocations_summary'])
 
-        c10 = ws3.cell(row=cur_row3, column=10, value=float(p['amount']))
+        c10 = ws3.cell(row=cur_row3, column=10, value=amt_val)
         c10.number_format = '#,##0.00'
-        c10.font = paid_font
+        c10.font = due_font if is_rev else paid_font
         c10.alignment = Alignment(horizontal="right")
 
         c11 = ws3.cell(row=cur_row3, column=11, value=float(p['running_total']))
@@ -943,14 +959,14 @@ def export_student_ledger_excel(ledger_data):
         cur_row3 += 1
 
     if cur_row3 > start_row3:
-        # Totals Row
+        # Totals Row (reconciled to realized/non-reversed collections only)
         ws3.row_dimensions[cur_row3].height = 24
         ws3.merge_cells(f"A{cur_row3}:I{cur_row3}")
-        ws3[f"A{cur_row3}"] = "GRAND TOTAL VERIFIED COLLECTIONS:"
+        ws3[f"A{cur_row3}"] = "GRAND TOTAL VERIFIED COLLECTIONS (EXCL. VOIDED):"
         ws3[f"A{cur_row3}"].font = totals_bold
         ws3[f"A{cur_row3}"].alignment = Alignment(horizontal="right", vertical="center")
 
-        t10 = ws3.cell(row=cur_row3, column=10, value=f"=SUM(J{start_row3}:J{cur_row3-1})")
+        t10 = ws3.cell(row=cur_row3, column=10, value=realized_sum)
         t10.number_format = '#,##0.00'
         t10.font = totals_paid
         t10.alignment = Alignment(horizontal="right", vertical="center")
@@ -966,9 +982,9 @@ def export_student_ledger_excel(ledger_data):
             cell.fill = TOTALS_FILL
 
     for col in ws3.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
+        max_len = max((len(str(cell.value or '')) for cell in col if cell.row not in (1, 2, 3)), default=10)
         col_letter = get_column_letter(col[0].column)
-        ws3.column_dimensions[col_letter].width = max(max_len + 4, 12)
+        ws3.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)
 
     excel_buffer = io.BytesIO()
     wb.save(excel_buffer)

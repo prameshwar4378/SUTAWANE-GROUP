@@ -2,6 +2,7 @@ import os
 import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.core.mail import send_mail, EmailMultiAlternatives
 from .models import SystemSetting, User, RolePermission
@@ -63,16 +64,25 @@ def get_license_status(force_refresh: bool = False) -> dict:
     developer_note = data.get('license_developer_note') or 'Support Helpline: +91 7776824564 (Mr. Rameshwar Pawar)'
     client_name = data.get('license_client_name') or 'Sutawane Classes'
 
-    # Parse expiry
-    try:
-        if 'T' in expiry_date_str:
-            expiry_dt = datetime.fromisoformat(expiry_date_str.replace('Z', '+00:00'))
-        else:
-            expiry_dt = datetime.strptime(expiry_date_str, '%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=timezone.utc)
-    except Exception:
-        expiry_dt = datetime.now(timezone.utc) + timedelta(days=365)
-
+    # Parse expiry cleanly in configured institute timezone (fail closed on malformed value)
+    local_tz = ZoneInfo(getattr(settings, 'TIME_ZONE', 'Asia/Kolkata'))
     now = datetime.now(timezone.utc)
+    try:
+        cleaned_exp = str(expiry_date_str).strip()
+        if 'T' in cleaned_exp:
+            expiry_dt = datetime.fromisoformat(cleaned_exp.replace('Z', '+00:00'))
+            if expiry_dt.tzinfo is None:
+                expiry_dt = expiry_dt.replace(tzinfo=local_tz)
+        elif ' ' in cleaned_exp:
+            fmt = '%Y-%m-%d %H:%M:%S.%f' if '.' in cleaned_exp else '%Y-%m-%d %H:%M:%S'
+            expiry_dt = datetime.strptime(cleaned_exp, fmt).replace(tzinfo=local_tz)
+        else:
+            expiry_dt = datetime.strptime(cleaned_exp, '%Y-%m-%d').replace(
+                hour=23, minute=59, second=59, microsecond=999999, tzinfo=local_tz
+            )
+    except Exception:
+        expiry_dt = now - timedelta(seconds=1)
+
     is_expired = now > expiry_dt
     days_remaining = 0 if is_expired else max(0, (expiry_dt - now).days)
 
@@ -114,15 +124,30 @@ def _get_otp_entry(clean_email: str) -> dict | None:
     return DEVELOPER_OTP_STORE.get(clean_email)
 
 
+def _hash_otp_code(code: str, salt: str) -> str:
+    secret_bytes = (getattr(settings, 'SECRET_KEY', '') or 'sutawane-otp').encode('utf-8')
+    raw = f"{salt}:{str(code).strip()}".encode('utf-8')
+    return hashlib.pbkdf2_hmac('sha256', raw, secret_bytes, 10000).hex()
+
+
 def _save_otp_entry(clean_email: str, entry: dict):
     """
-    Persists OTP entry to both SQLite SystemSetting and in-memory dictionary.
+    Persists salted-hashed OTP entry to both DB SystemSetting and in-memory dictionary.
+    Never stores or leaks plaintext OTP digits in SystemSetting.
     """
-    DEVELOPER_OTP_STORE[clean_email] = entry
+    salt = secrets.token_hex(16)
+    code_hash = _hash_otp_code(str(entry['code']).strip(), salt)
+    stored_entry = {
+        'code_hash': code_hash,
+        'salt': salt,
+        'expires_at': entry['expires_at'],
+    }
+    DEVELOPER_OTP_STORE[clean_email] = stored_entry
     key = f"dev_otp_{clean_email}"
     try:
         payload = {
-            'code': str(entry['code']).strip(),
+            'code_hash': code_hash,
+            'salt': salt,
             'expires_at': entry['expires_at'].isoformat() if hasattr(entry['expires_at'], 'isoformat') else str(entry['expires_at']),
         }
         SystemSetting.objects.update_or_create(
@@ -147,7 +172,7 @@ def _clear_otp_entry(clean_email: str):
 
 def generate_and_send_developer_otp(email: str) -> tuple[bool, str, str]:
     """
-    Generates a secure 6-digit OTP code, persists it to DB, and dispatches via Gmail SMTP.
+    Generates a secure 6-digit OTP code, persists a salted hash to DB, and dispatches via Gmail SMTP.
     """
     clean_email = email.strip().lower()
     if clean_email != AUTHORIZED_DEVELOPER_EMAIL.lower():
@@ -161,11 +186,6 @@ def generate_and_send_developer_otp(email: str) -> tuple[bool, str, str]:
         'expires_at': expires_at,
     }
     _save_otp_entry(clean_email, entry)
-
-    # Print to console for instant local development access as well
-    print(f"\n=======================================================", flush=True)
-    print(f"[DEVELOPER AUTH] OTP Generated for {clean_email}: {code}", flush=True)
-    print(f"=======================================================\n", flush=True)
 
     # Deliver the code through configured trusted Gmail SMTP transport
     try:
@@ -209,6 +229,7 @@ def generate_and_send_developer_otp(email: str) -> tuple[bool, str, str]:
         msg.send(fail_silently=False)
         print(f"[DEVELOPER AUTH] OTP email successfully delivered to {clean_email}", flush=True)
     except Exception as e:
+        _clear_otp_entry(clean_email)
         print(f"[DEVELOPER AUTH] Email dispatch error: {e}", flush=True)
         return False, "", f"Failed to send email to {clean_email}: {str(e)}"
 
@@ -239,7 +260,14 @@ def verify_developer_otp(email: str, entered_code: str) -> tuple[bool, str]:
         _clear_otp_entry(clean_email)
         return False, "The OTP code has expired. Please request a new verification code."
 
-    if secrets.compare_digest(str(entry['code']).strip(), clean_code):
+    matched = False
+    if 'code_hash' in entry and 'salt' in entry:
+        candidate_hash = _hash_otp_code(clean_code, str(entry['salt']))
+        matched = secrets.compare_digest(str(entry['code_hash']), candidate_hash)
+    elif 'code' in entry:
+        matched = secrets.compare_digest(str(entry['code']).strip(), clean_code)
+
+    if matched:
         _clear_otp_entry(clean_email)
         print(f"[DEVELOPER AUTH] OTP verified successfully for {clean_email}", flush=True)
         return True, "Authentication successful."

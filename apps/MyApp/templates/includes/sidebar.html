@@ -329,13 +329,16 @@
           </div>
         </div>
 
-        <a
-          href="{% url 'logout' %}"
-          title="Sign Out"
-          class="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-        >
-          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-        </a>
+        <form method="post" action="{% url 'logout' %}" class="inline m-0 p-0 shrink-0">
+          {% csrf_token %}
+          <button
+            type="submit"
+            title="Sign Out"
+            class="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
+          >
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          </button>
+        </form>
       </div>
       {% endif %}
 
@@ -369,13 +372,16 @@
     <!-- Collapsed View Only Trigger -->
     <div class="sidebar-icon-only {% if not is_sidebar_collapsed %}hidden{% endif %} flex flex-col items-center gap-2">
       {% if current_user %}
-      <a
-        href="{% url 'logout' %}"
-        class="w-8 h-8 rounded-full bg-background border flex items-center justify-center text-muted-foreground hover:text-red-600 hover:border-red-200 transition-colors shadow-xs"
-        title="Sign Out (@{{ current_user.username }})"
-      >
-        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-      </a>
+      <form method="post" action="{% url 'logout' %}" class="inline m-0 p-0">
+        {% csrf_token %}
+        <button
+          type="submit"
+          class="w-8 h-8 rounded-full bg-background border flex items-center justify-center text-muted-foreground hover:text-red-600 hover:border-red-200 transition-colors shadow-xs cursor-pointer"
+          title="Sign Out (@{{ current_user.username }})"
+        >
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+        </button>
+      </form>
       {% endif %}
 
       <a

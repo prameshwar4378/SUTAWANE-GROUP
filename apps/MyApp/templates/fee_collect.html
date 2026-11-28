@@ -1107,7 +1107,7 @@
             />
             {% if filters.q %}
             <a
-              href="?tab=history{% for k, v in filters.items %}{% if k != 'q' and v %}&{{ k }}={{ v }}{% endif %}{% endfor %}"
+              href="?tab=history{% for k, v in filters.items %}{% if k != 'q' and v %}&{{ k|urlencode }}={{ v|urlencode }}{% endif %}{% endfor %}"
               class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center text-muted-foreground hover:text-foreground p-0.5"
               style="position: absolute; right: 0.625rem; top: 50%; transform: translateY(-50%); display: flex; align-items: center;"
               title="Clear search"
@@ -1496,7 +1496,7 @@
             </tr>
             {% empty %}
             <tr>
-              <td colspan="10" class="py-8 text-center text-xs text-muted-foreground">
+              <td colspan="11" class="py-8 text-center text-xs text-muted-foreground">
                 No payment receipts found matching your search criteria.
               </td>
             </tr>
@@ -1514,7 +1514,7 @@
         <div class="flex items-center gap-2">
           {% if page_obj.has_previous %}
             <a
-              href="?tab=history&{% for k, v in filters.items %}{% if k != 'page' and k != 'tab' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+              href="?tab=history&{% for k, v in filters.items %}{% if k != 'page' and k != 'tab' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
               class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
             >
               <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
@@ -1533,7 +1533,7 @@
 
           {% if page_obj.has_next %}
             <a
-              href="?tab=history&{% for k, v in filters.items %}{% if k != 'page' and k != 'tab' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+              href="?tab=history&{% for k, v in filters.items %}{% if k != 'page' and k != 'tab' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
               class="inline-flex items-center gap-1 h-7 text-xs px-2.5 rounded-md border bg-background hover:bg-muted text-foreground transition-colors"
             >
               <span>Next</span>
@@ -1640,7 +1640,10 @@
 <script>
   // Set default payment date to local today
   (function() {
-    const today = new Date().toISOString().slice(0, 10);
+    const _now = new Date();
+    const today = typeof window.getLocalDateISO === 'function'
+      ? window.getLocalDateISO(_now)
+      : (_now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0'));
     const dateInput = document.getElementById('mainPaymentDateInput');
     if (dateInput && !dateInput.value) {
       dateInput.value = today;
@@ -1907,7 +1910,10 @@
   function setPaymentDateToday() {
     const dateInput = document.getElementById('mainPaymentDateInput');
     if (dateInput) {
-      dateInput.value = new Date().toISOString().slice(0, 10);
+      const _now = new Date();
+      dateInput.value = typeof window.getLocalDateISO === 'function'
+        ? window.getLocalDateISO(_now)
+        : (_now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0'));
     }
   }
 
@@ -1916,7 +1922,9 @@
     if (dateInput) {
       const target = new Date();
       target.setDate(target.getDate() + days);
-      dateInput.value = target.toISOString().slice(0, 10);
+      dateInput.value = typeof window.getLocalDateISO === 'function'
+        ? window.getLocalDateISO(target)
+        : (target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0') + '-' + String(target.getDate()).padStart(2, '0'));
     }
   }
 

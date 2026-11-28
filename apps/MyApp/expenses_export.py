@@ -5,7 +5,7 @@ the exact institutional snapshot design of Sutawane Classes software.
 """
 
 import io
-from datetime import datetime
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from reportlab.lib import colors
@@ -26,6 +26,8 @@ from .export_theme import (
     format_excel_worksheet,
     FONT_FAMILY,
     FONT_FAMILY_BOLD,
+    safe_xml_text,
+    sanitize_excel_sheet_title,
 )
 
 
@@ -44,7 +46,7 @@ def export_expenses_to_excel(expenses, options=None):
     options = options or {}
     branch_label = options.get('branch_name') or 'All Branches'
     session_label = options.get('session_name') or 'Current Session'
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
 
@@ -82,7 +84,7 @@ def export_expenses_to_excel(expenses, options=None):
     ]
 
     def populate_expense_sheet(ws, records, sheet_title, sheet_scope):
-        ws.title = sheet_title[:31]
+        ws.title = sanitize_excel_sheet_title(sheet_title)
         header_row = 4
 
         for col_idx, (h_text, _) in enumerate(headers, start=1):
@@ -93,7 +95,7 @@ def export_expenses_to_excel(expenses, options=None):
         tot_outflow = 0.0
 
         for idx, exp in enumerate(records, start=1):
-            amt = float(exp.get('amount', 0.0))
+            amt = float(exp.get('amount') or 0.0)
             tot_outflow += amt
             rec_by = exp.get('recorded_by') or exp.get('created_by_display') or 'Staff'
 
@@ -161,13 +163,13 @@ def export_expenses_to_excel(expenses, options=None):
         cell.alignment = Alignment(horizontal="center" if col_idx in [1, 3] else ("left" if col_idx == 2 else "right"), vertical="center")
 
     cat_map = {}
-    grand_tot = sum(float(e.get('amount', 0.0)) for e in expenses)
+    grand_tot = sum(float(e.get('amount') or 0.0) for e in expenses)
     for e in expenses:
         cat = e.get('category_name') or 'General'
         if cat not in cat_map:
             cat_map[cat] = {'count': 0, 'amount': 0.0}
         cat_map[cat]['count'] += 1
-        cat_map[cat]['amount'] += float(e.get('amount', 0.0))
+        cat_map[cat]['amount'] += float(e.get('amount') or 0.0)
 
     cat_row = 5
     for idx, (cat_name, c_data) in enumerate(sorted(cat_map.items(), key=lambda x: x[1]['amount'], reverse=True), start=1):
@@ -218,8 +220,9 @@ def export_expenses_to_excel(expenses, options=None):
         for b_name in branches_present:
             b_records = [e for e in expenses if e.get('branch_name') == b_name]
             if b_records:
-                ws_b = wb.create_sheet(title=b_name[:31])
-                populate_expense_sheet(ws_b, b_records, b_name, f"{b_name} • {session_label}")
+                safe_b_title = sanitize_excel_sheet_title(b_name, default='Branch', existing=wb.sheetnames)
+                ws_b = wb.create_sheet(title=safe_b_title)
+                populate_expense_sheet(ws_b, b_records, safe_b_title, f"{b_name} • {session_label}")
 
     out = io.BytesIO()
     wb.save(out)
@@ -242,7 +245,7 @@ def export_expenses_to_pdf(expenses, options=None):
     institute_name = options.get('institute_name') or 'SUTAWANE CLASSES'
     branch_label = options.get('branch_name') or 'All Branches'
     session_label = options.get('session_name') or 'Current Session'
-    gen_time = datetime.now().strftime('%d %b %Y, %I:%M %p')
+    gen_time = timezone.localtime().strftime('%d %b %Y, %I:%M %p')
 
     out = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -276,7 +279,7 @@ def export_expenses_to_pdf(expenses, options=None):
         "EXPENSE & OVERHEADS VOUCHERS REPORT",
         meta=meta_dict,
         report_badge_label="OUTFLOWS:",
-        report_badge_value=format_currency_inr(sum(float(e.get('amount', 0.0)) for e in expenses))
+        report_badge_value=format_currency_inr(sum(float(e.get('amount') or 0.0) for e in expenses))
     ))
 
     # 2. Table Data
@@ -297,7 +300,7 @@ def export_expenses_to_pdf(expenses, options=None):
 
     total_amount = 0.0
     for idx, exp in enumerate(expenses, 1):
-        amt = float(exp.get('amount', 0.0))
+        amt = float(exp.get('amount') or 0.0)
         total_amount += amt
 
         exp_date = exp.get('expense_date_formatted') or exp.get('expense_date_iso') or '—'
@@ -311,15 +314,15 @@ def export_expenses_to_pdf(expenses, options=None):
 
         table_data.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(exp_date, cell_center),
-            Paragraph(f"<b>{cat_name}</b>", cell_bold),
-            Paragraph(desc, cell_normal),
-            Paragraph(branch_name, cell_normal),
-            Paragraph(vendor, cell_normal),
-            Paragraph(mode, cell_mode),
-            Paragraph(ref_no, cell_center),
-            Paragraph(rec_by, cell_normal),
-            Paragraph(format_currency_inr(amt), cell_red),
+            Paragraph(safe_xml_text(exp_date), cell_center),
+            Paragraph(f"<b>{safe_xml_text(cat_name)}</b>", cell_bold),
+            Paragraph(safe_xml_text(desc), cell_normal),
+            Paragraph(safe_xml_text(branch_name), cell_normal),
+            Paragraph(safe_xml_text(vendor), cell_normal),
+            Paragraph(safe_xml_text(mode), cell_mode),
+            Paragraph(safe_xml_text(ref_no), cell_center),
+            Paragraph(safe_xml_text(rec_by), cell_normal),
+            Paragraph(safe_xml_text(format_currency_inr(amt)), cell_red),
         ])
 
     # 3. Totals Row

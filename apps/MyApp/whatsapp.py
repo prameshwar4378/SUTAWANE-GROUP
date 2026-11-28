@@ -137,8 +137,8 @@ def build_receipt_whatsapp_message(
     if helpline_text:
         lines.append(helpline_text)
 
-    # Clean empty lines
-    return "\n".join(l for l in lines if l is not None and (l != "" or lines.index(l) in [3, 5, 8, 14, 16]))
+    # Clean empty lines without calling list.index(l) (which collides on duplicate items)
+    return "\n".join(l for l in lines if l is not None and l != "")
 
 
 def build_fee_reminder_whatsapp_message(
@@ -365,20 +365,29 @@ import urllib.error
 def deduct_whatsapp_credit() -> int:
     """
     Atomically decrements whatsapp_credits_balance by 1 and increments whatsapp_messages_sent_count by 1.
-    Thread-safe to prevent lost updates under concurrent message dispatches.
+    Uses row-level select_for_update() locking so concurrent PostgreSQL / Gunicorn workers
+    never lose quota updates.
     Returns the remaining balance after deduction.
     """
     from .models import SystemSetting
     from .context_processors import invalidate_global_context_cache
-    from django.db import transaction
+    from django.db import IntegrityError, transaction
+
+    def _lock_or_create(setting_key: str, default_value: str) -> SystemSetting:
+        obj = SystemSetting.objects.select_for_update().filter(key=setting_key).first()
+        if obj is not None:
+            return obj
+        try:
+            with transaction.atomic():
+                SystemSetting.objects.create(key=setting_key, value=default_value)
+        except IntegrityError:
+            pass
+        return SystemSetting.objects.select_for_update().get(key=setting_key)
 
     try:
         with _whatsapp_credit_lock:
             with transaction.atomic():
-                setting, _ = SystemSetting.objects.get_or_create(
-                    key='whatsapp_credits_balance',
-                    defaults={'value': '500'}
-                )
+                setting = _lock_or_create('whatsapp_credits_balance', '500')
                 try:
                     curr_bal = int(setting.value or 0)
                 except (ValueError, TypeError):
@@ -387,10 +396,7 @@ def deduct_whatsapp_credit() -> int:
                 setting.value = str(new_bal)
                 setting.save(update_fields=['value'])
 
-                sent_setting, _ = SystemSetting.objects.get_or_create(
-                    key='whatsapp_messages_sent_count',
-                    defaults={'value': '0'}
-                )
+                sent_setting = _lock_or_create('whatsapp_messages_sent_count', '0')
                 try:
                     curr_sent = int(sent_setting.value or 0)
                 except (ValueError, TypeError):
@@ -400,7 +406,7 @@ def deduct_whatsapp_credit() -> int:
 
             invalidate_global_context_cache()
             return new_bal
-    except Exception as exc:
+    except Exception:
         return None
 
 
@@ -625,13 +631,18 @@ def dispatch_whatsapp_message(
             "message": message
         }).encode('utf-8')
 
+        bridge_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        bridge_token = (os.getenv('WHATSAPP_BRIDGE_TOKEN') or settings_map.get('whatsapp_bridge_token') or '').strip()
+        if bridge_token:
+            bridge_headers["X-Bridge-Token"] = bridge_token
+
         req = urllib.request.Request(
             endpoint,
             data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
+            headers=bridge_headers,
             method='POST'
         )
 

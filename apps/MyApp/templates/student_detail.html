@@ -1758,7 +1758,10 @@
     if (currentDue) {
       document.getElementById('dueModalDateInput').value = currentDue;
     } else {
-      document.getElementById('dueModalDateInput').value = new Date().toISOString().split('T')[0];
+      const _now = new Date();
+      document.getElementById('dueModalDateInput').value = typeof window.getLocalDateISO === 'function'
+        ? window.getLocalDateISO(_now)
+        : (_now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0'));
     }
     document.getElementById('dueDateModal').classList.remove('hidden');
     if (window.lucide) { lucide.createIcons(); }
@@ -1771,7 +1774,9 @@
   function setDuePreset(days) {
     const d = new Date();
     d.setDate(d.getDate() + days);
-    document.getElementById('dueModalDateInput').value = d.toISOString().split('T')[0];
+    document.getElementById('dueModalDateInput').value = typeof window.getLocalDateISO === 'function'
+      ? window.getLocalDateISO(d)
+      : (d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
   }
 
   function openDeleteStudentModal() {

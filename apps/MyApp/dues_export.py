@@ -5,8 +5,7 @@ the exact institutional snapshot design of Sutawane Classes software.
 """
 
 import io
-import re
-from datetime import datetime
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from reportlab.lib import colors
@@ -28,6 +27,8 @@ from .export_theme import (
     format_excel_worksheet,
     FONT_FAMILY,
     FONT_FAMILY_BOLD,
+    safe_xml_text,
+    sanitize_excel_sheet_title,
 )
 
 
@@ -46,9 +47,9 @@ def export_dues_to_excel(dues_list, meta=None):
     """
     wb = Workbook()
     meta = meta or {}
-    branch_name = meta.get('branch_name', 'All Branches')
-    session_name = meta.get('session_name', 'All Sessions')
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    branch_name = meta.get('branch_name') or 'All Branches'
+    session_name = meta.get('session_name') or 'All Sessions'
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     # Font and Fill definitions
     bold_font = Font(name="Calibri", size=10, bold=True)
@@ -89,7 +90,7 @@ def export_dues_to_excel(dues_list, meta=None):
     ]
 
     def populate_sheet(ws, records, sheet_title, sheet_scope_label):
-        ws.title = sheet_title[:31]  # Excel 31-char sheet name limit
+        ws.title = sanitize_excel_sheet_title(sheet_title)
         header_row = 4
 
         # Add Header row
@@ -103,10 +104,10 @@ def export_dues_to_excel(dues_list, meta=None):
         tot_bal = 0.0
 
         for idx, d in enumerate(records, start=1):
-            f_amt = float(d.get('amount_due', 0.0))
-            p_amt = float(d.get('amount_paid', 0.0))
-            b_amt = float(d.get('balance_remaining', 0.0))
-            status = d.get('status', 'DUE')
+            f_amt = float(d.get('amount_due') or 0.0)
+            p_amt = float(d.get('amount_paid') or 0.0)
+            b_amt = float(d.get('balance_remaining') or 0.0)
+            status = d.get('status') or 'DUE'
 
             tot_fee += f_amt
             tot_paid += p_amt
@@ -114,13 +115,13 @@ def export_dues_to_excel(dues_list, meta=None):
 
             row_vals = [
                 idx,
-                d.get('student_name', ''),
-                d.get('roll_number', '—'),
-                d.get('standard', '—'),
-                d.get('branch_name', '—'),
-                d.get('session_name', '—'),
-                d.get('parent_phone', '—'),
-                d.get('due_date_formatted', '—'),
+                d.get('student_name') or '',
+                d.get('roll_number') or '—',
+                d.get('standard') or '—',
+                d.get('branch_name') or '—',
+                d.get('session_name') or '—',
+                d.get('parent_phone') or '—',
+                d.get('due_date_formatted') or '—',
                 f_amt,
                 p_amt,
                 b_amt,
@@ -193,7 +194,7 @@ def export_dues_to_excel(dues_list, meta=None):
         for b_name in branches_present:
             branch_records = [d for d in dues_list if d.get('branch_name') == b_name]
             if branch_records:
-                safe_title = re.sub(r'[\\/*?:\[\]]', '_', b_name)[:31]
+                safe_title = sanitize_excel_sheet_title(b_name, default='Branch', existing=wb.sheetnames)
                 ws_branch = wb.create_sheet(title=safe_title)
                 populate_sheet(ws_branch, branch_records, safe_title, f"{b_name} • {session_name}")
     else:
@@ -211,9 +212,9 @@ def export_dues_to_excel(dues_list, meta=None):
             if std not in std_map:
                 std_map[std] = {'students': set(), 'fee': 0.0, 'paid': 0.0, 'bal': 0.0}
             std_map[std]['students'].add(d.get('student_id'))
-            std_map[std]['fee'] += float(d.get('amount_due', 0.0))
-            std_map[std]['paid'] += float(d.get('amount_paid', 0.0))
-            std_map[std]['bal'] += float(d.get('balance_remaining', 0.0))
+            std_map[std]['fee'] += float(d.get('amount_due') or 0.0)
+            std_map[std]['paid'] += float(d.get('amount_paid') or 0.0)
+            std_map[std]['bal'] += float(d.get('balance_remaining') or 0.0)
 
         c_row = 5
         tot_std_fee = 0.0
@@ -298,9 +299,9 @@ def export_dues_to_pdf(dues_list, meta=None):
     )
 
     meta = meta or {}
-    branch_name = meta.get('branch_name', 'All Branches')
-    session_name = meta.get('session_name', 'All Sessions')
-    date_str = meta.get('date_str') or datetime.now().strftime("%d %b %Y, %I:%M %p")
+    branch_name = meta.get('branch_name') or 'All Branches'
+    session_name = meta.get('session_name') or 'All Sessions'
+    date_str = meta.get('date_str') or timezone.localtime().strftime("%d %b %Y, %I:%M %p")
 
     styles = getSampleStyleSheet()
     cell_normal = ParagraphStyle('CellNorm', parent=styles['Normal'], fontName=FONT_FAMILY, fontSize=8, leading=10, textColor=colors.HexColor(COLOR_SLATE_TEXT))
@@ -352,9 +353,9 @@ def export_dues_to_pdf(dues_list, meta=None):
     total_balance = 0.0
 
     for idx, d in enumerate(dues_list, start=1):
-        f_amt = float(d.get('amount_due', 0.0))
-        p_amt = float(d.get('amount_paid', 0.0))
-        b_amt = float(d.get('balance_remaining', 0.0))
+        f_amt = float(d.get('amount_due') or 0.0)
+        p_amt = float(d.get('amount_paid') or 0.0)
+        b_amt = float(d.get('balance_remaining') or 0.0)
 
         total_fee += f_amt
         total_paid += p_amt
@@ -362,16 +363,16 @@ def export_dues_to_pdf(dues_list, meta=None):
 
         table_data.append([
             Paragraph(str(idx), cell_center),
-            Paragraph(f"<b>{d.get('student_name', '')}</b>", cell_bold),
-            Paragraph(str(d.get('roll_number', '—')), cell_center),
-            Paragraph(str(d.get('standard', '—')), cell_center),
-            Paragraph(str(d.get('branch_name', '—')), cell_normal),
-            Paragraph(str(d.get('parent_phone', '—')), cell_center),
-            Paragraph(str(d.get('due_date_formatted', '—')), cell_center),
-            Paragraph(format_currency_inr(f_amt), cell_fee),
-            Paragraph(format_currency_inr(p_amt), cell_green),
-            Paragraph(format_currency_inr(b_amt), cell_red),
-            Paragraph(str(d.get('status', 'DUE')), cell_status),
+            Paragraph(f"<b>{safe_xml_text(d.get('student_name') or '')}</b>", cell_bold),
+            Paragraph(safe_xml_text(d.get('roll_number'), '—'), cell_center),
+            Paragraph(safe_xml_text(d.get('standard'), '—'), cell_center),
+            Paragraph(safe_xml_text(d.get('branch_name'), '—'), cell_normal),
+            Paragraph(safe_xml_text(d.get('parent_phone'), '—'), cell_center),
+            Paragraph(safe_xml_text(d.get('due_date_formatted'), '—'), cell_center),
+            Paragraph(safe_xml_text(format_currency_inr(f_amt)), cell_fee),
+            Paragraph(safe_xml_text(format_currency_inr(p_amt)), cell_green),
+            Paragraph(safe_xml_text(format_currency_inr(b_amt)), cell_red),
+            Paragraph(safe_xml_text(d.get('status'), 'DUE'), cell_status),
         ])
 
     # 3. Totals Row

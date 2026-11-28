@@ -306,6 +306,16 @@
   }
 
   // Global programmatic showToast helper for frontend JS and HTMX
+  function _escapeToastHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   window.showToast = function (message, type = 'success', duration = 4500, title = null) {
     let container = document.getElementById('toast-container');
     if (!container) {
@@ -346,8 +356,8 @@
         ${iconSvgs[safeType]}
       </div>
       <div class="toast-body">
-        <p class="toast-title">${headerTitle}</p>
-        <p class="toast-message">${message}</p>
+        <p class="toast-title">${_escapeToastHtml(headerTitle)}</p>
+        <p class="toast-message">${_escapeToastHtml(message)}</p>
       </div>
       <button type="button" onclick="dismissToast(this.closest('.toast-card'))" class="toast-close-btn" aria-label="Dismiss notification" title="Dismiss notification">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>

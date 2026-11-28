@@ -5,7 +5,7 @@ the exact institutional snapshot design of Sutawane Classes software.
 """
 
 import io
-from datetime import datetime
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -29,6 +29,8 @@ from .export_theme import (
     ExecutiveLandscapeCanvas,
     FONT_FAMILY,
     FONT_FAMILY_BOLD,
+    safe_xml_text,
+    sanitize_excel_sheet_title,
 )
 
 
@@ -47,9 +49,9 @@ def export_students_to_excel(students_data, meta=None):
     - Reconciled totals row with #F1F5F9 fill and double bottom border
     """
     meta = meta or {}
-    branch_name = meta.get('branch_name', 'All Branches')
-    session_name = meta.get('session_name', 'All Sessions')
-    now_str = datetime.now().strftime("%d-%b-%Y %I:%M %p")
+    branch_name = meta.get('branch_name') or 'All Branches'
+    session_name = meta.get('session_name') or 'All Sessions'
+    now_str = timezone.localtime().strftime("%d-%b-%Y %I:%M %p")
 
     wb = Workbook()
 
@@ -83,7 +85,7 @@ def export_students_to_excel(students_data, meta=None):
     ]
 
     def populate_sheet(ws, sheet_title, records, scope_note):
-        ws.title = sheet_title[:31]  # Excel limits tab names to 31 chars
+        ws.title = sanitize_excel_sheet_title(sheet_title)
         ws.views.sheetView[0].showGridLines = True
 
         # 1. Title Block
@@ -136,22 +138,22 @@ def export_students_to_excel(students_data, meta=None):
             st = item.get('student')
             adm = item.get('admission')
             
-            st_name = st.full_name if st else '—'
-            st_code = st.student_code if st else '—'
-            p_phone = st.parent_phone if st else '—'
-            s_phone = st.student_phone or '—' if st else '—'
+            st_name = (st.full_name or '—') if st else '—'
+            st_code = (st.student_code or '—') if st else '—'
+            p_phone = (st.parent_phone or '—') if st else '—'
+            s_phone = (st.student_phone or '—') if st else '—'
             
-            roll_no = adm.roll_number if adm else '—'
-            std_name = adm.standard if adm else '—'
+            roll_no = (adm.roll_number or '—') if adm else '—'
+            std_name = (adm.standard or '—') if adm else '—'
             b_name = adm.branch.name if adm and adm.branch else '—'
-            s_name = adm.session.display_name if adm and adm.session else (adm.session.name if adm and adm.session else '—')
+            s_name = (adm.session.display_name or adm.session.name) if adm and adm.session else '—'
             is_act = "Active" if adm and adm.is_active else "Archived"
 
-            agreed = float(item.get('total_fees', 0.0))
-            paid = float(item.get('paid_fees', 0.0))
-            pending = float(item.get('pending_fees', 0.0))
-            overall = float(item.get('overall_pending', 0.0))
-            f_status = item.get('fee_status', 'PAID')
+            agreed = float(item.get('total_fees') or 0.0)
+            paid = float(item.get('paid_fees') or 0.0)
+            pending = float(item.get('pending_fees') or 0.0)
+            overall = float(item.get('overall_pending') or 0.0)
+            f_status = item.get('fee_status') or 'PAID'
 
             tot_agreed += agreed
             tot_paid += paid
@@ -230,7 +232,7 @@ def export_students_to_excel(students_data, meta=None):
                 v_str = str(cell.value or '')
                 if len(v_str) > max_len:
                     max_len = len(v_str)
-            ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+            ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)
 
     # Sheet 1: Master Consolidated Directory
     ws1 = wb.active
@@ -251,13 +253,15 @@ def export_students_to_excel(students_data, meta=None):
     if len(branch_buckets) > 1:
         # Grouped by Branch tabs
         for b_name, b_records in branch_buckets.items():
-            ws_branch = wb.create_sheet(title=f"{b_name} Campus")
-            populate_sheet(ws_branch, f"{b_name} Campus", b_records, f"{b_name} • {session_name}")
+            safe_tab = sanitize_excel_sheet_title(f"{b_name} Campus", default='Branch', existing=wb.sheetnames)
+            ws_branch = wb.create_sheet(title=safe_tab)
+            populate_sheet(ws_branch, safe_tab, b_records, f"{b_name} • {session_name}")
     else:
         # Single branch: Grouped by Course / Standard tabs
         for std_name, std_records in sorted(standard_buckets.items()):
-            ws_std = wb.create_sheet(title=f"{std_name}")
-            populate_sheet(ws_std, f"{std_name}", std_records, f"{branch_name} • {std_name}")
+            safe_tab = sanitize_excel_sheet_title(std_name, default='Course', existing=wb.sheetnames)
+            ws_std = wb.create_sheet(title=safe_tab)
+            populate_sheet(ws_std, safe_tab, std_records, f"{branch_name} • {std_name}")
 
     output = io.BytesIO()
     wb.save(output)
@@ -408,16 +412,16 @@ def export_students_to_pdf(students_data, meta=None):
         st = item.get('student')
         adm = item.get('admission')
 
-        st_name = st.full_name if st else '—'
-        roll_no = adm.roll_number if adm else '—'
-        std_name = adm.standard if adm else '—'
+        st_name = (st.full_name or '—') if st else '—'
+        roll_no = (adm.roll_number or '—') if adm else '—'
+        std_name = (adm.standard or '—') if adm else '—'
         b_name = adm.branch.name if adm and adm.branch else '—'
-        p_phone = st.parent_phone if st else '—'
+        p_phone = (st.parent_phone or '—') if st else '—'
 
-        agreed = float(item.get('total_fees', 0.0))
-        paid = float(item.get('paid_fees', 0.0))
-        pending = float(item.get('pending_fees', 0.0))
-        f_status = item.get('fee_status', 'PAID')
+        agreed = float(item.get('total_fees') or 0.0)
+        paid = float(item.get('paid_fees') or 0.0)
+        pending = float(item.get('pending_fees') or 0.0)
+        f_status = item.get('fee_status') or 'PAID'
         is_active = "Active" if adm and adm.is_active else "Archived"
 
         tot_agreed += agreed
@@ -426,18 +430,18 @@ def export_students_to_pdf(students_data, meta=None):
 
         # Status badge formatting
         status_color = "#16A34A" if f_status == 'PAID' else ("#F59E0B" if f_status == 'PARTIAL' else "#DC2626")
-        status_html = f"<font color='{status_color}'><b>{f_status}</b></font>"
+        status_html = f"<font color='{status_color}'><b>{safe_xml_text(f_status)}</b></font>"
 
         row = [
             Paragraph(str(idx), cell_center),
-            Paragraph(str(roll_no), cell_bold),
-            Paragraph(str(st_name), cell_bold),
-            Paragraph(str(std_name), cell_normal),
-            Paragraph(str(b_name), cell_normal),
-            Paragraph(str(p_phone), cell_center),
-            Paragraph(format_currency_inr(agreed), cell_right),
-            Paragraph(format_currency_inr(paid), cell_green_bold),
-            Paragraph(format_currency_inr(pending), cell_red_bold if pending > 0 else cell_right),
+            Paragraph(safe_xml_text(roll_no), cell_bold),
+            Paragraph(safe_xml_text(st_name), cell_bold),
+            Paragraph(safe_xml_text(std_name), cell_normal),
+            Paragraph(safe_xml_text(b_name), cell_normal),
+            Paragraph(safe_xml_text(p_phone), cell_center),
+            Paragraph(safe_xml_text(format_currency_inr(agreed)), cell_right),
+            Paragraph(safe_xml_text(format_currency_inr(paid)), cell_green_bold),
+            Paragraph(safe_xml_text(format_currency_inr(pending)), cell_red_bold if pending > 0 else cell_right),
             Paragraph(status_html, cell_center),
             Paragraph(is_active, cell_center),
         ]

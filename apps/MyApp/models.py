@@ -353,12 +353,19 @@ class FeePlan(models.Model):
         from .middleware import get_current_authenticated_user
         current_u = get_current_authenticated_user()
         is_new = not self.pk or not FeePlan.objects.filter(pk=self.pk).exists()
+        uf = set(kwargs['update_fields']) if kwargs.get('update_fields') is not None else None
         if is_new:
             if not self.created_by and current_u:
                 self.created_by = current_u
+                if uf is not None:
+                    uf.add('created_by')
         else:
             if current_u:
                 self.updated_by = current_u
+                if uf is not None:
+                    uf.add('updated_by')
+        if uf is not None:
+            kwargs['update_fields'] = list(uf)
         super().save(*args, **kwargs)
 
 
@@ -387,6 +394,8 @@ class FeeDiscount(models.Model):
         if not self.pk or not FeeDiscount.objects.filter(pk=self.pk).exists():
             if not self.created_by and current_u:
                 self.created_by = current_u
+                if kwargs.get('update_fields') is not None:
+                    kwargs['update_fields'] = list(set(kwargs['update_fields']) | {'created_by'})
         super().save(*args, **kwargs)
 
 
@@ -568,18 +577,29 @@ class Payment(models.Model):
         from .middleware import get_current_authenticated_user
         current_u = get_current_authenticated_user()
         is_new = not self.pk or not Payment.objects.filter(pk=self.pk).exists()
+        uf = set(kwargs['update_fields']) if kwargs.get('update_fields') is not None else None
 
         if is_new:
             if not self.received_by and current_u:
                 self.received_by = current_u
+                if uf is not None:
+                    uf.add('received_by')
             if not self.created_by and current_u:
                 self.created_by = current_u
+                if uf is not None:
+                    uf.add('created_by')
         else:
             if current_u:
                 self.updated_by = current_u
+                if uf is not None:
+                    uf.add('updated_by')
             if self.is_reversed and not self.reversed_by and current_u:
                 self.reversed_by = current_u
+                if uf is not None:
+                    uf.add('reversed_by')
 
+        if uf is not None:
+            kwargs['update_fields'] = list(uf)
         super().save(*args, **kwargs)
 
 
@@ -702,12 +722,19 @@ class Expense(models.Model):
         from .middleware import get_current_authenticated_user
         current_u = get_current_authenticated_user()
         is_new = not self.pk or not Expense.objects.filter(pk=self.pk).exists()
+        uf = set(kwargs['update_fields']) if kwargs.get('update_fields') is not None else None
         if is_new:
             if not self.created_by and current_u:
                 self.created_by = current_u
+                if uf is not None:
+                    uf.add('created_by')
         else:
             if current_u:
                 self.updated_by = current_u
+                if uf is not None:
+                    uf.add('updated_by')
+        if uf is not None:
+            kwargs['update_fields'] = list(uf)
         super().save(*args, **kwargs)
 
 
@@ -967,6 +994,8 @@ class WebsiteGalleryCategory(models.Model):
             import re
             base = re.sub(r'[^a-zA-Z0-9]+', '-', self.name.lower()).strip('-')
             self.slug = base or f"cat-{self.id[:8]}"
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = list(set(kwargs['update_fields']) | {'slug'})
         super().save(*args, **kwargs)
 
 
@@ -1060,8 +1089,12 @@ class WebsiteGalleryItem(models.Model):
             if m:
                 vid_id = m.group(1)
                 self.file_url = f"https://www.youtube.com/watch?v={vid_id}"
+                if kwargs.get('update_fields') is not None:
+                    kwargs['update_fields'] = list(set(kwargs['update_fields']) | {'file_url'})
                 if not self.thumbnail_url or 'youtube.com' in self.thumbnail_url or 'ytimg.com' in self.thumbnail_url:
                     self.thumbnail_url = f"https://img.youtube.com/vi/{vid_id}/hqdefault.jpg"
+                    if kwargs.get('update_fields') is not None:
+                        kwargs['update_fields'] = list(set(kwargs['update_fields']) | {'thumbnail_url'})
         super().save(*args, **kwargs)
 
 
@@ -1153,14 +1186,23 @@ class WebsiteCampus(models.Model):
         return '919881465883'
 
     def save(self, *args, **kwargs):
+        uf = set(kwargs['update_fields']) if kwargs.get('update_fields') is not None else None
         if self.phone:
             clean_digits = ''.join(ch for ch in self.phone if ch.isdigit())
             if clean_digits:
                 self.phone_raw = clean_digits[-10:] if len(clean_digits) >= 10 else clean_digits
+                if uf is not None:
+                    uf.add('phone_raw')
         if not self.map_heading and self.name:
             self.map_heading = f"Find Our {self.name}"
+            if uf is not None:
+                uf.add('map_heading')
         if not self.map_subdesc and self.address:
             self.map_subdesc = f"Located on {self.address}{f', {self.district}' if self.district else ''}. Peaceful, secure, and accessible learning environment."
+            if uf is not None:
+                uf.add('map_subdesc')
+        if uf is not None:
+            kwargs['update_fields'] = list(uf)
         super().save(*args, **kwargs)
         try:
             from .context_processors import invalidate_global_context_cache

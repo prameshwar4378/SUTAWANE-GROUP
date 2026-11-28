@@ -452,7 +452,7 @@
           <button
             type="button"
             class="carousel-nav-btn"
-            onclick="scrollCategoryCarousel('{{ section.slug }}', -1)"
+            onclick="scrollCategoryCarousel('{{ section.slug|escapejs }}', -1)"
             aria-label="Scroll previous photos in {{ section.name }}"
             title="Previous photos"
           >
@@ -461,7 +461,7 @@
           <button
             type="button"
             class="carousel-nav-btn"
-            onclick="scrollCategoryCarousel('{{ section.slug }}', 1)"
+            onclick="scrollCategoryCarousel('{{ section.slug|escapejs }}', 1)"
             aria-label="Scroll next photos in {{ section.name }}"
             title="Next photos"
           >
@@ -478,7 +478,7 @@
         <div
           class="category-featured-preview"
           id="previewStage-{{ section.slug }}"
-          onclick="openLightboxForCategory('{{ section.slug }}', 0)"
+          onclick="openLightboxForCategory('{{ section.slug|escapejs }}', 0)"
           title="Click to view full screen"
         >
           <img
@@ -487,7 +487,7 @@
             src="{{ first_photo.file_url }}"
             alt="{{ first_photo.title }}"
             loading="lazy"
-            onerror="this.src='/static/images/default-course.png';"
+            onerror="this.onerror=null;this.src='/static/images/icon.png';"
           />
           <div class="featured-preview-overlay">
             <div class="preview-top-badges">
@@ -498,7 +498,7 @@
               <button
                 type="button"
                 class="btn-preview-expand"
-                onclick="event.stopPropagation(); openLightboxForCategory('{{ section.slug }}', 0);"
+                onclick="event.stopPropagation(); openLightboxForCategory('{{ section.slug|escapejs }}', 0);"
                 title="Expand Fullscreen Lightbox"
                 aria-label="Expand Fullscreen Lightbox"
               >
@@ -521,7 +521,7 @@
               class="category-slide-card {% if forloop.first %}active-slide{% endif %}"
               data-cat="{{ section.slug }}"
               data-index="{{ forloop.counter0 }}"
-              onclick="selectCategoryPhoto('{{ section.slug }}', {{ forloop.counter0 }})"
+              onclick="selectCategoryPhoto('{{ section.slug|escapejs }}', {{ forloop.counter0 }})"
             >
               <div class="slide-card-thumb-wrap">
                 <img
@@ -529,12 +529,12 @@
                   src="{{ photo.thumbnail_url|default:photo.file_url }}"
                   alt="{{ photo.title }}"
                   loading="lazy"
-                  onerror="this.src='/static/images/default-course.png';"
+                  onerror="this.onerror=null;this.src='/static/images/icon.png';"
                 />
                 <button
                   type="button"
                   class="slide-quick-expand"
-                  onclick="event.stopPropagation(); openLightboxForCategory('{{ section.slug }}', {{ forloop.counter0 }});"
+                  onclick="event.stopPropagation(); openLightboxForCategory('{{ section.slug|escapejs }}', {{ forloop.counter0 }});"
                   title="Expand Fullscreen"
                   aria-label="Expand {{ photo.title }}"
                 >

@@ -3,19 +3,27 @@ import re
 import uuid
 import json
 import time
+import hmac
+import html
+import hashlib
+import secrets
+from zoneinfo import ZoneInfo
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from datetime import datetime, timezone as dt_timezone, timedelta
+from html.parser import HTMLParser
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.core.cache import cache
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 import threading
 from django.db import transaction, IntegrityError
-from django.db.models import Q, Count, Sum, F, Value, Subquery, OuterRef, DecimalField
+from django.db.models import Q, Count, Sum, F, Value, Subquery, OuterRef, DecimalField, RestrictedError, ProtectedError
 from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.core.paginator import Paginator
@@ -37,7 +45,13 @@ from .auth_utils import (
     get_user_permissions, has_permission, invalidate_permissions_cache,
     DEFAULT_BRANCH_MANAGER_PERMISSIONS
 )
-from .context_processors import invalidate_global_context_cache, get_cached_settings_dict, get_branch_branding
+from .context_processors import (
+    invalidate_global_context_cache,
+    get_cached_settings_dict,
+    get_branch_branding,
+    sanitize_settings_for_context,
+)
+from .middleware import compute_session_user_fingerprint
 from .whatsapp import (
     format_whatsapp_number, generate_whatsapp_url,
     build_receipt_whatsapp_message, build_fee_reminder_whatsapp_message,
@@ -73,6 +87,7 @@ from .cache_utils import (
     build_cache_key,
     invalidate_financial_cache,
     invalidate_student_cache,
+    invalidate_all_app_cache,
     TTL_DASHBOARD,
     TTL_REPORTS,
     TTL_DUES,
@@ -84,6 +99,449 @@ from .cache_utils import (
 SYSTEM_ADMIN_ROLES = {'CLASS_OWNER', 'DEVELOPER', 'SUPER_ADMIN'}
 MONEY_QUANTUM = Decimal('0.01')
 MONEY_ZERO = Decimal('0.00')
+MONEY_MAX = Decimal('9999999999.99')
+VALID_PAYMENT_MODES = {'CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE', 'OTHER'}
+
+
+class _ValidationAbort(Exception):
+    """Internal control-flow exception to abort atomic transactions cleanly on validation failure."""
+
+
+ALLOWED_PHOTO_EXTS = ('.jpg', '.jpeg', '.png', '.webp')
+ALLOWED_LOGO_EXTS = ('.png', '.jpg', '.jpeg', '.webp')
+ALLOWED_ATTACHMENT_EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.pdf')
+ALLOWED_NOTICE_DOC_EXTS = ('.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx', '.xls', '.xlsx', '.txt')
+
+
+def _resolve_current_user(request):
+    """Returns active authenticated User attached to request/session, or None."""
+    current_user = getattr(request, 'current_user', None)
+    if current_user and getattr(current_user, 'is_active', False):
+        return current_user
+    user_id = request.session.get('user_id') if hasattr(request, 'session') else None
+    if user_id:
+        user_obj = User.objects.filter(id=user_id, is_active=True).first()
+        request.current_user = user_obj
+        return user_obj
+    return None
+
+
+def _get_client_ip(request) -> str:
+    xff = (request.META.get('HTTP_X_FORWARDED_FOR') or '').strip()
+    if xff:
+        return xff.split(',')[0].strip()
+    return (request.META.get('REMOTE_ADDR') or 'unknown').strip()
+
+
+def _client_ip_rate_limit(request, bucket: str, limit: int, window_seconds: int) -> bool:
+    """Returns True if allowed, False if caller exceeded rate limit."""
+    client_ip = _get_client_ip(request)
+    cache_key = f"rl:{bucket}:{hashlib.sha256(client_ip.encode('utf-8')).hexdigest()[:24]}"
+    try:
+        added = cache.add(cache_key, 1, timeout=window_seconds)
+        if added:
+            return True
+        count = cache.incr(cache_key)
+        return count <= limit
+    except Exception:
+        cur = safe_cache_get(cache_key) or 0
+        if cur >= limit:
+            return False
+        safe_cache_set(cache_key, cur + 1, window_seconds)
+        return True
+
+
+class _RichTextAllowlistSanitizer(HTMLParser):
+    ALLOWED_TAGS = {
+        'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's',
+        'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+        'h1', 'h2', 'h3', 'h4', 'a', 'span', 'div',
+    }
+    VOID_TAGS = {'br'}
+    DROP_CONTENT_TAGS = {'script', 'style', 'iframe', 'object', 'embed', 'svg', 'form', 'math'}
+    SAFE_CLASS_RE = re.compile(r'^[a-zA-Z0-9_\-\s]+$')
+
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self._out = []
+        self._stack = []
+        self._drop_depth = 0
+
+    @staticmethod
+    def _is_safe_href(val: str) -> bool:
+        cleaned = (val or '').strip()
+        if not cleaned:
+            return False
+        if cleaned.startswith(('/', '#')):
+            return not cleaned.startswith('//')
+        parsed = urlparse(cleaned)
+        return parsed.scheme.lower() in ('http', 'https', 'mailto', 'tel')
+
+    def handle_starttag(self, tag, attrs):
+        tag_l = tag.lower()
+        if tag_l in self.DROP_CONTENT_TAGS:
+            self._drop_depth += 1
+            return
+        if self._drop_depth > 0 or tag_l not in self.ALLOWED_TAGS:
+            return
+
+        safe_attrs = []
+        has_blank_target = False
+        for k, v in attrs:
+            kl = (k or '').lower()
+            if kl.startswith('on') or v is None:
+                continue
+            val = str(v).strip()
+            if tag_l == 'a' and kl == 'href' and self._is_safe_href(val):
+                safe_attrs.append(('href', val))
+            elif tag_l == 'a' and kl == 'target' and val in ('_blank', '_self'):
+                safe_attrs.append(('target', val))
+                if val == '_blank':
+                    has_blank_target = True
+            elif kl == 'class' and self.SAFE_CLASS_RE.match(val):
+                safe_attrs.append(('class', val))
+
+        if tag_l == 'a' and has_blank_target:
+            safe_attrs.append(('rel', 'noopener noreferrer'))
+
+        attr_str = ''.join(f' {ak}="{html.escape(av, quote=True)}"' for ak, av in safe_attrs)
+        self._out.append(f'<{tag_l}{attr_str}>')
+        if tag_l not in self.VOID_TAGS:
+            self._stack.append(tag_l)
+
+    def handle_endtag(self, tag):
+        tag_l = tag.lower()
+        if tag_l in self.DROP_CONTENT_TAGS:
+            if self._drop_depth > 0:
+                self._drop_depth -= 1
+            return
+        if self._drop_depth > 0 or tag_l not in self.ALLOWED_TAGS or tag_l in self.VOID_TAGS:
+            return
+        if tag_l in self._stack:
+            while self._stack:
+                top = self._stack.pop()
+                self._out.append(f'</{top}>')
+                if top == tag_l:
+                    break
+
+    def handle_data(self, data):
+        if self._drop_depth == 0:
+            self._out.append(html.escape(data, quote=False))
+
+    def handle_entityref(self, name):
+        if self._drop_depth == 0:
+            self._out.append(f'&{html.escape(name, quote=False)};')
+
+    def handle_charref(self, name):
+        if self._drop_depth == 0:
+            self._out.append(f'&#{html.escape(name, quote=False)};')
+
+    def get_sanitized(self) -> str:
+        while self._stack:
+            self._out.append(f'</{self._stack.pop()}>')
+        return ''.join(self._out)
+
+
+def _sanitize_rich_html(raw_html: str) -> str:
+    """Strips dangerous tags/attributes/scripts while keeping Quill rich-text markup."""
+    if not raw_html:
+        return ''
+    parser = _RichTextAllowlistSanitizer()
+    parser.feed(str(raw_html))
+    parser.close()
+    return parser.get_sanitized()
+
+
+def _session_end_dt(session_obj):
+    """Returns inclusive local end-of-day datetime (23:59:59.999999) for a session's end_date."""
+    if not session_obj or not session_obj.end_date:
+        return None
+    end_dt = session_obj.end_date
+    if hasattr(end_dt, 'hour'):
+        local_end = timezone.localtime(end_dt) if timezone.is_aware(end_dt) else end_dt
+        if local_end.hour == 0 and local_end.minute == 0 and local_end.second == 0:
+            local_end = local_end.replace(hour=23, minute=59, second=59, microsecond=999999)
+        return timezone.make_aware(local_end) if timezone.is_naive(local_end) else local_end
+    return timezone.make_aware(datetime.combine(end_dt, datetime.max.time()))
+
+
+def _build_students_directory_rows(adm_ids, session_id):
+    """Builds enriched student directory row dicts in bounded chunks to avoid DB IN-clause limits."""
+    if not adm_ids:
+        return []
+    ordered_adms = []
+    chunk_size = 900
+    for i in range(0, len(adm_ids), chunk_size):
+        chunk_ids = adm_ids[i:i + chunk_size]
+        chunk_qs = StudentAdmission.objects.filter(id__in=chunk_ids).select_related(
+            'student', 'branch', 'session', 'fee_plan'
+        ).prefetch_related(
+            'payments',
+            'fee_plan__installments',
+            'fee_plan__installments__allocations__payment',
+            'student__previous_dues',
+            'student__admissions__fee_plan',
+            'student__admissions__payments',
+        )
+        chunk_map = {adm.id: adm for adm in chunk_qs}
+        for aid in chunk_ids:
+            if aid in chunk_map:
+                ordered_adms.append(chunk_map[aid])
+
+    rows = []
+    for adm in ordered_adms:
+        st = adm.student
+        plan = getattr(adm, 'fee_plan', None)
+        tot_fees = plan.net_payable if plan else MONEY_ZERO
+        pd_fees = sum(p.total_amount for p in adm.payments.all() if not p.is_reversed)
+        pen_fees = max(MONEY_ZERO, tot_fees - pd_fees)
+
+        if adm.session_id and session_id != 'ALL':
+            prev_dues_list = [d for d in st.previous_dues.all() if d.current_session_id == adm.session_id]
+        else:
+            prev_dues_list = list(st.previous_dues.all())
+        prev_dues = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_list), MONEY_ZERO)
+
+        st_all_admissions = st.admissions.all()
+        ov_pending = sum(
+            max(MONEY_ZERO, (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO) - sum((p.total_amount for p in a.payments.all() if not p.is_reversed), MONEY_ZERO))
+            for a in st_all_admissions
+        ) + sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in st.previous_dues.all()), MONEY_ZERO)
+
+        if pen_fees <= 0 and tot_fees > 0:
+            calc_fee_status = 'PAID'
+        elif pd_fees > 0 and pen_fees > 0:
+            calc_fee_status = 'PARTIAL'
+        elif pd_fees == 0 and tot_fees > 0:
+            calc_fee_status = 'UNPAID'
+        else:
+            calc_fee_status = 'PAID'
+
+        next_due_date = None
+        due_status = 'PAID'
+        if pen_fees > 0 and plan and plan.installments.all():
+            for inst in plan.installments.all():
+                inst_paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
+                if inst.amount_due > inst_paid:
+                    next_due_date = inst.due_date
+                    due_status = inst.status
+                    break
+
+        rows.append({
+            'admission': adm,
+            'student': st,
+            'total_fees': tot_fees,
+            'paid_fees': pd_fees,
+            'pending_fees': pen_fees,
+            'previous_dues': prev_dues,
+            'overall_pending': ov_pending,
+            'fee_status': calc_fee_status,
+            'next_due_date': next_due_date,
+            'due_status': due_status,
+        })
+    return rows
+
+
+def _delete_media_file_by_url(media_url: str, *, defer_commit: bool = False):
+    """Safely removes a local /media/... file within MEDIA_ROOT (never deletes outside root)."""
+    if not media_url:
+        return
+    url_str = str(media_url).strip()
+    if '/media/' not in url_str:
+        return
+    idx = url_str.find('/media/')
+    rel_part = url_str[idx + len('/media/'):].lstrip('/\\')
+    if not rel_part or '..' in rel_part.replace('\\', '/').split('/'):
+        return
+    media_root_real = os.path.realpath(str(settings.MEDIA_ROOT))
+    candidate_real = os.path.realpath(os.path.join(media_root_real, rel_part.replace('/', os.sep)))
+    try:
+        if os.path.commonpath([media_root_real, candidate_real]) != media_root_real:
+            return
+    except ValueError:
+        return
+    if candidate_real == media_root_real:
+        return
+
+    def _do_unlink():
+        try:
+            if os.path.isfile(candidate_real):
+                os.remove(candidate_real)
+        except Exception:
+            pass
+
+    if defer_commit and transaction.get_connection().in_atomic_block:
+        transaction.on_commit(_do_unlink)
+    else:
+        _do_unlink()
+
+
+def _save_validated_image_upload(
+    file_obj,
+    *,
+    subdir: str,
+    filename_prefix: str,
+    allowed_exts=ALLOWED_PHOTO_EXTS,
+    max_bytes: int = 5 * 1024 * 1024,
+    max_dim=None,
+    generate_thumb: bool = False,
+    thumb_subdir: str = None,
+    thumb_dim=(480, 320),
+    quality: int = 90,
+):
+    """Validates uploaded image with Pillow (rejects SVGs/non-images) and re-encodes safely."""
+    from PIL import Image, ImageOps
+
+    if not file_obj:
+        raise ValueError("No image file was provided.")
+    ext = os.path.splitext(getattr(file_obj, 'name', '') or '')[1].lower()
+    if ext not in allowed_exts:
+        allowed_str = ", ".join(allowed_exts)
+        raise ValueError(f"Unsupported image format. Allowed formats: {allowed_str}.")
+    if getattr(file_obj, 'size', 0) <= 0 or file_obj.size > max_bytes:
+        max_mb = max(1, max_bytes // (1024 * 1024))
+        raise ValueError(f"Image file size must be between 1 byte and {max_mb} MB.")
+
+    try:
+        file_obj.seek(0)
+        verify_img = Image.open(file_obj)
+        verify_img.verify()
+        file_obj.seek(0)
+        img = Image.open(file_obj)
+        img.load()
+    except Exception as exc:
+        raise ValueError("Invalid or corrupted image file.") from exc
+
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        pass
+
+    if max_dim:
+        w, h = img.size
+        if isinstance(max_dim, tuple):
+            if w > max_dim[0] or h > max_dim[1]:
+                img.thumbnail(max_dim, Image.Resampling.LANCZOS)
+        elif w > max_dim or h > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
+    output_format = 'JPEG'
+    save_ext = '.jpg'
+    if ext == '.webp':
+        output_format = 'WEBP'
+        save_ext = '.webp'
+    elif ext == '.png':
+        output_format = 'PNG'
+        save_ext = '.png'
+    else:
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+            img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+
+    clean_subdir = subdir.strip('/\\').replace('\\', '/')
+    target_dir = os.path.join(str(settings.MEDIA_ROOT), clean_subdir.replace('/', os.sep))
+    os.makedirs(target_dir, exist_ok=True)
+
+    token = f"{filename_prefix}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+    filename = f"{token}{save_ext}"
+    dest_path = os.path.join(target_dir, filename)
+
+    if output_format == 'JPEG':
+        img.save(dest_path, format='JPEG', quality=quality, optimize=True, progressive=True)
+    elif output_format == 'WEBP':
+        img.save(dest_path, format='WEBP', quality=quality, method=6)
+    else:
+        img.save(dest_path, format='PNG', optimize=True)
+
+    main_url = f"/media/{clean_subdir}/{filename}"
+    thumb_url = None
+    if generate_thumb:
+        t_sub = (thumb_subdir or f"{clean_subdir}/thumbnails").strip('/\\').replace('\\', '/')
+        t_dir = os.path.join(str(settings.MEDIA_ROOT), t_sub.replace('/', os.sep))
+        os.makedirs(t_dir, exist_ok=True)
+        thumb_img = img.copy()
+        thumb_img.thumbnail(thumb_dim, Image.Resampling.LANCZOS)
+        t_filename = f"thumb_{token}{save_ext}"
+        t_dest = os.path.join(t_dir, t_filename)
+        if output_format == 'JPEG':
+            thumb_img.save(t_dest, format='JPEG', quality=80, optimize=True)
+        elif output_format == 'WEBP':
+            thumb_img.save(t_dest, format='WEBP', quality=80)
+        else:
+            thumb_img.save(t_dest, format='PNG', optimize=True)
+        thumb_url = f"/media/{t_sub}/{t_filename}"
+
+    return main_url, thumb_url
+
+
+def _validate_uploaded_document(file_obj, *, allowed_exts=ALLOWED_ATTACHMENT_EXTS, max_bytes: int = 10 * 1024 * 1024):
+    """Validates uploaded PDF/image/document magic bytes and size."""
+    if not file_obj:
+        raise ValueError("No attachment file provided.")
+    orig_name = os.path.basename(getattr(file_obj, 'name', '') or '')
+    ext = os.path.splitext(orig_name)[1].lower()
+    if ext not in allowed_exts:
+        raise ValueError(f"Unsupported file type '{ext or 'unknown'}'. Allowed: {', '.join(allowed_exts)}")
+    if getattr(file_obj, 'size', 0) <= 0 or file_obj.size > max_bytes:
+        max_mb = max(1, max_bytes // (1024 * 1024))
+        raise ValueError(f"File '{orig_name}' must be between 1 byte and {max_mb} MB.")
+
+    file_obj.seek(0)
+    if ext == '.pdf':
+        header = file_obj.read(8)
+        file_obj.seek(0)
+        if not header.startswith(b'%PDF-'):
+            raise ValueError(f"File '{orig_name}' is not a valid PDF document.")
+    elif ext in ('.jpg', '.jpeg', '.png', '.webp'):
+        from PIL import Image
+        try:
+            img = Image.open(file_obj)
+            img.verify()
+            file_obj.seek(0)
+        except Exception as exc:
+            raise ValueError(f"File '{orig_name}' is not a valid image.") from exc
+    else:
+        header = file_obj.read(512)
+        file_obj.seek(0)
+        if ext in ('.docx', '.xlsx') and not header.startswith(b'PK'):
+            raise ValueError(f"File '{orig_name}' is not a valid Office document.")
+        if ext in ('.doc', '.xls') and not header.startswith(b'\xd0\xcf\x11\xe0'):
+            raise ValueError(f"File '{orig_name}' is not a valid legacy Office document.")
+        if b'\x00' in header and ext == '.txt':
+            raise ValueError(f"File '{orig_name}' is not valid plain text.")
+    return ext, orig_name
+
+
+def _save_validated_document_upload(file_obj, *, subdir='attachments', filename_prefix='bill', allowed_exts=ALLOWED_ATTACHMENT_EXTS, max_bytes: int = 10 * 1024 * 1024):
+    """Validates and stores an attachment or PDF under MEDIA_ROOT safely."""
+    ext, orig_name = _validate_uploaded_document(file_obj, allowed_exts=allowed_exts, max_bytes=max_bytes)
+    if ext in ('.jpg', '.jpeg', '.png', '.webp'):
+        img_url, _ = _save_validated_image_upload(
+            file_obj,
+            subdir=subdir,
+            filename_prefix=filename_prefix,
+            allowed_exts=('.jpg', '.jpeg', '.png', '.webp'),
+            max_bytes=max_bytes,
+            max_dim=1920,
+            generate_thumb=False,
+        )
+        return img_url, orig_name
+
+    clean_subdir = subdir.strip('/\\').replace('\\', '/')
+    target_dir = os.path.join(str(settings.MEDIA_ROOT), clean_subdir.replace('/', os.sep))
+    os.makedirs(target_dir, exist_ok=True)
+    safe_name = f"{filename_prefix}-{uuid.uuid4()}-{int(time.time())}{ext}"
+    dest_path = os.path.join(target_dir, safe_name)
+    file_obj.seek(0)
+    with open(dest_path, 'wb+') as dest:
+        for chunk in file_obj.chunks():
+            dest.write(chunk)
+    return f"/media/{clean_subdir}/{safe_name}", orig_name
 
 
 def parse_non_negative_money(raw_value, *, default=MONEY_ZERO, allow_blank=True):
@@ -99,6 +557,8 @@ def parse_non_negative_money(raw_value, *, default=MONEY_ZERO, allow_blank=True)
         raise ValueError('Enter a valid monetary amount.')
     if not amount.is_finite() or amount < 0:
         raise ValueError('Monetary amounts cannot be negative.')
+    if amount > MONEY_MAX:
+        raise ValueError('Monetary amount exceeds the maximum allowed limit.')
     return amount.quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
 
 
@@ -172,7 +632,7 @@ def get_payment_point_in_time_balance(payment, admission_payments=None):
 
 def can_manage_system(request):
     """Return whether the authenticated account may change system data."""
-    current_user = getattr(request, 'current_user', None)
+    current_user = _resolve_current_user(request)
     return bool(current_user and current_user.role in SYSTEM_ADMIN_ROLES)
 
 
@@ -218,11 +678,15 @@ def _group_gallery_items_by_category(items, categories):
     assigned_ids = set()
 
     for cat in categories:
+        cat_name_norm = (cat.name or '').strip().lower()
         cat_items = [
             item for item in items
             if item.id not in assigned_ids and (
                 item.category_ref_id == cat.id
-                or (item.category_ref_id is None and (item.category == cat.name or item.category_slug == cat.slug))
+                or (
+                    item.category_ref_id is None
+                    and ((item.category or '').strip().lower() == cat_name_norm or item.category_slug == cat.slug)
+                )
             )
         ]
         if not cat_items:
@@ -359,14 +823,21 @@ def login_view(request):
     """
     User & Developer Authentication matching React LoginPage.tsx.
     """
+    license_status = get_license_status()
+    requested_tab = request.GET.get('tab', 'owner')
+
     # If already logged in, redirect to workspace or developer portal
+    # Allow accessing ?tab=developer when license is expired/locked so support can sign in cleanly
     user_id = request.session.get('user_id')
-    if user_id:
+    if user_id and request.method == 'GET':
         user = User.objects.filter(id=user_id, is_active=True).first()
         if user:
             if user.is_developer:
                 return redirect('developer_portal')
-            return redirect('dashboard')
+            if license_status['isActive'] and not license_status['isExpired'] and requested_tab != 'developer':
+                return redirect('dashboard')
+        else:
+            request.session.pop('user_id', None)
 
     requested_next = request.GET.get('next') or request.POST.get('next') or '/app/'
     next_url = requested_next if url_has_allowed_host_and_scheme(
@@ -374,7 +845,6 @@ def login_view(request):
         allowed_hosts={request.get_host()},
         require_https=request.is_secure(),
     ) else '/app/'
-    license_status = get_license_status()
 
     if request.method == 'POST':
         login_type = request.POST.get('login_type', 'owner')
@@ -427,12 +897,16 @@ def login_view(request):
                     'next_url': next_url,
                 })
 
-            # Log user in
+            # Log user in (cycle session key to prevent session fixation)
+            request.session.cycle_key()
             request.session['user_id'] = str(user.id)
             request.session['user_role'] = user.role
             request.session['user_name'] = user.name
+            request.session['user_pw_fp'] = compute_session_user_fingerprint(user)
             if user.is_branch_manager and user.branch_id:
                 request.session['selected_branch_id'] = str(user.branch_id)
+            else:
+                request.session.pop('selected_branch_id', None)
             messages.success(request, f"Welcome back, {user.name}!")
             return redirect(next_url)
 
@@ -460,37 +934,59 @@ def login_view(request):
                     'active_tab': 'developer',
                 })
 
-            # Developer verified, fetch or ensure developer user exists
+            # Developer verified, fetch active developer user or create cleanly with random unusable password
             dev_user = User.objects.filter(role='DEVELOPER').first()
+            if dev_user and not dev_user.is_active:
+                return render(request, 'login.html', {
+                    'error_msg': 'Developer account is inactive.',
+                    'license': license_status,
+                    'entered_email': email,
+                    'next_url': next_url,
+                    'active_tab': 'developer',
+                })
             if not dev_user:
-                dev_hash, dev_salt = hash_password('developer@123')
-                dev_user = User.objects.create(
+                dev_hash, dev_salt = hash_password(secrets.token_urlsafe(32))
+                dev_user, _ = User.objects.get_or_create(
                     username='developer',
-                    name='Software Developer',
-                    password=dev_hash,
-                    salt=dev_salt,
-                    role='DEVELOPER',
-                    is_active=True,
+                    defaults={
+                        'name': 'Software Developer',
+                        'password': dev_hash,
+                        'salt': dev_salt,
+                        'role': 'DEVELOPER',
+                        'is_active': True,
+                    },
                 )
 
+            request.session.cycle_key()
             request.session['user_id'] = str(dev_user.id)
             request.session['user_role'] = dev_user.role
             request.session['user_name'] = dev_user.name
+            request.session['user_pw_fp'] = compute_session_user_fingerprint(dev_user)
             messages.success(request, "Developer authentication successful. Access granted.")
             explicit_next = request.POST.get('next', '').strip() or request.GET.get('next', '').strip()
-            target_url = explicit_next if explicit_next and explicit_next not in ('/login/', '/app/') else 'developer_portal'
-            return redirect(target_url)
+            if (
+                explicit_next
+                and explicit_next not in ('/login/', '/app/')
+                and url_has_allowed_host_and_scheme(
+                    explicit_next,
+                    allowed_hosts={request.get_host()},
+                    require_https=request.is_secure(),
+                )
+            ):
+                return redirect(explicit_next)
+            return redirect('developer_portal')
 
     return render(request, 'login.html', {
         'license': license_status,
         'next_url': next_url,
-        'active_tab': request.GET.get('tab', 'owner'),
+        'active_tab': requested_tab,
     })
 
 
+@require_POST
 def logout_view(request):
     """
-    Clears session and logs user out.
+    Clears session and logs user out safely via CSRF-protected POST.
     """
     request.session.flush()
     messages.info(request, "You have been safely signed out.")
@@ -501,6 +997,7 @@ def logout_view(request):
 def api_developer_send_otp_view(request):
     """
     Dispatches single-use OTP code to authorized developer email.
+    Includes per-IP burst throttling to prevent SMTP flooding.
     """
     try:
         body = json.loads(request.body.decode('utf-8'))
@@ -510,6 +1007,13 @@ def api_developer_send_otp_view(request):
 
     if not email:
         return JsonResponse({'success': False, 'error': 'Developer email is required.'})
+
+    client_ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or 'unknown').split(',')[0].strip()
+    rate_key = f"dev_otp_send_rl_{hashlib.sha256(client_ip.encode('utf-8')).hexdigest()[:16]}"
+    send_count = safe_cache_get(rate_key, 0) or 0
+    if int(send_count) >= 15:
+        return JsonResponse({'success': False, 'error': 'Too many OTP requests. Please wait a minute and try again.'}, status=429)
+    safe_cache_set(rate_key, int(send_count) + 1, 60)
 
     success, code, msg = generate_and_send_developer_otp(email)
     if success:
@@ -539,25 +1043,42 @@ def api_developer_verify_otp_view(request):
     if not success:
         return JsonResponse({'success': False, 'error': msg})
 
-    # Ensure developer user exists
+    # Ensure active developer user exists
     dev_user = User.objects.filter(role='DEVELOPER').first()
+    if dev_user and not dev_user.is_active:
+        return JsonResponse({'success': False, 'error': 'Developer account is inactive.'}, status=403)
     if not dev_user:
-        dev_hash, dev_salt = hash_password('developer@123')
-        dev_user = User.objects.create(
+        dev_hash, dev_salt = hash_password(secrets.token_urlsafe(32))
+        dev_user, _ = User.objects.get_or_create(
             username='developer',
-            name='Software Developer',
-            password=dev_hash,
-            salt=dev_salt,
-            role='DEVELOPER',
-            is_active=True,
+            defaults={
+                'name': 'Software Developer',
+                'password': dev_hash,
+                'salt': dev_salt,
+                'role': 'DEVELOPER',
+                'is_active': True,
+            },
         )
 
+    request.session.cycle_key()
     request.session['user_id'] = str(dev_user.id)
     request.session['user_role'] = dev_user.role
     request.session['user_name'] = dev_user.name
+    request.session['user_pw_fp'] = compute_session_user_fingerprint(dev_user)
     messages.success(request, "Developer authentication successful. Access granted.")
 
-    redirect_url = next_url if next_url and next_url != '/login/' else '/developer-portal/'
+    if (
+        next_url
+        and next_url != '/login/'
+        and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        )
+    ):
+        redirect_url = next_url
+    else:
+        redirect_url = '/developer-portal/'
     return JsonResponse({
         'success': True,
         'message': 'Developer authentication successful.',
@@ -813,18 +1334,32 @@ def developer_portal_view(request):
         if action == 'update_license':
             is_active_val = request.POST.get('is_active') == 'true'
             developer_note = request.POST.get('developer_note', '').strip()
-            expiry_date_input = request.POST.get('expiry_date')
-            extend_days = request.POST.get('extend_days')
+            expiry_date_input = (request.POST.get('expiry_date') or '').strip()
+            extend_days = (request.POST.get('extend_days') or '').strip()
 
-            # Calculate expiry
+            # Calculate expiry in institute timezone
+            local_tz = ZoneInfo(getattr(settings, 'TIME_ZONE', 'Asia/Kolkata'))
+            expiry_str = None
             if extend_days:
-                days = int(extend_days)
-                new_expiry = timezone.now() + timedelta(days=days)
-                expiry_str = new_expiry.strftime('%Y-%m-%d %H:%M:%S.%f')
+                try:
+                    days = int(extend_days)
+                except (ValueError, TypeError):
+                    messages.error(request, "Invalid extension duration. Please enter a whole number of days.")
+                    return redirect('developer_portal')
+                if days < 1 or days > 36500:
+                    messages.error(request, "Extension days must be between 1 and 36500.")
+                    return redirect('developer_portal')
+                new_expiry = datetime.now(local_tz) + timedelta(days=days)
+                expiry_str = new_expiry.isoformat()
             elif expiry_date_input:
-                expiry_str = f"{expiry_date_input} 23:59:59.000000"
-            else:
-                expiry_str = None
+                try:
+                    parsed_d = datetime.strptime(expiry_date_input, '%Y-%m-%d').replace(
+                        hour=23, minute=59, second=59, microsecond=999999, tzinfo=local_tz
+                    )
+                    expiry_str = parsed_d.isoformat()
+                except ValueError:
+                    messages.error(request, "Invalid license expiry date format. Expected YYYY-MM-DD.")
+                    return redirect('developer_portal')
 
             if expiry_str:
                 SystemSetting.objects.update_or_create(
@@ -837,7 +1372,7 @@ def developer_portal_view(request):
                 defaults={'value': 'true' if is_active_val else 'false'}
             )
 
-            if developer_note:
+            if 'developer_note' in request.POST:
                 SystemSetting.objects.update_or_create(
                     key='license_developer_note',
                     defaults={'value': developer_note}
@@ -855,12 +1390,14 @@ def developer_portal_view(request):
             new_password = request.POST.get('new_password', '').strip()
 
             target_user = get_object_or_404(User, id=target_user_id)
-            if new_password:
-                new_hash, new_salt = hash_password(new_password)
-                target_user.password = new_hash
-                target_user.salt = new_salt
-                target_user.save()
-                messages.success(request, f"Password successfully reset for @{target_user.username}!")
+            if len(new_password) < 6:
+                messages.error(request, "Password must be at least 6 characters long.")
+                return redirect('developer_portal')
+            new_hash, new_salt = hash_password(new_password)
+            target_user.password = new_hash
+            target_user.salt = new_salt
+            target_user.save()
+            messages.success(request, f"Password successfully reset for @{target_user.username}!")
             return redirect('developer_portal')
 
         # 3. Benchmark Dummy Data Generation (TEMPORARY FOR TESTING)
@@ -899,60 +1436,63 @@ def developer_portal_view(request):
             rate_val = request.POST.get('rate_per_message', '0.40').strip()
             is_enforced = request.POST.get('is_enforced') == 'true'
 
-            # Update rate
+            # Update rate (reject NaN, Inf, and negative rates)
             try:
                 rate_dec = Decimal(rate_val)
+                if not rate_dec.is_finite() or rate_dec < 0:
+                    raise ValueError("Invalid negative or non-finite rate")
                 rate_str = f"{rate_dec:.2f}"
             except Exception:
                 rate_str = '0.40'
-            SystemSetting.objects.update_or_create(key='whatsapp_rate_per_message', defaults={'value': rate_str})
 
-            # Update enforcement
-            SystemSetting.objects.update_or_create(key='whatsapp_credits_enforced', defaults={'value': 'true' if is_enforced else 'false'})
+            with transaction.atomic():
+                SystemSetting.objects.update_or_create(key='whatsapp_rate_per_message', defaults={'value': rate_str})
+                SystemSetting.objects.update_or_create(key='whatsapp_credits_enforced', defaults={'value': 'true' if is_enforced else 'false'})
 
-            # Handle quota balance adjustment
-            bal_setting, _ = SystemSetting.objects.get_or_create(key='whatsapp_credits_balance', defaults={'value': '500'})
-            try:
-                curr_bal = int(bal_setting.value or 0)
-            except (ValueError, TypeError):
-                curr_bal = 0
-
-            recharge_setting, _ = SystemSetting.objects.get_or_create(key='whatsapp_total_recharged_credits', defaults={'value': str(curr_bal)})
-            try:
-                curr_total_recharge = int(recharge_setting.value or curr_bal)
-            except (ValueError, TypeError):
-                curr_total_recharge = curr_bal
-
-            if sub_action == 'set_balance':
+                bal_setting, _ = SystemSetting.objects.get_or_create(key='whatsapp_credits_balance', defaults={'value': '500'})
+                bal_setting = SystemSetting.objects.select_for_update().get(key='whatsapp_credits_balance')
                 try:
-                    new_bal = max(0, int(request.POST.get('set_credits', curr_bal)))
+                    curr_bal = int(bal_setting.value or 0)
                 except (ValueError, TypeError):
-                    new_bal = curr_bal
-                bal_setting.value = str(new_bal)
-                bal_setting.save(update_fields=['value'])
-                if new_bal > curr_bal:
-                    recharge_setting.value = str(curr_total_recharge + (new_bal - curr_bal))
+                    curr_bal = 0
+
+                recharge_setting, _ = SystemSetting.objects.get_or_create(key='whatsapp_total_recharged_credits', defaults={'value': str(curr_bal)})
+                recharge_setting = SystemSetting.objects.select_for_update().get(key='whatsapp_total_recharged_credits')
+                try:
+                    curr_total_recharge = int(recharge_setting.value or curr_bal)
+                except (ValueError, TypeError):
+                    curr_total_recharge = curr_bal
+
+                if sub_action == 'set_balance':
+                    try:
+                        new_bal = max(0, int(request.POST.get('set_credits', curr_bal)))
+                    except (ValueError, TypeError):
+                        new_bal = curr_bal
+                    bal_setting.value = str(new_bal)
+                    bal_setting.save(update_fields=['value'])
+                    if new_bal > curr_bal:
+                        recharge_setting.value = str(curr_total_recharge + (new_bal - curr_bal))
+                        recharge_setting.save(update_fields=['value'])
+                    messages.success(request, f"WhatsApp message balance successfully set to {new_bal:,} credits.")
+
+                elif sub_action == 'add_credits':
+                    try:
+                        add_amt = max(0, int(request.POST.get('add_credits', 0)))
+                    except (ValueError, TypeError):
+                        add_amt = 0
+                    new_bal = curr_bal + add_amt
+                    bal_setting.value = str(new_bal)
+                    bal_setting.save(update_fields=['value'])
+                    recharge_setting.value = str(curr_total_recharge + add_amt)
                     recharge_setting.save(update_fields=['value'])
-                messages.success(request, f"WhatsApp message balance successfully set to {new_bal:,} credits.")
+                    messages.success(request, f"Added {add_amt:,} credits! New WhatsApp balance is {new_bal:,} messages.")
 
-            elif sub_action == 'add_credits':
-                try:
-                    add_amt = max(0, int(request.POST.get('add_credits', 0)))
-                except (ValueError, TypeError):
-                    add_amt = 0
-                new_bal = curr_bal + add_amt
-                bal_setting.value = str(new_bal)
-                bal_setting.save(update_fields=['value'])
-                recharge_setting.value = str(curr_total_recharge + add_amt)
-                recharge_setting.save(update_fields=['value'])
-                messages.success(request, f"Added {add_amt:,} credits! New WhatsApp balance is {new_bal:,} messages.")
+                elif sub_action == 'reset_sent_counter':
+                    SystemSetting.objects.update_or_create(key='whatsapp_messages_sent_count', defaults={'value': '0'})
+                    messages.success(request, "Total messages sent counter was reset to 0.")
 
-            elif sub_action == 'reset_sent_counter':
-                SystemSetting.objects.update_or_create(key='whatsapp_messages_sent_count', defaults={'value': '0'})
-                messages.success(request, "Total messages sent counter was reset to 0.")
-
-            else:
-                messages.success(request, "WhatsApp messaging quota and pricing settings updated.")
+                else:
+                    messages.success(request, "WhatsApp messaging quota and pricing settings updated.")
 
             invalidate_global_context_cache()
             return redirect('developer_portal')
@@ -1042,24 +1582,30 @@ def format_relative_activity_time(dt):
     return dt_local.strftime('%d %b %Y • %I:%M %p')
 
 
-def clean_referer_url(referer, strip_params=None):
+def clean_referer_url(referer, strip_params=None, request=None):
     """
     Cleans URL parameters (such as branch_id, session_id, page) from referer URL
-    so that switching branch/session doesn't carry over stale in-page GET filters.
+    and rejects off-host / external redirects so switching branch/session stays local.
     """
     if not referer:
         return '/app/'
     try:
+        if request is not None and not url_has_allowed_host_and_scheme(
+            referer,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return '/app/'
         parsed = urlparse(referer)
         qs = parse_qs(parsed.query, keep_blank_values=True)
         if strip_params:
             for p in strip_params:
                 qs.pop(p, None)
         new_query = urlencode(qs, doseq=True)
-        path = parsed.path
-        if path == '/' or not path:
+        path = '/' + (parsed.path or '').lstrip('/')
+        if path == '/' or not parsed.path:
             path = '/app/'
-        return urlunparse((parsed.scheme, parsed.netloc, path, parsed.params, new_query, parsed.fragment))
+        return urlunparse(('', '', path, '', new_query, ''))
     except Exception:
         return '/app/'
 
@@ -1068,31 +1614,13 @@ def get_active_scope(request):
     """
     Centralized data isolation resolver across the entire application.
     Resolves currently active (branch_id, session_id, active_branch, active_session).
-
-    Precedence & Isolation Rules:
-    1. If branch_id is provided in GET, use it. Otherwise, read request.session['selected_branch_id'] (default 'ALL').
-       If branch_id != 'ALL', validates that the branch exists and is active.
-    2. If session_id is provided in GET, use it. Otherwise, read request.session['selected_session_id'].
-       If no session is in cookies, default to the current active session (or 'ALL' if none).
-       If session_id != 'ALL', validates that the academic session exists.
-    3. Returns:
-       (branch_id, session_id, active_branch, active_session)
-       - branch_id: 'ALL' or str(uuid)
-       - session_id: 'ALL' or str(uuid)
-       - active_branch: Branch instance or None
-       - active_session: AcademicSession instance or None
     """
-    # 0. Check User Role & Assigned Branch Restriction
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
 
-    # 1. Branch Resolution
-    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
-        branch_id = str(current_user.branch_id)
-        active_branch = current_user.branch
+    # 1. Branch Resolution (fail closed if a restricted manager has no active branch)
+    if current_user and current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
+        active_branch = Branch.objects.filter(id=current_user.branch_id, is_active=True).first() if current_user.branch_id else None
+        branch_id = str(active_branch.id) if active_branch else '00000000-0000-0000-0000-000000000000'
     else:
         branch_id = request.GET.get('branch_id')
         if branch_id is None:
@@ -1112,7 +1640,8 @@ def get_active_scope(request):
             curr = AcademicSession.objects.filter(is_current=True, isActive=True).first()
             if curr:
                 session_id = str(curr.id)
-                request.session['selected_session_id'] = session_id
+                if current_user:
+                    request.session['selected_session_id'] = session_id
             else:
                 session_id = 'ALL'
 
@@ -1124,22 +1653,41 @@ def get_active_scope(request):
             if curr:
                 session_id = str(curr.id)
                 active_session = curr
-                request.session['selected_session_id'] = session_id
+                if current_user:
+                    request.session['selected_session_id'] = session_id
             else:
                 session_id = 'ALL'
 
     return branch_id, session_id, active_branch, active_session
 
 
+def is_user_authorized_for_branch(user, branch_id) -> bool:
+    """Checks if the authenticated user is authorized for the given branch ID."""
+    if not user or not getattr(user, 'is_active', False):
+        return False
+    if user.is_developer or user.is_class_owner:
+        return True
+    if user.is_branch_manager and has_permission(user, 'restricted_to_assigned_branch'):
+        if not user.branch_id or not branch_id:
+            return False
+        return str(user.branch_id) == str(branch_id)
+    return True
+
+
 def is_user_authorized_for_student(user, student) -> bool:
     """
     Guarantees strict cross-branch isolation:
+    - Unauthenticated callers are always denied.
     - Developers & Class Owners have unrestricted oversight across all branches.
     - Branch Managers restricted to their assigned branch cannot access or mutate students from other branches.
     """
-    if not user or user.is_developer or user.is_class_owner:
+    if not user or not getattr(user, 'is_active', False) or not student:
+        return False
+    if user.is_developer or user.is_class_owner:
         return True
-    if user.is_branch_manager and user.branch_id and has_permission(user, 'restricted_to_assigned_branch'):
+    if user.is_branch_manager and has_permission(user, 'restricted_to_assigned_branch'):
+        if not user.branch_id:
+            return False
         return student.admissions.filter(branch_id=user.branch_id).exists()
     return True
 
@@ -1308,13 +1856,14 @@ def dashboard_view(request):
 
             if not is_all_sessions and active_session:
                 m_coll_filter = m_coll_filter.filter(session_id=active_session.id)
-                if active_session.start_date and active_session.end_date:
-                    if m_end < active_session.start_date or m_start > active_session.end_date:
+                sess_end_dt = _session_end_dt(active_session)
+                if active_session.start_date and sess_end_dt:
+                    if m_end < active_session.start_date or m_start > sess_end_dt:
                         m_exp_filter = m_exp_filter.none()
                     else:
                         m_exp_filter = m_exp_filter.filter(
                             expense_date__gte=max(m_start, active_session.start_date),
-                            expense_date__lte=min(m_end, active_session.end_date)
+                            expense_date__lte=min(m_end, sess_end_dt)
                         )
                 else:
                     m_exp_filter = m_exp_filter.none()
@@ -1353,10 +1902,11 @@ def dashboard_view(request):
 
         if not is_all_sessions and active_session:
             recent_payments = recent_payments.filter(session_id=active_session.id)
-            if active_session.start_date and active_session.end_date:
+            sess_end_dt = _session_end_dt(active_session)
+            if active_session.start_date and sess_end_dt:
                 recent_expenses = recent_expenses.filter(
                     expense_date__gte=active_session.start_date,
-                    expense_date__lte=active_session.end_date
+                    expense_date__lte=sess_end_dt
                 )
             else:
                 recent_expenses = recent_expenses.none()
@@ -1419,7 +1969,8 @@ def dashboard_view(request):
                 b_prev_col = b_prev_agg['tot_col'] or MONEY_ZERO
                 b_prev_pend = max(MONEY_ZERO, b_prev_out - b_prev_col)
 
-                b_expected = b_plan_expected + b_prev_out
+                # Match macro KPIs: All-Sessions avoids double-counting carried debt already in historical FeePlans
+                b_expected = b_plan_expected if is_all_sessions else (b_plan_expected + b_prev_out)
 
                 b_payments = Payment.objects.filter(branch=b, is_reversed=False)
                 if not is_all_sessions and active_session:
@@ -1435,12 +1986,13 @@ def dashboard_view(request):
                      for fp in FeePlan.objects.filter(admission__in=b_adms)),
                     MONEY_ZERO
                 )
-                b_pending_dues = b_plan_pending + b_prev_pend
+                b_pending_dues = b_plan_pending if is_all_sessions else (b_plan_pending + b_prev_pend)
 
                 b_expenses_q = Expense.objects.filter(branch=b)
-                if not is_all_sessions and active_session and active_session.start_date and active_session.end_date:
-                    b_expenses_q = b_expenses_q.filter(expense_date__range=[active_session.start_date, active_session.end_date])
-                elif not is_all_sessions and active_session and (not active_session.start_date or not active_session.end_date):
+                b_sess_end_dt = _session_end_dt(active_session) if (not is_all_sessions and active_session) else None
+                if not is_all_sessions and active_session and active_session.start_date and b_sess_end_dt:
+                    b_expenses_q = b_expenses_q.filter(expense_date__range=[active_session.start_date, b_sess_end_dt])
+                elif not is_all_sessions and active_session and (not active_session.start_date or not b_sess_end_dt):
                     b_expenses_q = b_expenses_q.none()
                 b_expenses = b_expenses_q.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO
 
@@ -1557,23 +2109,33 @@ def dashboard_view(request):
 
 
 def switch_branch_view(request, branch_id):
-    current_user = getattr(request, 'current_user', None)
+    current_user = _resolve_current_user(request)
     if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+        return redirect('login')
 
-    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
-        messages.warning(request, f"Branch switching is restricted. You are assigned to {current_user.branch.name}.")
+    if current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
+        branch_name = current_user.branch.name if current_user.branch else 'your assigned branch'
+        messages.warning(request, f"Branch switching is restricted. You are assigned to {branch_name}.")
         referer = request.META.get('HTTP_REFERER', '/')
-        return redirect(clean_referer_url(referer, strip_params=['branch_id', 'page']))
+        return redirect(clean_referer_url(referer, strip_params=['branch_id', 'page'], request=request))
 
-    request.session['selected_branch_id'] = str(branch_id)
+    if str(branch_id) == 'ALL':
+        request.session['selected_branch_id'] = 'ALL'
+    else:
+        selected_b = Branch.objects.filter(id=branch_id, is_active=True).first()
+        if selected_b:
+            request.session['selected_branch_id'] = str(selected_b.id)
+        else:
+            messages.error(request, 'The selected branch is not active or does not exist.')
     referer = request.META.get('HTTP_REFERER', '/')
-    return redirect(clean_referer_url(referer, strip_params=['branch_id', 'page']))
+    return redirect(clean_referer_url(referer, strip_params=['branch_id', 'page'], request=request))
 
 
 def switch_session_view(request, session_id):
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return redirect('login')
+
     if session_id == 'ALL':
         request.session['selected_session_id'] = 'ALL'
     else:
@@ -1583,10 +2145,14 @@ def switch_session_view(request, session_id):
         else:
             messages.error(request, 'The selected academic session is not active or no longer exists.')
     referer = request.META.get('HTTP_REFERER', '/')
-    return redirect(clean_referer_url(referer, strip_params=['session_id', 'page']))
+    return redirect(clean_referer_url(referer, strip_params=['session_id', 'page'], request=request))
 
 
+@require_POST
 def toggle_sidebar_view(request):
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
     collapsed = not request.session.get('is_sidebar_collapsed', False)
     request.session['is_sidebar_collapsed'] = collapsed
     return JsonResponse({'is_collapsed': collapsed})
@@ -1594,6 +2160,12 @@ def toggle_sidebar_view(request):
 
 @require_GET
 def quick_search_api_view(request):
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    if not has_permission(current_user, 'can_view_students'):
+        return JsonResponse({'error': 'Access Denied'}, status=403)
+
     q = request.GET.get('q', '').strip()
     if not q:
         return JsonResponse([], safe=False)
@@ -1605,7 +2177,9 @@ def quick_search_api_view(request):
     if cached_results is not None:
         return JsonResponse(cached_results, safe=False)
 
-    admissions = StudentAdmission.objects.filter(is_active=True).select_related('student', 'branch', 'session')
+    admissions = StudentAdmission.objects.filter(is_active=True).select_related(
+        'student', 'branch', 'session', 'fee_plan'
+    ).prefetch_related('payments')
 
     if branch_id and branch_id != 'ALL':
         admissions = admissions.filter(branch_id=branch_id)
@@ -1627,7 +2201,7 @@ def quick_search_api_view(request):
     for adm in admissions[:15]:
         st = adm.student
         net_payable = adm.fee_plan.net_payable if hasattr(adm, 'fee_plan') else MONEY_ZERO
-        paid = sum(p.total_amount for p in adm.payments.filter(is_reversed=False))
+        paid = sum((p.total_amount for p in adm.payments.all() if not p.is_reversed), MONEY_ZERO)
         pending = max(MONEY_ZERO, net_payable - paid)
 
         results.append({
@@ -1654,12 +2228,16 @@ def placeholder_view(request, title="Section Under Development"):
     return render(request, 'placeholder.html', {'title': title})
 
 def generate_student_code():
-    year = datetime.now().year
-    import random
-    while True:
-        code = f"SC-{year}-{random.randint(1000, 9999)}"
+    year = timezone.localtime().year
+    for _ in range(30):
+        code = f"SC-{year}-{1000 + secrets.randbelow(9000)}"
         if not Student.objects.filter(student_code=code).exists():
             return code
+    for _ in range(30):
+        code = f"SC-{year}-{100000 + secrets.randbelow(900000)}"
+        if not Student.objects.filter(student_code=code).exists():
+            return code
+    return f"SC-{year}-{uuid.uuid4().hex[:8].upper()}"
 
 
 def extract_branch_code(branch) -> str:
@@ -1738,15 +2316,24 @@ def api_next_roll_number_view(request):
     - branch_id: UUID or ID of the selected branch
     - session_id: UUID or ID of the selected session (optional)
     """
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    if not (has_permission(current_user, 'can_view_students') or has_permission(current_user, 'can_add_students')):
+        return JsonResponse({'error': 'Access Denied'}, status=403)
+
     branch_id = request.GET.get('branch_id')
     session_id = request.GET.get('session_id')
 
     branch = None
-    if branch_id and branch_id != 'ALL':
-        branch = Branch.objects.filter(id=branch_id).first()
-    if not branch:
-        scope_b_id, _, scope_b, _ = get_active_scope(request)
-        branch = scope_b or Branch.objects.filter(is_active=True).first()
+    if current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
+        branch = Branch.objects.filter(id=current_user.branch_id, is_active=True).first() if current_user.branch_id else None
+    else:
+        if branch_id and branch_id != 'ALL':
+            branch = Branch.objects.filter(id=branch_id).first()
+        if not branch:
+            scope_b_id, _, scope_b, _ = get_active_scope(request)
+            branch = scope_b or Branch.objects.filter(is_active=True).first()
 
     session = None
     if session_id and session_id != 'ALL':
@@ -1781,13 +2368,13 @@ def students_list_view(request):
             if not has_permission(current_user, 'can_add_students'):
                 messages.error(request, "Access Denied: You do not have permission to register new students.")
                 return redirect('students_list')
-            full_name = request.POST.get('full_name', '').strip()
-            roll_number = request.POST.get('roll_number', '').strip()
-            standard = request.POST.get('standard', '').strip()
+            full_name = request.POST.get('full_name', '').strip()[:200]
+            roll_number = request.POST.get('roll_number', '').strip()[:50]
+            standard = request.POST.get('standard', '').strip()[:150]
             branch_id = request.POST.get('branch_id', '').strip()
             session_id = request.POST.get('session_id', '').strip()
-            parent_phone = request.POST.get('parent_phone', '').strip()
-            student_phone = request.POST.get('student_phone', '').strip() or None
+            parent_phone = request.POST.get('parent_phone', '').strip()[:50]
+            student_phone = (request.POST.get('student_phone', '').strip()[:50]) or None
             address = request.POST.get('address', '').strip() or None
             total_fees_str = request.POST.get('total_fees', '').strip()
             due_date_str = request.POST.get('due_date', '').strip()
@@ -1843,19 +2430,22 @@ def students_list_view(request):
                 messages.error(request, str(exc))
                 return redirect('students_list')
 
-            # Photo upload
+            # Photo upload (strictly validated image)
             photo_url = None
             if request.FILES.get('photo'):
-                photo_file = request.FILES['photo']
-                ext = os.path.splitext(photo_file.name)[1] or '.jpg'
-                filename = f"photo-new-{uuid.uuid4()}-{int(datetime.now().timestamp())}{ext}"
-                photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
-                os.makedirs(photos_dir, exist_ok=True)
-                filepath = os.path.join(photos_dir, filename)
-                with open(filepath, 'wb+') as dest:
-                    for chunk in photo_file.chunks():
-                        dest.write(chunk)
-                photo_url = f"/media/photos/{filename}"
+                try:
+                    photo_url, _ = _save_validated_image_upload(
+                        request.FILES['photo'],
+                        subdir='photos',
+                        filename_prefix='photo-new',
+                        allowed_exts=ALLOWED_PHOTO_EXTS,
+                        max_bytes=5 * 1024 * 1024,
+                        max_dim=800,
+                        generate_thumb=False,
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('students_list')
 
             admission = None
             student = None
@@ -1863,6 +2453,13 @@ def students_list_view(request):
             for attempt in range(max_attempts):
                 try:
                     with transaction.atomic():
+                        # Serialize admission creation per branch inside atomic block for PG roll safety
+                        Branch.objects.select_for_update().filter(id=branch.id).first()
+                        if not user_provided_roll:
+                            roll_number = generate_next_roll_number(branch, session)
+                        elif StudentAdmission.objects.filter(branch=branch, session=session, roll_number=roll_number).exists():
+                            raise _ValidationAbort(f"Roll number '{roll_number}' already exists in {branch.name} for session {session.name}.")
+
                         # Create Student
                         student = Student.objects.create(
                             student_code=generate_student_code(),
@@ -1902,10 +2499,14 @@ def students_list_view(request):
                             amount_due=total_fees,
                         )
                     break
+                except _ValidationAbort as vexc:
+                    _delete_media_file_by_url(photo_url, defer_commit=False)
+                    messages.error(request, str(vexc))
+                    return redirect('students_list')
                 except IntegrityError:
-                    if not user_provided_roll and attempt < max_attempts - 1:
-                        roll_number = generate_next_roll_number(branch, session)
+                    if attempt < max_attempts - 1:
                         continue
+                    _delete_media_file_by_url(photo_url, defer_commit=False)
                     messages.error(request, f"Roll number '{roll_number}' conflict occurred. Please try again.")
                     return redirect('students_list')
 
@@ -1952,8 +2553,14 @@ def students_list_view(request):
 
         # 2. Toggle Archive / Active Status
         elif action == 'toggle_archive':
+            if not has_permission(current_user, 'can_edit_students'):
+                messages.error(request, "Access Denied: You do not have permission to archive or reactivate students.")
+                return redirect('students_list')
             student_id = request.POST.get('student_id')
             student = get_object_or_404(Student, id=student_id)
+            if not is_user_authorized_for_student(current_user, student):
+                messages.error(request, "Access Denied: You cannot modify students outside your assigned branch.")
+                return redirect('students_list')
             has_active = student.admissions.filter(is_active=True).exists()
             new_active = not has_active
             student.admissions.all().update(is_active=new_active)
@@ -1968,7 +2575,11 @@ def students_list_view(request):
                 return redirect('students_list')
             student_id = request.POST.get('student_id')
             student = get_object_or_404(Student, id=student_id)
+            if not is_user_authorized_for_student(current_user, student):
+                messages.error(request, "Access Denied: You cannot delete students outside your assigned branch.")
+                return redirect('students_list')
             name = student.full_name
+            photo_to_remove = student.photo_url
 
             active_payments = student.payments.filter(is_reversed=False)
             if active_payments.exists():
@@ -1981,31 +2592,24 @@ def students_list_view(request):
                 )
                 return redirect('students_list')
 
-            # Cascade delete related records cleanly
-            for adm in student.admissions.all():
-                if hasattr(adm, 'fee_plan'):
-                    fp = adm.fee_plan
-                    for inst in fp.installments.all():
-                        inst.allocations.all().delete()
-                    fp.installments.all().delete()
-                    fp.discounts.all().delete()
-                    fp.delete()
-                adm.payments.all().delete()
-            student.previous_dues.all().delete()
-            student.payments.all().delete()
-            student.admissions.all().delete()
+            # Cascade delete related records cleanly inside transaction (payments before RESTRICT previous_dues)
+            with transaction.atomic():
+                for adm in student.admissions.all():
+                    if hasattr(adm, 'fee_plan'):
+                        fp = adm.fee_plan
+                        for inst in fp.installments.all():
+                            inst.allocations.all().delete()
+                        fp.installments.all().delete()
+                        fp.discounts.all().delete()
+                        fp.delete()
+                    adm.payments.all().delete()
+                student.payments.all().delete()
+                student.previous_dues.all().delete()
+                student.admissions.all().delete()
+                student.delete()
 
-            # Remove physical photo if exists
-            if student.photo_url and student.photo_url.startswith('/media/'):
-                rel_path = student.photo_url.replace('/media/', '', 1)
-                full_path = os.path.join(settings.MEDIA_ROOT, rel_path)
-                if os.path.exists(full_path):
-                    try:
-                        os.remove(full_path)
-                    except Exception:
-                        pass
+            _delete_media_file_by_url(photo_to_remove, defer_commit=False)
 
-            student.delete()
             messages.success(request, f"Student '{name}' and all associated fee records were permanently deleted.")
             return redirect('students_list')
 
@@ -2173,86 +2777,15 @@ def students_list_view(request):
             TTL_STUDENTS,
         )
 
-    # 2. Database-Level Pagination (Only pulls requested page rows from database)
-    paginator = Paginator(admissions_qs, page_size)
-    try:
-        page_obj = paginator.get_page(page_num)
-    except Exception:
-        page_obj = paginator.get_page(1)
-
-    # 3. Optimized Page-Level Relation Fetching (Avoids SQL variable limit)
-    page_adm_ids = [adm.id for adm in page_obj.object_list]
-    page_admissions = StudentAdmission.objects.filter(id__in=page_adm_ids).select_related(
-        'student', 'branch', 'session', 'fee_plan'
-    ).prefetch_related(
-        'payments',
-        'fee_plan__installments',
-        'fee_plan__installments__allocations__payment',
-        'student__previous_dues',
-        'student__admissions__fee_plan',
-        'student__admissions__payments',
-    )
-    adm_map = {adm.id: adm for adm in page_admissions}
-    page_ordered_adms = [adm_map[aid] for aid in page_adm_ids if aid in adm_map]
-
-    students_data = []
-    for adm in page_ordered_adms:
-        st = adm.student
-        plan = getattr(adm, 'fee_plan', None)
-        tot_fees = plan.net_payable if plan else MONEY_ZERO
-        pd_fees = sum(p.total_amount for p in adm.payments.all() if not p.is_reversed)
-        pen_fees = max(MONEY_ZERO, tot_fees - pd_fees)
-
-        if adm.session_id and session_id != 'ALL':
-            prev_dues_list = [d for d in st.previous_dues.all() if d.current_session_id == adm.session_id]
-        else:
-            prev_dues_list = list(st.previous_dues.all())
-        prev_dues = sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in prev_dues_list), MONEY_ZERO)
-
-        st_all_admissions = st.admissions.all()
-        ov_pending = sum(
-            max(MONEY_ZERO, (a.fee_plan.net_payable if hasattr(a, 'fee_plan') and a.fee_plan else MONEY_ZERO) - sum((p.total_amount for p in a.payments.all() if not p.is_reversed), MONEY_ZERO))
-            for a in st_all_admissions
-        ) + sum((max(MONEY_ZERO, d.outstanding_amount - d.collected_amount) for d in st.previous_dues.all()), MONEY_ZERO)
-
-        if pen_fees <= 0 and tot_fees > 0:
-            calc_fee_status = 'PAID'
-        elif pd_fees > 0 and pen_fees > 0:
-            calc_fee_status = 'PARTIAL'
-        elif pd_fees == 0 and tot_fees > 0:
-            calc_fee_status = 'UNPAID'
-        else:
-            calc_fee_status = 'PAID'
-
-        next_due_date = None
-        due_status = 'PAID'
-        if pen_fees > 0 and plan and plan.installments.all():
-            for inst in plan.installments.all():
-                inst_paid = sum(a.allocated_amount for a in inst.allocations.all() if not a.payment.is_reversed)
-                if inst.amount_due > inst_paid:
-                    next_due_date = inst.due_date
-                    due_status = inst.status
-                    break
-
-        students_data.append({
-            'admission': adm,
-            'student': st,
-            'total_fees': tot_fees,
-            'paid_fees': pd_fees,
-            'pending_fees': pen_fees,
-            'previous_dues': prev_dues,
-            'overall_pending': ov_pending,
-            'fee_status': calc_fee_status,
-            'next_due_date': next_due_date,
-            'due_status': due_status,
-        })
-
-    # Wrap page with computed row data
-    page_obj.object_list = students_data
-
-    # EXPORT HANDLING (Excel & Landscape PDF)
+    # EXPORT HANDLING BEFORE PAGE SLICING (Exports ALL filtered rows, not just page 1)
     export_type = request.GET.get('export')
     if export_type in ('excel', 'pdf'):
+        if not has_permission(current_user, 'can_export_reports'):
+            messages.error(request, "Access Denied: You do not have permission to export student records.")
+            return HttpResponse("Access Denied: You do not have permission to export student records.", status=403)
+        all_adm_ids = list(admissions_qs.values_list('id', flat=True))
+        export_rows = _build_students_directory_rows(all_adm_ids, session_id)
+
         branch_name_label = 'All Branches'
         if branch_id and branch_id != 'ALL':
             b_match = Branch.objects.filter(id=branch_id).first()
@@ -2269,14 +2802,14 @@ def students_list_view(request):
             'institute_name': 'Sutawane Classes Vaijapur',
             'branch_name': branch_name_label,
             'session_name': session_name_label,
-            'records_count': len(students_data),
+            'records_count': len(export_rows),
             'session_pending_total': total_session_pending,
             'overall_pending_total': total_overall_pending,
         }
-        today_str = datetime.now().strftime('%Y%m%d')
+        today_str = timezone.localtime().strftime('%Y%m%d')
 
         if export_type == 'excel':
-            xlsx_bytes = export_students_to_excel(students_data, meta)
+            xlsx_bytes = export_students_to_excel(export_rows, meta)
             filename = f"Students_Directory_{branch_name_label.replace(' ', '_')}_{today_str}.xlsx"
             response = HttpResponse(
                 xlsx_bytes,
@@ -2286,11 +2819,25 @@ def students_list_view(request):
             return response
 
         elif export_type == 'pdf':
-            pdf_bytes = export_students_to_pdf(students_data, meta)
+            pdf_bytes = export_students_to_pdf(export_rows, meta)
             filename = f"Students_Directory_{branch_name_label.replace(' ', '_')}_{today_str}.pdf"
             response = HttpResponse(pdf_bytes, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
+
+    # 2. Database-Level Pagination (Only pulls requested page rows from database)
+    paginator = Paginator(admissions_qs, page_size)
+    try:
+        page_obj = paginator.get_page(page_num)
+    except Exception:
+        page_obj = paginator.get_page(1)
+
+    # 3. Optimized Page-Level Relation Fetching (Avoids SQL variable limit)
+    page_adm_ids = [adm.id for adm in page_obj.object_list]
+    students_data = _build_students_directory_rows(page_adm_ids, session_id)
+
+    # Wrap page with computed row data
+    page_obj.object_list = students_data
 
     courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
     branches = Branch.objects.filter(is_active=True).order_by('name')
@@ -2355,10 +2902,9 @@ def student_detail_view(request, student_id):
         messages.error(request, "Access Denied: You do not have permission to view students.")
         return redirect('dashboard')
 
-    if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
-        if not student.admissions.filter(branch_id=current_user.branch_id).exists():
-            messages.error(request, "Access Denied: You are not authorized to view student records outside your assigned branch.")
-            return redirect('students_list')
+    if not is_user_authorized_for_student(current_user, student):
+        messages.error(request, "Access Denied: You are not authorized to view student records outside your assigned branch.")
+        return redirect('students_list')
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -2371,12 +2917,12 @@ def student_detail_view(request, student_id):
 
         # 1. Update Bio & Admission Details
         if action == 'update_profile':
-            full_name = request.POST.get('full_name', '').strip()
-            parent_phone = request.POST.get('parent_phone', '').strip()
-            student_phone = request.POST.get('student_phone', '').strip() or None
+            full_name = request.POST.get('full_name', '').strip()[:200]
+            parent_phone = request.POST.get('parent_phone', '').strip()[:50]
+            student_phone = (request.POST.get('student_phone', '').strip()[:50]) or None
             address = request.POST.get('address', '').strip() or None
-            roll_number = request.POST.get('roll_number', '').strip()
-            standard = request.POST.get('standard', '').strip()
+            roll_number = request.POST.get('roll_number', '').strip()[:50]
+            standard = request.POST.get('standard', '').strip()[:150]
 
             if not full_name or not parent_phone:
                 messages.error(request, "Full name and parent phone are required.")
@@ -2385,28 +2931,38 @@ def student_detail_view(request, student_id):
             admission_id = request.POST.get('admission_id')
             current_adm = student.admissions.filter(id=admission_id).first() if admission_id else student.admissions.filter(is_active=True).first()
 
-            if roll_number and current_adm and roll_number != current_adm.roll_number:
-                collision = StudentAdmission.objects.filter(
-                    branch=current_adm.branch,
-                    session=current_adm.session,
-                    roll_number=roll_number
-                ).exclude(id=current_adm.id).exists()
-                if collision:
-                    messages.error(request, f"Roll number '{roll_number}' is already taken in this branch and session.")
-                    return redirect('student_detail', student_id=student.id)
+            try:
+                with transaction.atomic():
+                    if roll_number and current_adm:
+                        locked_adm = StudentAdmission.objects.select_for_update().get(id=current_adm.id)
+                        if roll_number != locked_adm.roll_number:
+                            collision = StudentAdmission.objects.filter(
+                                branch=locked_adm.branch,
+                                session=locked_adm.session,
+                                roll_number=roll_number
+                            ).exclude(id=locked_adm.id).exists()
+                            if collision:
+                                raise _ValidationAbort(f"Roll number '{roll_number}' is already taken in this branch and session.")
+                        locked_adm.roll_number = roll_number
+                        if standard:
+                            locked_adm.standard = standard
+                        locked_adm.save()
+                    elif current_adm and standard:
+                        locked_adm = StudentAdmission.objects.select_for_update().get(id=current_adm.id)
+                        locked_adm.standard = standard
+                        locked_adm.save()
 
-            student.full_name = full_name
-            student.parent_phone = parent_phone
-            student.student_phone = student_phone
-            student.address = address
-            student.save()
-
-            if current_adm:
-                if roll_number:
-                    current_adm.roll_number = roll_number
-                if standard:
-                    current_adm.standard = standard
-                current_adm.save()
+                    student.full_name = full_name
+                    student.parent_phone = parent_phone
+                    student.student_phone = student_phone
+                    student.address = address
+                    student.save()
+            except _ValidationAbort as vexc:
+                messages.error(request, str(vexc))
+                return redirect('student_detail', student_id=student.id)
+            except IntegrityError:
+                messages.error(request, f"Roll number '{roll_number}' is already taken in this branch and session.")
+                return redirect('student_detail', student_id=student.id)
 
             messages.success(request, f"Profile for '{student.full_name}' updated successfully.")
             return redirect('student_detail', student_id=student.id)
@@ -2414,69 +2970,34 @@ def student_detail_view(request, student_id):
         # 2. Upload / Update Student Photograph
         elif action == 'upload_photo':
             if request.FILES.get('photo'):
-                photo_file = request.FILES['photo']
-                raw_ext = os.path.splitext(photo_file.name)[1].lower()
-                ext = raw_ext if raw_ext in ('.jpg', '.jpeg', '.png', '.webp') else '.jpg'
-                filename = f"photo-{student.id}-{int(datetime.now().timestamp())}{ext}"
-                photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
-                os.makedirs(photos_dir, exist_ok=True)
-
-                had_photo = bool(student.photo_url)
-
-                # Remove previous photo if exists
-                if student.photo_url:
-                    clean_rel = student.photo_url.lstrip('/')
-                    if clean_rel.startswith('media/'):
-                        clean_rel = clean_rel[6:]
-                    old_path = os.path.join(settings.MEDIA_ROOT, clean_rel)
-                    if os.path.exists(old_path) and os.path.isfile(old_path):
-                        try:
-                            os.remove(old_path)
-                        except Exception:
-                            pass
-
-                filepath = os.path.join(photos_dir, filename)
+                old_photo_url = student.photo_url
+                had_photo = bool(old_photo_url)
                 try:
-                    from PIL import Image, ImageOps
-                    img = Image.open(photo_file)
-                    img = ImageOps.exif_transpose(img)
-                    img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-                    if ext in ('.jpg', '.jpeg'):
-                        if img.mode in ('RGBA', 'P', 'LA'):
-                            img = img.convert('RGB')
-                        img.save(filepath, 'JPEG', quality=90, optimize=True)
-                    elif ext == '.png':
-                        img.save(filepath, 'PNG', optimize=True)
-                    elif ext == '.webp':
-                        img.save(filepath, 'WEBP', quality=90)
-                    else:
-                        if img.mode in ('RGBA', 'P', 'LA'):
-                            img = img.convert('RGB')
-                        img.save(filepath, 'JPEG', quality=90, optimize=True)
-                except Exception:
-                    with open(filepath, 'wb+') as dest:
-                        for chunk in photo_file.chunks():
-                            dest.write(chunk)
-                student.photo_url = f"/media/photos/{filename}"
-                student.save()
+                    new_photo_url, _ = _save_validated_image_upload(
+                        request.FILES['photo'],
+                        subdir='photos',
+                        filename_prefix=f"photo-{student.id}",
+                        allowed_exts=ALLOWED_PHOTO_EXTS,
+                        max_bytes=5 * 1024 * 1024,
+                        max_dim=800,
+                        generate_thumb=False,
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('student_detail', student_id=student.id)
+                student.photo_url = new_photo_url
+                student.save(update_fields=['photo_url'])
+                _delete_media_file_by_url(old_photo_url, defer_commit=False)
                 msg = f"Profile photograph for '{student.full_name}' updated successfully." if had_photo else f"Profile photograph for '{student.full_name}' uploaded successfully."
                 messages.success(request, msg)
             return redirect('student_detail', student_id=student.id)
 
         # 3. Delete Photo
         elif action == 'delete_photo':
-            if student.photo_url:
-                clean_rel = student.photo_url.lstrip('/')
-                if clean_rel.startswith('media/'):
-                    clean_rel = clean_rel[6:]
-                old_path = os.path.join(settings.MEDIA_ROOT, clean_rel)
-                if os.path.exists(old_path) and os.path.isfile(old_path):
-                    try:
-                        os.remove(old_path)
-                    except Exception:
-                        pass
+            old_photo_url = student.photo_url
             student.photo_url = None
-            student.save()
+            student.save(update_fields=['photo_url'])
+            _delete_media_file_by_url(old_photo_url, defer_commit=False)
             messages.success(request, f"Photograph for '{student.full_name}' has been deleted.")
             return redirect('student_detail', student_id=student.id)
 
@@ -2485,15 +3006,23 @@ def student_detail_view(request, student_id):
             installment_id = request.POST.get('installment_id')
             new_due_date = request.POST.get('due_date')
             if installment_id and new_due_date:
-                inst = Installment.objects.filter(id=installment_id).first()
-                if inst:
-                    try:
-                        inst.due_date = parse_form_date(new_due_date)
-                    except ValueError as exc:
-                        messages.error(request, str(exc))
-                        return redirect('student_detail', student_id=student.id)
-                    inst.save()
-                    messages.success(request, f"Fee due date updated to {new_due_date}.")
+                inst = Installment.objects.select_related('fee_plan__admission').filter(
+                    id=installment_id,
+                    fee_plan__admission__student=student,
+                ).first()
+                if not inst:
+                    messages.error(request, "Installment record not found for this student.")
+                    return redirect('student_detail', student_id=student.id)
+                if not is_user_authorized_for_branch(current_user, inst.fee_plan.admission.branch_id):
+                    messages.error(request, "Access Denied: You cannot update installments outside your assigned branch.")
+                    return redirect('student_detail', student_id=student.id)
+                try:
+                    inst.due_date = parse_form_date(new_due_date)
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('student_detail', student_id=student.id)
+                inst.save()
+                messages.success(request, f"Fee due date updated to {new_due_date}.")
             return redirect('student_detail', student_id=student.id)
 
         # 5. Toggle Archive
@@ -2522,6 +3051,7 @@ def student_detail_view(request, student_id):
                 )
                 return redirect('student_detail', student_id=student.id)
 
+            old_photo_url = student.photo_url
             with transaction.atomic():
                 for adm in student.admissions.all():
                     if hasattr(adm, 'fee_plan'):
@@ -2532,17 +3062,11 @@ def student_detail_view(request, student_id):
                         fp.discounts.all().delete()
                         fp.delete()
                     adm.payments.all().delete()
-                student.previous_dues.all().delete()
                 student.payments.all().delete()
+                student.previous_dues.all().delete()
                 student.admissions.all().delete()
                 student.delete()
-            if student.photo_url and student.photo_url.startswith('/media/'):
-                old_path = os.path.join(settings.MEDIA_ROOT, student.photo_url.replace('/media/', '', 1))
-                if os.path.exists(old_path):
-                    try:
-                        os.remove(old_path)
-                    except Exception:
-                        pass
+            _delete_media_file_by_url(old_photo_url, defer_commit=False)
             messages.success(request, "Student and all linked records permanently deleted.")
             return redirect('students_list')
 
@@ -2561,24 +3085,33 @@ def student_detail_view(request, student_id):
                 return redirect(f"{request.path}?tab=payments")
 
             payment = get_object_or_404(Payment.objects.select_related('student', 'previous_due'), id=payment_id, student_id=student.id)
-            if payment.is_reversed:
-                messages.warning(request, f"Receipt #{payment.receipt_number} has already been refunded/reversed.")
+            if not is_user_authorized_for_branch(current_user, payment.branch_id):
+                messages.error(request, "Access Denied: You cannot void receipts outside your assigned branch.")
                 return redirect(f"{request.path}?tab=payments")
+            if refund_mode not in VALID_PAYMENT_MODES:
+                refund_mode = 'CASH'
 
             formatted_reason = f"[REFUND via {refund_mode}] {reversal_reason}"
 
-            with transaction.atomic():
-                payment.is_reversed = True
-                payment.reversal_reason = formatted_reason
-                payment.reversed_at = timezone.now()
-                payment.reversed_by = current_user
-                payment.updated_by = current_user
-                payment.save()
+            try:
+                with transaction.atomic():
+                    locked_payment = Payment.objects.select_for_update().get(id=payment.id, student_id=student.id)
+                    if locked_payment.is_reversed:
+                        raise _ValidationAbort(f"Receipt #{locked_payment.receipt_number} has already been refunded/reversed.")
+                    locked_payment.is_reversed = True
+                    locked_payment.reversal_reason = formatted_reason
+                    locked_payment.reversed_at = timezone.now()
+                    locked_payment.reversed_by = current_user
+                    locked_payment.updated_by = current_user
+                    locked_payment.save()
 
-                if payment.previous_due:
-                    pd = payment.previous_due
-                    pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
-                    pd.save()
+                    if locked_payment.previous_due_id:
+                        pd = PreviousSessionDue.objects.select_for_update().get(id=locked_payment.previous_due_id)
+                        pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - locked_payment.total_amount)
+                        pd.save()
+            except _ValidationAbort as vexc:
+                messages.warning(request, str(vexc))
+                return redirect(f"{request.path}?tab=payments")
 
             invalidate_financial_cache()
             invalidate_student_cache(student.id)
@@ -2771,11 +3304,10 @@ def student_statement_view(request, student_id):
     """
     Renders dedicated printable A4 HTML Student Account Statement & Batchwise Financial Ledger.
     """
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
+    if not has_permission(current_user, 'can_view_students'):
+        messages.error(request, "Access Denied: You do not have permission to view student statements.")
+        return redirect('dashboard')
 
     student = Student.objects.filter(id=student_id).first()
     if not student:
@@ -2797,11 +3329,10 @@ def student_statement_pdf_view(request, student_id):
     """
     Exports official publication-grade Portrait A4 PDF for student account statement.
     """
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
+    if not (has_permission(current_user, 'can_view_students') and has_permission(current_user, 'can_export_reports')):
+        messages.error(request, "Access Denied: You do not have permission to export student statements.")
+        return HttpResponse("Access Denied: You do not have permission to export student statements.", status=403)
 
     student = Student.objects.filter(id=student_id).first()
     if not student:
@@ -2831,11 +3362,10 @@ def student_statement_excel_view(request, student_id):
     """
     Exports comprehensive 3-sheet Excel workbook for student account statement.
     """
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
+    if not (has_permission(current_user, 'can_view_students') and has_permission(current_user, 'can_export_reports')):
+        messages.error(request, "Access Denied: You do not have permission to export student statements.")
+        return HttpResponse("Access Denied: You do not have permission to export student statements.", status=403)
 
     student = Student.objects.filter(id=student_id).first()
     if not student:
@@ -2907,15 +3437,13 @@ def student_promotion_preview_view(request, student_id):
     Matches React /students/:id/promotion-preview and PromoteStudentModal.tsx.
     """
     student = get_object_or_404(Student, id=student_id)
+    current_user = _resolve_current_user(request)
 
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    if not has_permission(current_user, 'can_promote_students'):
+        return HttpResponse("Access Denied: You do not have permission to promote students.", status=403)
 
     if not is_user_authorized_for_student(current_user, student):
-        return HttpResponseForbidden("Access Denied: You are not authorized to view student records outside your assigned branch.")
+        return HttpResponse("Access Denied: You are not authorized to view student records outside your assigned branch.", status=403)
 
     current_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.order_by('-created_at').first()
 
@@ -3036,8 +3564,8 @@ def promote_student_view(request, student_id):
     if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
         target_branch_id = str(current_user.branch_id)
 
-    target_standard = request.POST.get('target_standard', '').strip()
-    new_roll_number = request.POST.get('new_roll_number', '').strip()
+    target_standard = request.POST.get('target_standard', '').strip()[:150]
+    new_roll_number = request.POST.get('new_roll_number', '').strip()[:50]
     try:
         new_total_fees = parse_non_negative_money(request.POST.get('new_total_fees', 0.0))
     except ValueError as exc:
@@ -3052,25 +3580,20 @@ def promote_student_view(request, student_id):
     target_branch_obj = Branch.objects.filter(id=branch_id).first() if branch_id else None
     target_session = AcademicSession.objects.filter(id=target_session_id, isActive=True).first() if target_session_id else None
 
+    auto_roll = not new_roll_number
     # Auto-generate short sequential roll number if not provided (e.g. VAI-1)
-    if not new_roll_number and target_branch_obj and target_session:
+    if auto_roll and target_branch_obj and target_session:
         new_roll_number = generate_next_roll_number(target_branch_obj, target_session)
 
     # Validation
     error_msg = None
-    if not target_session_id or not target_standard or not new_roll_number:
-        error_msg = 'Target academic session, promoted class, and new roll number are required.'
+    if not target_session_id or not target_standard or not new_roll_number or not target_branch_obj:
+        error_msg = 'Target academic session, target branch, promoted class, and new roll number are required.'
 
     if not target_session:
         error_msg = 'Selected target academic session not found.'
 
-    if not error_msg and student.admissions.filter(session_id=target_session_id).exists():
-        error_msg = f"Student {student.full_name} is already admitted in {target_session.name}."
-
-    if not error_msg and StudentAdmission.objects.filter(branch_id=branch_id, session_id=target_session_id, roll_number=new_roll_number).exists():
-        error_msg = f"Roll number '{new_roll_number}' is already in use in target branch and session."
-
-    if error_msg:
+    def _render_promote_error(msg):
         if request.headers.get('HX-Request'):
             sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
             courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
@@ -3092,50 +3615,63 @@ def promote_student_view(request, student_id):
                 'courses': courses,
                 'standard_in_courses': True,
                 'branches': branches,
-                'form_error': error_msg,
+                'form_error': msg,
             }
             return render(request, 'modals/promote_student_modal.html', context)
-        messages.error(request, error_msg)
+        messages.error(request, msg)
         return redirect('student_detail', student_id=student.id)
 
-    # Compute previous pending dues strictly from previous admission
-    prev_plan_fees = prev_adm.fee_plan.net_payable if (prev_adm and hasattr(prev_adm, 'fee_plan')) else MONEY_ZERO
-    prev_paid = sum((p.total_amount for p in prev_adm.payments.filter(is_reversed=False)), MONEY_ZERO) if prev_adm else MONEY_ZERO
-    prev_pending_due = max(MONEY_ZERO, prev_plan_fees - prev_paid)
+    if error_msg:
+        return _render_promote_error(error_msg)
 
-    with transaction.atomic():
-        previous_due_recorded = MONEY_ZERO
-        # Independent session accounting: Previous session dues remain strictly on the previous
-        # admission fee plan without creating synthetic duplicate PreviousSessionDue records.
+    # Atomic promotion with student & branch row lock preventing concurrent duplicates
+    try:
+        with transaction.atomic():
+            Student.objects.select_for_update().get(id=student.id)
+            Branch.objects.select_for_update().filter(id=branch_id).first()
 
-        # 1. Create new StudentAdmission in target session
-        new_admission = StudentAdmission.objects.create(
-            student=student,
-            branch_id=branch_id,
-            session=target_session,
-            roll_number=new_roll_number,
-            standard=target_standard,
-            admission_date=timezone.now(),
-            is_active=True,
-        )
+            if student.admissions.filter(session_id=target_session_id).exists():
+                raise _ValidationAbort(f"Student {student.full_name} is already admitted in {target_session.name}.")
 
-        # 2. Create fresh FeePlan for target session
-        new_fee_plan = FeePlan.objects.create(
-            admission=new_admission,
-            session=target_session,
-            total_fees=new_total_fees,
-            total_discount=MONEY_ZERO,
-            net_payable=new_total_fees,
-        )
+            if auto_roll:
+                new_roll_number = generate_next_roll_number(target_branch_obj, target_session)
+            elif StudentAdmission.objects.filter(branch_id=branch_id, session_id=target_session_id, roll_number=new_roll_number).exists():
+                raise _ValidationAbort(f"Roll number '{new_roll_number}' is already in use in target branch and session.")
 
-        # 3. Create flexible open installment
-        Installment.objects.create(
-            fee_plan=new_fee_plan,
-            installment_no=1,
-            label='Session Fee',
-            due_date=timezone.now(),
-            amount_due=new_total_fees,
-        )
+            previous_due_recorded = MONEY_ZERO
+
+            # 1. Create new StudentAdmission in target session
+            new_admission = StudentAdmission.objects.create(
+                student=student,
+                branch_id=branch_id,
+                session=target_session,
+                roll_number=new_roll_number,
+                standard=target_standard,
+                admission_date=timezone.now(),
+                is_active=True,
+            )
+
+            # 2. Create fresh FeePlan for target session
+            new_fee_plan = FeePlan.objects.create(
+                admission=new_admission,
+                session=target_session,
+                total_fees=new_total_fees,
+                total_discount=MONEY_ZERO,
+                net_payable=new_total_fees,
+            )
+
+            # 3. Create flexible open installment
+            Installment.objects.create(
+                fee_plan=new_fee_plan,
+                installment_no=1,
+                label='Session Fee',
+                due_date=timezone.now(),
+                amount_due=new_total_fees,
+            )
+    except _ValidationAbort as vexc:
+        return _render_promote_error(str(vexc))
+    except IntegrityError:
+        return _render_promote_error("Concurrent enrollment or roll number conflict occurred. Please try again.")
 
     if request.headers.get('HX-Request'):
         context = {
@@ -3229,6 +3765,7 @@ def edit_admission_modal_view(request, student_id, admission_id):
     return render(request, 'modals/edit_admission_modal.html', context)
 
 
+@require_POST
 def update_admission_view(request, student_id, admission_id):
     """
     Processes updates, archive toggle, or permanent deletion for a specific StudentAdmission.
@@ -3236,17 +3773,13 @@ def update_admission_view(request, student_id, admission_id):
     student = get_object_or_404(Student, id=student_id)
     admission = get_object_or_404(StudentAdmission, id=admission_id, student=student)
 
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
 
     if not has_permission(current_user, 'can_edit_students'):
         messages.error(request, "Access Denied: You do not have permission to modify student enrollments.")
         return redirect('student_detail', student_id=student.id)
 
-    if not is_user_authorized_for_student(current_user, student):
+    if not is_user_authorized_for_branch(current_user, admission.branch_id):
         messages.error(request, "Access Denied: You cannot modify enrollment records outside your assigned branch.")
         return redirect('students_list')
 
@@ -3331,8 +3864,10 @@ def update_admission_view(request, student_id, admission_id):
     elif action == 'update_enrollment':
         target_session_id = request.POST.get('session_id')
         target_branch_id = request.POST.get('branch_id')
-        standard = request.POST.get('standard', '').strip()
-        roll_number = request.POST.get('roll_number', '').strip()
+        if current_user and current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
+            target_branch_id = str(current_user.branch_id) if current_user.branch_id else None
+        standard = request.POST.get('standard', '').strip()[:150]
+        roll_number = request.POST.get('roll_number', '').strip()[:50]
         admission_date_str = request.POST.get('admission_date', '').strip()
         total_fees_str = request.POST.get('total_fees', '').strip()
         installment_due_date_str = request.POST.get('installment_due_date', '').strip()
@@ -3399,7 +3934,7 @@ def update_admission_view(request, student_id, admission_id):
             except ValueError as exc:
                 form_error = str(exc)
 
-        if form_error:
+        def _render_edit_adm_error(err_txt):
             if request.headers.get('HX-Request'):
                 sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
                 branches = list(Branch.objects.filter(is_active=True).order_by('name'))
@@ -3418,73 +3953,94 @@ def update_admission_view(request, student_id, admission_id):
                     'courses': courses,
                     'can_delete': has_permission(current_user, 'can_delete_students'),
                     'total_enrollments_count': student.admissions.count(),
-                    'form_error': form_error,
+                    'form_error': err_txt,
                 }
                 return render(request, 'modals/edit_admission_modal.html', context)
-            messages.error(request, form_error)
+            messages.error(request, err_txt)
             return redirect(f"/students/{student.id}/?admission_id={admission.id}")
 
-        with transaction.atomic():
-            admission.session = target_session
-            admission.branch = target_branch
-            admission.standard = standard
-            admission.roll_number = roll_number
-            if parsed_adm_date:
-                admission.admission_date = parsed_adm_date
-            admission.is_active = is_active
-            admission.save()
+        if form_error:
+            return _render_edit_adm_error(form_error)
 
-            # Synchronize payments branch and session for consistency
-            admission.payments.all().update(branch=target_branch, session=target_session)
+        try:
+            with transaction.atomic():
+                admission = StudentAdmission.objects.select_for_update().get(id=admission.id)
+                locked_valid_payments = admission.payments.filter(is_reversed=False)
+                locked_paid = sum((p.total_amount for p in locked_valid_payments), MONEY_ZERO)
+                if new_total_fees < locked_paid:
+                    raise _ValidationAbort(
+                        f"Total Agreed Fees (₹{new_total_fees:,.0f}) cannot be less than already collected payments (₹{locked_paid:,.0f})."
+                    )
+                if student.admissions.filter(session=target_session).exclude(id=admission.id).exists():
+                    raise _ValidationAbort(f"Student is already enrolled in session '{target_session.name}'.")
+                if StudentAdmission.objects.filter(branch=target_branch, session=target_session, roll_number=roll_number).exclude(id=admission.id).exists():
+                    raise _ValidationAbort(f"Roll number '{roll_number}' is already taken in {target_branch.name} for session {target_session.name}.")
 
-            # Update FeePlan
-            actual_disc = fee_plan.discounts.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO if fee_plan else MONEY_ZERO
-            if not fee_plan:
-                fee_plan = FeePlan.objects.create(
-                    admission=admission,
-                    session=target_session,
-                    total_fees=new_total_fees + actual_disc,
-                    total_discount=actual_disc,
-                    net_payable=new_total_fees,
-                )
-            else:
-                fee_plan.session = target_session
-                fee_plan.total_discount = actual_disc
-                fee_plan.total_fees = new_total_fees + actual_disc
-                fee_plan.net_payable = new_total_fees
-                fee_plan.save()
+                admission.session = target_session
+                admission.branch = target_branch
+                admission.standard = standard
+                admission.roll_number = roll_number
+                if parsed_adm_date:
+                    admission.admission_date = parsed_adm_date
+                admission.is_active = is_active
+                admission.save()
 
-            # Synchronize Installments
-            installments = list(fee_plan.installments.order_by('installment_no'))
-            if not installments:
-                Installment.objects.create(
-                    fee_plan=fee_plan,
-                    installment_no=1,
-                    label='Session Fee',
-                    due_date=parsed_due_date or timezone.now(),
-                    amount_due=fee_plan.net_payable
-                )
-            elif len(installments) == 1:
-                inst = installments[0]
-                inst.amount_due = fee_plan.net_payable
-                if parsed_due_date:
-                    inst.due_date = parsed_due_date
-                inst.save()
-            else:
-                # Multiple installments: adjust unpaid portion so total matches net_payable
-                remaining_target = fee_plan.net_payable
-                for idx, inst in enumerate(installments):
-                    if idx == len(installments) - 1:
-                        inst.amount_due = max(MONEY_ZERO, remaining_target)
-                        if parsed_due_date:
-                            inst.due_date = parsed_due_date
-                        inst.save()
-                    else:
-                        alloc_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
-                        inst_target = max(alloc_paid, min(inst.amount_due, remaining_target))
-                        inst.amount_due = inst_target
-                        inst.save()
-                        remaining_target -= inst_target
+                # Synchronize payments branch and session for consistency
+                admission.payments.all().update(branch=target_branch, session=target_session)
+
+                # Update FeePlan (locked)
+                locked_fp = FeePlan.objects.select_for_update().filter(admission=admission).first()
+                actual_disc = locked_fp.discounts.aggregate(tot=Sum('amount'))['tot'] or MONEY_ZERO if locked_fp else MONEY_ZERO
+                if not locked_fp:
+                    fee_plan = FeePlan.objects.create(
+                        admission=admission,
+                        session=target_session,
+                        total_fees=new_total_fees + actual_disc,
+                        total_discount=actual_disc,
+                        net_payable=new_total_fees,
+                    )
+                else:
+                    locked_fp.session = target_session
+                    locked_fp.total_discount = actual_disc
+                    locked_fp.total_fees = new_total_fees + actual_disc
+                    locked_fp.net_payable = new_total_fees
+                    locked_fp.save()
+                    fee_plan = locked_fp
+
+                # Synchronize Installments
+                installments = list(fee_plan.installments.select_for_update().order_by('installment_no'))
+                if not installments:
+                    Installment.objects.create(
+                        fee_plan=fee_plan,
+                        installment_no=1,
+                        label='Session Fee',
+                        due_date=parsed_due_date or timezone.now(),
+                        amount_due=fee_plan.net_payable
+                    )
+                elif len(installments) == 1:
+                    inst = installments[0]
+                    inst.amount_due = fee_plan.net_payable
+                    if parsed_due_date:
+                        inst.due_date = parsed_due_date
+                    inst.save()
+                else:
+                    remaining_target = fee_plan.net_payable
+                    for idx, inst in enumerate(installments):
+                        if idx == len(installments) - 1:
+                            inst.amount_due = max(MONEY_ZERO, remaining_target)
+                            if parsed_due_date:
+                                inst.due_date = parsed_due_date
+                            inst.save()
+                        else:
+                            alloc_paid = sum((a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)), MONEY_ZERO)
+                            inst_target = max(alloc_paid, min(inst.amount_due, remaining_target))
+                            inst.amount_due = inst_target
+                            inst.save()
+                            remaining_target -= inst_target
+        except _ValidationAbort as vexc:
+            return _render_edit_adm_error(str(vexc))
+        except IntegrityError:
+            return _render_edit_adm_error("Enrollment conflict occurred (duplicate session or roll number in branch).")
 
         invalidate_financial_cache()
         invalidate_student_cache(student.id)
@@ -3507,6 +4063,10 @@ def batch_promote_modal_view(request):
     Renders batch promotion modal with live selection preview and aggregate dues.
     Matches React BatchPromoteModal.tsx.
     """
+    current_user = _resolve_current_user(request)
+    if not has_permission(current_user, 'can_promote_students'):
+        return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You do not have permission to batch promote students.</div>', status=403)
+
     student_ids = request.POST.getlist('student_ids') or request.GET.getlist('student_ids')
     if not student_ids:
         raw_ids = request.POST.get('student_ids', '') or request.GET.get('student_ids', '')
@@ -3518,7 +4078,7 @@ def batch_promote_modal_view(request):
 
     for s_id in student_ids:
         st = Student.objects.filter(id=s_id).first()
-        if not st:
+        if not st or not is_user_authorized_for_student(current_user, st):
             continue
         adm = st.admissions.filter(is_active=True).order_by('-created_at').first() or st.admissions.order_by('-created_at').first()
         fee_plan = getattr(adm, 'fee_plan', None) if adm else None
@@ -3539,6 +4099,8 @@ def batch_promote_modal_view(request):
     sessions = list(AcademicSession.objects.filter(isActive=True).order_by('-start_date'))
     target_session = next((s for s in sessions if not s.is_current), sessions[0] if sessions else None)
     branches = Branch.objects.filter(is_active=True).order_by('name')
+    if current_user and current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
+        branches = branches.filter(id=current_user.branch_id) if current_user.branch_id else Branch.objects.none()
     courses = Course.objects.filter(is_active=True).order_by('sort_order', 'name')
     default_fees = courses.first().default_fee if courses.first() and courses.first().default_fee else 30000.0
 
@@ -3605,6 +4167,10 @@ def batch_promote_view(request):
             skipped_list.append({'name': s_id, 'reason': 'Student record not found'})
             continue
 
+        if not is_user_authorized_for_student(current_user, student):
+            skipped_list.append({'name': student.full_name, 'reason': 'Access denied outside assigned branch'})
+            continue
+
         prev_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.order_by('-created_at').first()
         if not prev_adm:
             skipped_list.append({'name': student.full_name, 'reason': 'No prior admission record found'})
@@ -3615,50 +4181,62 @@ def batch_promote_view(request):
             skipped_list.append({'name': student.full_name, 'reason': f'Already enrolled in {target_session.name}'})
             continue
 
-        branch_id = prev_adm.branch_id if (not target_branch_id or target_branch_id == 'KEEP') else target_branch_id
+        if current_user and current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
+            branch_id = str(current_user.branch_id) if current_user.branch_id else None
+        else:
+            branch_id = prev_adm.branch_id if (not target_branch_id or target_branch_id == 'KEEP') else target_branch_id
 
-        # Unique roll number generation in short format: branchcode-rollnumber (e.g. VAI-1)
+        if not branch_id:
+            skipped_list.append({'name': student.full_name, 'reason': 'No valid target branch available'})
+            continue
+
         target_branch = Branch.objects.filter(id=branch_id).first()
         base_roll = prev_adm.roll_number if prev_adm else None
-        if base_roll and not base_roll.startswith('SC-') and not base_roll.endswith('-N') and not StudentAdmission.objects.filter(branch_id=branch_id, session=target_session, roll_number=base_roll).exists():
-            new_roll = base_roll
-        else:
-            new_roll = generate_next_roll_number(target_branch, target_session)
 
-        # Calculate previous dues
-        prev_fees = prev_adm.fee_plan.net_payable if hasattr(prev_adm, 'fee_plan') else MONEY_ZERO
-        prev_paid = sum((p.total_amount for p in prev_adm.payments.filter(is_reversed=False)), MONEY_ZERO)
-        prev_pending = max(MONEY_ZERO, prev_fees - prev_paid)
+        try:
+            with transaction.atomic():
+                Student.objects.select_for_update().get(id=student.id)
+                if target_branch:
+                    Branch.objects.select_for_update().get(id=target_branch.id)
+                if student.admissions.filter(session=target_session).exists():
+                    raise _ValidationAbort(f'Already enrolled in {target_session.name}')
 
-        with transaction.atomic():
-            # Independent session accounting: Previous session dues remain strictly on the previous
-            # admission fee plan without creating synthetic duplicate PreviousSessionDue records.
+                if base_roll and not base_roll.startswith('SC-') and not base_roll.endswith('-N') and not StudentAdmission.objects.filter(branch_id=branch_id, session=target_session, roll_number=base_roll).exists():
+                    new_roll = base_roll[:50]
+                else:
+                    new_roll = generate_next_roll_number(target_branch, target_session)[:50]
 
-            new_adm = StudentAdmission.objects.create(
-                student=student,
-                branch_id=branch_id,
-                session=target_session,
-                roll_number=new_roll,
-                standard=target_standard,
-                admission_date=timezone.now(),
-                is_active=True,
-            )
+                new_adm = StudentAdmission.objects.create(
+                    student=student,
+                    branch_id=branch_id,
+                    session=target_session,
+                    roll_number=new_roll,
+                    standard=target_standard[:150],
+                    admission_date=timezone.now(),
+                    is_active=True,
+                )
 
-            new_plan = FeePlan.objects.create(
-                admission=new_adm,
-                session=target_session,
-                total_fees=default_total_fees,
-                total_discount=MONEY_ZERO,
-                net_payable=default_total_fees,
-            )
+                new_plan = FeePlan.objects.create(
+                    admission=new_adm,
+                    session=target_session,
+                    total_fees=default_total_fees,
+                    total_discount=MONEY_ZERO,
+                    net_payable=default_total_fees,
+                )
 
-            Installment.objects.create(
-                fee_plan=new_plan,
-                installment_no=1,
-                label='Session Fee',
-                due_date=timezone.now(),
-                amount_due=default_total_fees,
-            )
+                Installment.objects.create(
+                    fee_plan=new_plan,
+                    installment_no=1,
+                    label='Session Fee',
+                    due_date=timezone.now(),
+                    amount_due=default_total_fees,
+                )
+        except _ValidationAbort as vexc:
+            skipped_list.append({'name': student.full_name, 'reason': str(vexc)})
+            continue
+        except IntegrityError:
+            skipped_list.append({'name': student.full_name, 'reason': 'Concurrent roll number or enrollment conflict'})
+            continue
 
         promoted_count += 1
 
@@ -3696,8 +4274,8 @@ def courses_list_view(request):
         action = request.POST.get('action')
 
         if action == 'create':
-            name = request.POST.get('name', '').strip()
-            code = request.POST.get('code', '').strip().upper() or None
+            name = request.POST.get('name', '').strip()[:150]
+            code = (request.POST.get('code', '').strip().upper()[:50]) or None
             description = request.POST.get('description', '').strip() or None
             default_fee_str = request.POST.get('default_fee', '').strip()
             sort_order_str = request.POST.get('sort_order', '0').strip()
@@ -3705,10 +4283,6 @@ def courses_list_view(request):
 
             if not name:
                 messages.error(request, "Class / Course name is required.")
-                return redirect('courses_list')
-
-            if Course.objects.filter(name__iexact=name).exists():
-                messages.error(request, f"Course '{name}' already exists.")
                 return redirect('courses_list')
 
             try:
@@ -3721,22 +4295,32 @@ def courses_list_view(request):
             except ValueError:
                 sort_order = 0
 
-            course = Course.objects.create(
-                name=name,
-                code=code,
-                description=description,
-                default_fee=default_fee,
-                sort_order=sort_order,
-                is_active=is_active,
-            )
+            try:
+                with transaction.atomic():
+                    if Course.objects.filter(name__iexact=name).exists():
+                        raise _ValidationAbort(f"Course '{name}' already exists.")
+                    course = Course.objects.create(
+                        name=name,
+                        code=code,
+                        description=description,
+                        default_fee=default_fee,
+                        sort_order=sort_order,
+                        is_active=is_active,
+                    )
+            except _ValidationAbort as vexc:
+                messages.error(request, str(vexc))
+                return redirect('courses_list')
+            except IntegrityError:
+                messages.error(request, f"Course '{name}' already exists.")
+                return redirect('courses_list')
             messages.success(request, f"Course '{course.name}' created successfully.")
             return redirect('courses_list')
 
         elif action == 'update':
             course_id = request.POST.get('course_id')
             course = get_object_or_404(Course, id=course_id)
-            name = request.POST.get('name', '').strip()
-            code = request.POST.get('code', '').strip().upper() or None
+            name = request.POST.get('name', '').strip()[:150]
+            code = (request.POST.get('code', '').strip().upper()[:50]) or None
             description = request.POST.get('description', '').strip() or None
             default_fee_str = request.POST.get('default_fee', '').strip()
             sort_order_str = request.POST.get('sort_order', '0').strip()
@@ -3746,28 +4330,37 @@ def courses_list_view(request):
                 messages.error(request, "Class / Course name is required.")
                 return redirect('courses_list')
 
-            if name.lower() != course.name.lower() and Course.objects.filter(name__iexact=name).exclude(id=course.id).exists():
-                messages.error(request, f"Course '{name}' already exists.")
-                return redirect('courses_list')
-
-            # Synchronize student admissions if standard name changed
-            if name != course.name:
-                StudentAdmission.objects.filter(standard=course.name).update(standard=name)
-
-            course.name = name
-            course.code = code
-            course.description = description
             try:
-                course.default_fee = parse_non_negative_money(default_fee_str, default=None)
+                new_default_fee = parse_non_negative_money(default_fee_str, default=None)
             except ValueError as exc:
                 messages.error(request, str(exc))
                 return redirect('courses_list')
             try:
-                course.sort_order = int(sort_order_str)
+                new_sort = int(sort_order_str)
             except ValueError:
-                pass
-            course.is_active = is_active
-            course.save()
+                new_sort = course.sort_order
+
+            try:
+                with transaction.atomic():
+                    course = Course.objects.select_for_update().get(id=course.id)
+                    if name.lower() != course.name.lower() and Course.objects.filter(name__iexact=name).exclude(id=course.id).exists():
+                        raise _ValidationAbort(f"Course '{name}' already exists.")
+                    old_name = course.name
+                    if name != old_name:
+                        StudentAdmission.objects.filter(standard=old_name).update(standard=name)
+                    course.name = name
+                    course.code = code
+                    course.description = description
+                    course.default_fee = new_default_fee
+                    course.sort_order = new_sort
+                    course.is_active = is_active
+                    course.save()
+            except _ValidationAbort as vexc:
+                messages.error(request, str(vexc))
+                return redirect('courses_list')
+            except IntegrityError:
+                messages.error(request, f"Course '{name}' already exists.")
+                return redirect('courses_list')
             messages.success(request, f"Course '{course.name}' updated successfully.")
             return redirect('courses_list')
 
@@ -3947,11 +4540,25 @@ def generate_sequential_receipt_number(branch, session) -> str:
 
         if branch and session:
             with transaction.atomic():
-                counter, _ = ReceiptCounter.objects.select_for_update().get_or_create(
+                counter = ReceiptCounter.objects.select_for_update().filter(
                     branch=branch,
                     session=session,
-                    defaults={'prefix': prefix, 'last_number': 0}
-                )
+                ).first()
+                if counter is None:
+                    try:
+                        with transaction.atomic():
+                            ReceiptCounter.objects.create(
+                                branch=branch,
+                                session=session,
+                                prefix=prefix,
+                                last_number=0,
+                            )
+                    except IntegrityError:
+                        pass
+                    counter = ReceiptCounter.objects.select_for_update().get(
+                        branch=branch,
+                        session=session,
+                    )
                 while True:
                     counter.last_number += 1
                     receipt_no = f"{prefix}{counter.last_number}"
@@ -4002,28 +4609,33 @@ def fee_collect_view(request):
             reversal_reason = request.POST.get('reversal_reason', '').strip()
 
             payment = get_object_or_404(Payment, id=payment_id)
-            if not is_user_authorized_for_student(current_user, payment.student):
+            if not is_user_authorized_for_branch(current_user, payment.branch_id):
                 messages.error(request, "Access Denied: You cannot void receipts outside your assigned branch.")
                 return redirect(f"{request.path}?tab=history")
-            if payment.is_reversed:
-                messages.warning(request, f"Receipt #{payment.receipt_number} is already refunded/voided.")
-                return redirect(f"{request.path}?tab=history")
+            if refund_mode not in VALID_PAYMENT_MODES:
+                refund_mode = 'CASH'
 
             formatted_reason = f"[REFUND via {refund_mode}] {reversal_reason or 'Fee refund requested'}"
 
-            with transaction.atomic():
-                payment.is_reversed = True
-                payment.reversal_reason = formatted_reason
-                payment.reversed_at = timezone.now()
-                payment.reversed_by = current_user
-                payment.updated_by = current_user
-                payment.save()
+            try:
+                with transaction.atomic():
+                    payment = Payment.objects.select_for_update().get(id=payment.id)
+                    if payment.is_reversed:
+                        raise _ValidationAbort(f"Receipt #{payment.receipt_number} is already refunded/voided.")
+                    payment.is_reversed = True
+                    payment.reversal_reason = formatted_reason
+                    payment.reversed_at = timezone.now()
+                    payment.reversed_by = current_user
+                    payment.updated_by = current_user
+                    payment.save()
 
-                # If towards previous due, restore collected amount
-                if payment.previous_due:
-                    pd = payment.previous_due
-                    pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
-                    pd.save()
+                    if payment.previous_due_id:
+                        pd = PreviousSessionDue.objects.select_for_update().get(id=payment.previous_due_id)
+                        pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
+                        pd.save()
+            except _ValidationAbort as vexc:
+                messages.warning(request, str(vexc))
+                return redirect(f"{request.path}?tab=history")
 
             invalidate_financial_cache()
             invalidate_student_cache(payment.student_id)
@@ -4042,15 +4654,19 @@ def fee_collect_view(request):
             admission_id = request.POST.get('admission_id')
             previous_due_id = request.POST.get('previous_due_id')
             amount_str = request.POST.get('amount', '0').strip()
-            payment_mode = request.POST.get('payment_mode', 'UPI')
+            payment_mode = request.POST.get('payment_mode', 'UPI').strip().upper()
             payment_date_str = request.POST.get('payment_date')
-            reference_number = request.POST.get('reference_number', '').strip() or None
+            reference_number = (request.POST.get('reference_number', '').strip()[:100]) or None
             notes = request.POST.get('notes', '').strip() or None
             next_due_date_str = request.POST.get('next_due_date', '').strip()
             allow_duplicate = request.POST.get('allow_duplicate') in ('true', 'on', True)
 
+            if payment_mode not in VALID_PAYMENT_MODES:
+                messages.error(request, "Invalid payment mode selected.")
+                return redirect(f"{request.path}?tab=collect&student_id={student_id}")
+
             try:
-                amount = parse_non_negative_money(amount_str)
+                amount = parse_non_negative_money(amount_str, allow_blank=False)
             except ValueError as exc:
                 messages.error(request, str(exc))
                 return redirect(f"{request.path}?tab=collect&student_id={student_id}")
@@ -4071,56 +4687,67 @@ def fee_collect_view(request):
                 messages.error(request, str(exc))
                 return redirect(f"{request.path}?tab=collect&student_id={student.id}")
 
-            # Duplicate safety check within 5 minutes
-            if not allow_duplicate:
-                five_mins_ago = timezone.now() - timedelta(minutes=5)
-                duplicate_payment = Payment.objects.filter(
-                    student=student,
-                    total_amount=amount,
-                    payment_mode=payment_mode,
-                    created_at__gte=five_mins_ago,
-                    is_reversed=False
-                ).first()
-                if duplicate_payment:
-                    msg = f"A payment of ₹{amount:,.0f} via {payment_mode} was recorded just now (Receipt #{duplicate_payment.receipt_number}). If intentional, confirm duplicate payment."
-                    messages.warning(request, msg)
-                    return redirect(f"{request.path}?tab=collect&student_id={student.id}&amount={amount}&confirm_duplicate=true")
-
-            # Route A: Previous Session Due Payment
+            # Route A: Previous Session Due Payment (atomic with row lock)
             if target_type == 'PREVIOUS_DUE' and previous_due_id:
                 _, scope_s_id, _, _ = get_active_scope(request)
                 prev_due_lookup = {'id': previous_due_id, 'student': student}
                 if scope_s_id and scope_s_id != 'ALL':
                     prev_due_lookup['current_session_id'] = scope_s_id
-                prev_due = get_object_or_404(PreviousSessionDue, **prev_due_lookup)
-                due_remaining = max(MONEY_ZERO, prev_due.outstanding_amount - prev_due.collected_amount)
-
-                if amount > due_remaining:
-                    messages.error(request, f"Payment amount (₹{amount:,.0f}) exceeds remaining previous session due balance (₹{due_remaining:,.0f}).")
-                    return redirect(f"{request.path}?tab=collect&student_id={student.id}")
+                get_object_or_404(PreviousSessionDue, **prev_due_lookup)
 
                 active_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.first()
                 target_branch = active_adm.branch if active_adm else Branch.objects.filter(is_active=True).first()
-                target_session = prev_due.current_session
 
-                with transaction.atomic():
-                    receipt_no = generate_sequential_receipt_number(target_branch, target_session)
-                    payment = Payment.objects.create(
-                        student=student,
-                        branch=target_branch,
-                        session=target_session,
-                        previous_due=prev_due,
-                        receipt_number=receipt_no,
-                        total_amount=amount,
-                        payment_mode=payment_mode,
-                        payment_date=parsed_payment_date,
-                        reference_number=reference_number,
-                        notes=notes or f"Payment towards carried-forward dues from {prev_due.original_session.name}",
-                        received_by=current_user,
-                        created_by=current_user,
-                    )
-                    prev_due.collected_amount += amount
-                    prev_due.save()
+                try:
+                    with transaction.atomic():
+                        prev_due = PreviousSessionDue.objects.select_for_update().get(**prev_due_lookup)
+                        due_remaining = max(MONEY_ZERO, prev_due.outstanding_amount - prev_due.collected_amount)
+
+                        if not allow_duplicate:
+                            five_mins_ago = timezone.now() - timedelta(minutes=5)
+                            dup = Payment.objects.filter(
+                                student=student,
+                                total_amount=amount,
+                                payment_mode=payment_mode,
+                                created_at__gte=five_mins_ago,
+                                is_reversed=False
+                            ).first()
+                            if dup:
+                                raise _ValidationAbort(('DUP', dup.receipt_number))
+
+                        if amount > due_remaining:
+                            raise _ValidationAbort(
+                                f"Payment amount (₹{amount:,.0f}) exceeds remaining previous session due balance (₹{due_remaining:,.0f})."
+                            )
+
+                        target_session = prev_due.current_session
+                        receipt_no = generate_sequential_receipt_number(target_branch, target_session)
+                        payment = Payment.objects.create(
+                            student=student,
+                            branch=target_branch,
+                            session=target_session,
+                            previous_due=prev_due,
+                            receipt_number=receipt_no,
+                            total_amount=amount,
+                            payment_mode=payment_mode,
+                            payment_date=parsed_payment_date,
+                            reference_number=reference_number,
+                            notes=notes or f"Payment towards carried-forward dues from {prev_due.original_session.name}",
+                            received_by=current_user,
+                            created_by=current_user,
+                        )
+                        prev_due.collected_amount += amount
+                        prev_due.save()
+                except _ValidationAbort as vexc:
+                    arg = vexc.args[0] if vexc.args else ''
+                    if isinstance(arg, tuple) and arg[0] == 'DUP':
+                        messages.warning(
+                            request,
+                            f"A payment of ₹{amount:,.0f} via {payment_mode} was recorded just now (Receipt #{arg[1]}). If intentional, confirm duplicate payment."
+                        )
+                        return redirect(f"{request.path}?tab=collect&student_id={student.id}&amount={amount}&confirm_duplicate=true")
+                    messages.error(request, str(arg))
+                    return redirect(f"{request.path}?tab=collect&student_id={student.id}")
 
                 invalidate_financial_cache()
                 invalidate_student_cache()
@@ -4167,7 +4794,7 @@ def fee_collect_view(request):
                     messages.success(request, f"Payment of ₹{amount:,.0f} recorded! Receipt #{receipt_no} generated.")
                 return redirect(f"{request.path}?tab=history&q={receipt_no}&open_receipt={payment.id}")
 
-            # Route B: Admission Installment Payment
+            # Route B: Admission Installment Payment (locked inside atomic transaction)
             target_adm = None
             if admission_id:
                 target_adm = student.admissions.filter(id=admission_id).first()
@@ -4178,41 +4805,9 @@ def fee_collect_view(request):
                 messages.error(request, "Student has no admission records.")
                 return redirect('fee_collect')
 
-            fee_plan = getattr(target_adm, 'fee_plan', None)
-            net_payable = fee_plan.net_payable if fee_plan else MONEY_ZERO
-            already_paid = sum(p.total_amount for p in target_adm.payments.filter(is_reversed=False))
-            pending_due = max(MONEY_ZERO, net_payable - already_paid)
-
-            if amount > pending_due:
-                messages.error(request, f"Payment amount (₹{amount:,.0f}) exceeds remaining balance (₹{pending_due:,.0f}) for {target_adm.session.name}. Overpayment is prevented.")
-                return redirect(f"{request.path}?tab=collect&student_id={student.id}")
-
-            if fee_plan:
-                if fee_plan.installments.count() == 0:
-                    Installment.objects.create(
-                        fee_plan=fee_plan,
-                        installment_no=1,
-                        label='Session Fee',
-                        due_date=timezone.now(),
-                        amount_due=net_payable,
-                    )
-                installment_capacity = sum(
-                    max(
-                        MONEY_ZERO,
-                        inst.amount_due - sum(
-                            (a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)),
-                            MONEY_ZERO,
-                        ),
-                    )
-                    for inst in fee_plan.installments.all()
-                )
-                if amount > installment_capacity + Decimal('0.005'):
-                    # Auto-heal: If installments were not adjusted after a discount/restructuring, rebalance the last installment
-                    last_inst = fee_plan.installments.order_by('installment_no').last()
-                    if last_inst:
-                        needed_cap = amount - installment_capacity
-                        last_inst.amount_due += needed_cap
-                        last_inst.save(update_fields=['amount_due'])
+            if not is_user_authorized_for_branch(current_user, target_adm.branch_id):
+                messages.error(request, "Access Denied: You cannot collect fees for enrollments outside your assigned branch.")
+                return redirect('fee_collect')
 
             next_due_datetime = None
             if next_due_date_str:
@@ -4222,60 +4817,121 @@ def fee_collect_view(request):
                     messages.error(request, str(exc))
                     return redirect(f"{request.path}?tab=collect&student_id={student.id}")
 
-            with transaction.atomic():
-                receipt_no = generate_sequential_receipt_number(target_adm.branch, target_adm.session)
-                payment = Payment.objects.create(
-                    student=student,
-                    branch=target_adm.branch,
-                    session=target_adm.session,
-                    admission=target_adm,
-                    receipt_number=receipt_no,
-                    total_amount=amount,
-                    payment_mode=payment_mode,
-                    payment_date=parsed_payment_date,
-                    reference_number=reference_number,
-                    notes=notes,
-                    received_by=current_user,
-                    created_by=current_user,
-                )
+            try:
+                with transaction.atomic():
+                    target_adm = StudentAdmission.objects.select_for_update().get(id=target_adm.id)
+                    fee_plan = FeePlan.objects.select_for_update().filter(admission=target_adm).first()
+                    net_payable = (fee_plan.net_payable if fee_plan else MONEY_ZERO).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
 
-                # Allocate payment across installments using FIFO
-                if fee_plan:
-                    remaining_amount = amount
-                    for inst in fee_plan.installments.all().order_by('installment_no'):
-                        if remaining_amount <= 0:
-                            break
-                        inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
-                        needed = max(MONEY_ZERO, inst.amount_due - inst_paid)
-                        if needed > 0:
-                            alloc_now = min(remaining_amount, needed)
-                            PaymentAllocation.objects.create(
-                                payment=payment,
-                                installment=inst,
-                                allocated_amount=alloc_now,
+                    if not allow_duplicate:
+                        five_mins_ago = timezone.now() - timedelta(minutes=5)
+                        dup = Payment.objects.filter(
+                            student=student,
+                            total_amount=amount,
+                            payment_mode=payment_mode,
+                            created_at__gte=five_mins_ago,
+                            is_reversed=False
+                        ).first()
+                        if dup:
+                            raise _ValidationAbort(('DUP', dup.receipt_number))
+
+                    already_paid = sum((p.total_amount for p in target_adm.payments.filter(is_reversed=False)), MONEY_ZERO)
+                    pending_due = max(MONEY_ZERO, (net_payable - already_paid).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP))
+
+                    if amount > pending_due:
+                        raise _ValidationAbort(
+                            f"Payment amount (₹{amount:,.0f}) exceeds remaining balance (₹{pending_due:,.0f}) for {target_adm.session.name}. Overpayment is prevented."
+                        )
+
+                    if fee_plan:
+                        if fee_plan.installments.count() == 0:
+                            Installment.objects.create(
+                                fee_plan=fee_plan,
+                                installment_no=1,
+                                label='Session Fee',
+                                due_date=timezone.now(),
+                                amount_due=net_payable,
                             )
-                            remaining_amount -= alloc_now
-
-                    if remaining_amount > Decimal('0.005'):
-                        last_inst = fee_plan.installments.order_by('installment_no').last()
-                        if last_inst:
-                            last_inst.amount_due += remaining_amount
-                            last_inst.save(update_fields=['amount_due'])
-                            PaymentAllocation.objects.create(
-                                payment=payment,
-                                installment=last_inst,
-                                allocated_amount=remaining_amount,
+                        installment_capacity = sum(
+                            max(
+                                MONEY_ZERO,
+                                inst.amount_due - sum(
+                                    (a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)),
+                                    MONEY_ZERO,
+                                ),
                             )
-                            remaining_amount = MONEY_ZERO
+                            for inst in fee_plan.installments.select_for_update().all()
+                        )
+                        if amount > installment_capacity:
+                            last_inst = fee_plan.installments.order_by('installment_no').last()
+                            if last_inst:
+                                needed_cap = amount - installment_capacity
+                                last_inst.amount_due += needed_cap
+                                last_inst.save(update_fields=['amount_due'])
 
-                    # Update next promise due date if balance remains
-                    if next_due_datetime and (pending_due - amount) > 0:
+                    receipt_no = generate_sequential_receipt_number(target_adm.branch, target_adm.session)
+                    payment = Payment.objects.create(
+                        student=student,
+                        branch=target_adm.branch,
+                        session=target_adm.session,
+                        admission=target_adm,
+                        receipt_number=receipt_no,
+                        total_amount=amount,
+                        payment_mode=payment_mode,
+                        payment_date=parsed_payment_date,
+                        reference_number=reference_number,
+                        notes=notes,
+                        received_by=current_user,
+                        created_by=current_user,
+                    )
+
+                    # Allocate payment across installments using FIFO
+                    if fee_plan:
+                        remaining_amount = amount
                         for inst in fee_plan.installments.all().order_by('installment_no'):
-                            inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
-                            if inst.amount_due > inst_paid:
-                                inst.due_date = next_due_datetime
-                                inst.save()
+                            if remaining_amount <= 0:
                                 break
+                            inst_paid = sum((a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)), MONEY_ZERO)
+                            needed = max(MONEY_ZERO, inst.amount_due - inst_paid)
+                            if needed > 0:
+                                alloc_now = min(remaining_amount, needed)
+                                PaymentAllocation.objects.create(
+                                    payment=payment,
+                                    installment=inst,
+                                    allocated_amount=alloc_now,
+                                )
+                                remaining_amount -= alloc_now
+
+                        if remaining_amount > MONEY_ZERO:
+                            last_inst = fee_plan.installments.order_by('installment_no').last()
+                            if last_inst:
+                                last_inst.amount_due += remaining_amount
+                                last_inst.save(update_fields=['amount_due'])
+                                PaymentAllocation.objects.create(
+                                    payment=payment,
+                                    installment=last_inst,
+                                    allocated_amount=remaining_amount,
+                                )
+                                remaining_amount = MONEY_ZERO
+
+                        # Update next promise due date if balance remains
+                        if next_due_datetime and (pending_due - amount) > 0:
+                            for inst in fee_plan.installments.all().order_by('installment_no'):
+                                inst_paid = sum((a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)), MONEY_ZERO)
+                                if inst.amount_due > inst_paid:
+                                    inst.due_date = next_due_datetime
+                                    inst.save()
+                                    break
+            except _ValidationAbort as vexc:
+                arg = vexc.args[0] if vexc.args else ''
+                if isinstance(arg, tuple) and arg[0] == 'DUP':
+                    messages.warning(
+                        request,
+                        f"A payment of ₹{amount:,.0f} via {payment_mode} was recorded just now (Receipt #{arg[1]}). If intentional, confirm duplicate payment."
+                    )
+                    return redirect(f"{request.path}?tab=collect&student_id={student.id}&amount={amount}&confirm_duplicate=true")
+                messages.error(request, str(arg))
+                return redirect(f"{request.path}?tab=collect&student_id={student.id}")
 
             remaining_after = max(MONEY_ZERO, pending_due - amount)
             invalidate_financial_cache()
@@ -4358,6 +5014,9 @@ def fee_collect_view(request):
             'admissions__branch', 'admissions__session', 'admissions__fee_plan__installments__allocations__payment',
             'previous_dues__original_session', 'previous_dues__current_session', 'payments'
         ).first()
+        if selected_student and not is_user_authorized_for_student(current_user, selected_student):
+            messages.error(request, "Access Denied: You are not authorized to collect fees for students outside your assigned branch.")
+            selected_student = None
 
         if selected_student:
             scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
@@ -4457,9 +5116,12 @@ def fee_collect_view(request):
     scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
     q_search = request.GET.get('q', '').strip()
     filter_mode = request.GET.get('payment_mode', 'ALL')
-    filter_branch = request.GET.get('branch_id')
-    if filter_branch is None:
+    if current_user and current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
         filter_branch = scope_b_id
+    else:
+        filter_branch = request.GET.get('branch_id')
+        if filter_branch is None:
+            filter_branch = scope_b_id
 
     filter_session = request.GET.get('session_id')
     if filter_session is None or filter_session == 'CURRENT':
@@ -4524,6 +5186,9 @@ def fee_collect_view(request):
     # Export handling (Excel / PDF)
     export_type = request.GET.get('export', '').lower()
     if export_type in ('excel', 'pdf'):
+        if not has_permission(current_user, 'can_export_reports'):
+            messages.error(request, "Access Denied: You do not have permission to export payment ledgers.")
+            return HttpResponse("Access Denied: You do not have permission to export payment ledgers.", status=403)
         export_payments = list(payments_qs)
         branch_name_label = 'All Branches'
         if filter_branch and filter_branch != 'ALL':
@@ -4640,11 +5305,12 @@ def collect_fee_modal_view(request, student_id):
     Does NOT redirect away from student profile.
     Maintains pure independent session accounting with cross-branch isolation.
     """
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
+    if not has_permission(current_user, 'can_collect_fees'):
+        if request.headers.get('HX-Request'):
+            return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You do not have permission to collect fees.</div>', status=403)
+        messages.error(request, "Access Denied: You do not have permission to collect fees.")
+        return redirect('dashboard')
 
     student = get_object_or_404(Student, id=student_id)
     if not is_user_authorized_for_student(current_user, student):
@@ -4675,6 +5341,11 @@ def collect_fee_modal_view(request, student_id):
             target_adm = student.admissions.filter(id=admission_id).first()
         if not target_adm:
             target_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.first()
+        if target_adm and not is_user_authorized_for_branch(current_user, target_adm.branch_id):
+            if request.headers.get('HX-Request'):
+                return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You cannot collect fees for enrollments outside your assigned branch.</div>', status=403)
+            messages.error(request, "Access Denied: You cannot collect fees outside your assigned branch.")
+            return redirect('students_list')
 
         for adm in all_admissions:
             adm.is_selected = bool(target_adm and adm.id == target_adm.id)
@@ -4690,23 +5361,23 @@ def collect_fee_modal_view(request, student_id):
         other_sessions_pending = max(MONEY_ZERO, overall_pending - pending_due)
 
         amount_str = request.POST.get('amount', '').strip()
-        payment_mode = request.POST.get('payment_mode', 'UPI')
-        reference_number = request.POST.get('reference_number', '').strip() or None
+        payment_mode = request.POST.get('payment_mode', 'UPI').strip().upper()
+        reference_number = (request.POST.get('reference_number', '').strip()[:100]) or None
         payment_date_str = request.POST.get('payment_date', '').strip()
         next_due_date_str = request.POST.get('next_due_date', '').strip() or None
         notes = request.POST.get('notes', '').strip() or None
 
         form_error = None
         amount = MONEY_ZERO
-        try:
-            amount = Decimal(amount_str)
-            if amount <= MONEY_ZERO:
-                form_error = "Payment amount must be greater than zero."
-        except Exception:
-            form_error = "Please enter a valid numeric payment amount."
-
-        if not form_error and amount > pending_due + Decimal('0.005'):
-            form_error = f"Amount ₹{amount:,.0f} exceeds pending session due of ₹{pending_due:,.0f} for {target_adm.session.name}."
+        if payment_mode not in VALID_PAYMENT_MODES:
+            form_error = "Invalid payment mode selected."
+        if not form_error:
+            try:
+                amount = parse_non_negative_money(amount_str, allow_blank=False)
+                if amount <= MONEY_ZERO:
+                    form_error = "Payment amount must be greater than zero."
+            except ValueError as exc:
+                form_error = str(exc)
 
         parsed_payment_date = timezone.now()
         if not form_error and payment_date_str:
@@ -4722,7 +5393,7 @@ def collect_fee_modal_view(request, student_id):
             except ValueError as exc:
                 form_error = f"Invalid next due date: {exc}"
 
-        if form_error:
+        def _render_modal_error(err_msg):
             context = {
                 'student': student,
                 'current_admission': target_adm,
@@ -4733,79 +5404,95 @@ def collect_fee_modal_view(request, student_id):
                 'other_sessions_pending': other_sessions_pending,
                 'overall_pending': overall_pending,
                 'amount_to_pay': amount_str,
-                'form_error': form_error,
+                'form_error': err_msg,
             }
             return render(request, 'modals/collect_fee_modal.html', context)
 
-        current_user = getattr(request, 'current_user', None)
-        if not current_user:
-            user_id = request.session.get('user_id')
-            if user_id:
-                current_user = User.objects.filter(id=user_id, is_active=True).first()
+        if form_error:
+            return _render_modal_error(form_error)
 
-        with transaction.atomic():
-            receipt_no = generate_sequential_receipt_number(target_adm.branch, target_adm.session)
-            payment = Payment.objects.create(
-                student=student,
-                branch=target_adm.branch,
-                session=target_adm.session,
-                admission=target_adm,
-                receipt_number=receipt_no,
-                total_amount=amount,
-                payment_mode=payment_mode,
-                payment_date=parsed_payment_date,
-                reference_number=reference_number,
-                notes=notes,
-                received_by=current_user,
-                created_by=current_user,
-            )
+        if not target_adm:
+            return _render_modal_error("Student has no active enrollment record for fee collection.")
 
-            # Allocate across installments using FIFO
-            if fee_plan:
-                if fee_plan.installments.count() == 0:
-                    Installment.objects.create(
-                        fee_plan=fee_plan,
-                        installment_no=1,
-                        label='Session Fee',
-                        due_date=timezone.now(),
-                        amount_due=fee_plan.net_payable,
+        current_user = _resolve_current_user(request)
+
+        try:
+            with transaction.atomic():
+                target_adm = StudentAdmission.objects.select_for_update().get(id=target_adm.id)
+                fee_plan = FeePlan.objects.select_for_update().filter(admission=target_adm).first()
+                tot_f = (fee_plan.net_payable if fee_plan else MONEY_ZERO).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
+                already_paid = sum((p.total_amount for p in target_adm.payments.filter(is_reversed=False)), MONEY_ZERO)
+                pending_due = max(MONEY_ZERO, (tot_f - already_paid).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP))
+
+                if amount > pending_due:
+                    raise _ValidationAbort(
+                        f"Amount ₹{amount:,.0f} exceeds pending session due of ₹{pending_due:,.0f} for {target_adm.session.name}."
                     )
-                remaining_amount = amount
-                for inst in fee_plan.installments.all().order_by('installment_no'):
-                    if remaining_amount <= 0:
-                        break
-                    inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
-                    needed = max(MONEY_ZERO, inst.amount_due - inst_paid)
-                    if needed > 0:
-                        alloc_now = min(remaining_amount, needed)
-                        PaymentAllocation.objects.create(
-                            payment=payment,
-                            installment=inst,
-                            allocated_amount=alloc_now,
-                        )
-                        remaining_amount -= alloc_now
 
-                # If remaining amount exists due to unadjusted installments, expand the last installment
-                if remaining_amount > Decimal('0.005'):
-                    last_inst = fee_plan.installments.order_by('installment_no').last()
-                    if last_inst:
-                        last_inst.amount_due += remaining_amount
-                        last_inst.save(update_fields=['amount_due'])
-                        PaymentAllocation.objects.create(
-                            payment=payment,
-                            installment=last_inst,
-                            allocated_amount=remaining_amount,
-                        )
-                        remaining_amount = MONEY_ZERO
+                receipt_no = generate_sequential_receipt_number(target_adm.branch, target_adm.session)
+                payment = Payment.objects.create(
+                    student=student,
+                    branch=target_adm.branch,
+                    session=target_adm.session,
+                    admission=target_adm,
+                    receipt_number=receipt_no,
+                    total_amount=amount,
+                    payment_mode=payment_mode,
+                    payment_date=parsed_payment_date,
+                    reference_number=reference_number,
+                    notes=notes,
+                    received_by=current_user,
+                    created_by=current_user,
+                )
 
-                # Update next due date if specified
-                if next_due_datetime and (pending_due - amount) > 0:
-                    for inst in fee_plan.installments.all().order_by('installment_no'):
-                        inst_paid = sum(a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False))
-                        if inst.amount_due > inst_paid:
-                            inst.due_date = next_due_datetime
-                            inst.save()
+                # Allocate across installments using FIFO
+                if fee_plan:
+                    if fee_plan.installments.count() == 0:
+                        Installment.objects.create(
+                            fee_plan=fee_plan,
+                            installment_no=1,
+                            label='Session Fee',
+                            due_date=timezone.now(),
+                            amount_due=fee_plan.net_payable,
+                        )
+                    remaining_amount = amount
+                    for inst in fee_plan.installments.select_for_update().all().order_by('installment_no'):
+                        if remaining_amount <= 0:
                             break
+                        inst_paid = sum((a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)), MONEY_ZERO)
+                        needed = max(MONEY_ZERO, inst.amount_due - inst_paid)
+                        if needed > 0:
+                            alloc_now = min(remaining_amount, needed)
+                            PaymentAllocation.objects.create(
+                                payment=payment,
+                                installment=inst,
+                                allocated_amount=alloc_now,
+                            )
+                            remaining_amount -= alloc_now
+
+                    # If remaining amount exists due to unadjusted installments, expand the last installment
+                    if remaining_amount > MONEY_ZERO:
+                        last_inst = fee_plan.installments.order_by('installment_no').last()
+                        if last_inst:
+                            last_inst.amount_due += remaining_amount
+                            last_inst.save(update_fields=['amount_due'])
+                            PaymentAllocation.objects.create(
+                                payment=payment,
+                                installment=last_inst,
+                                allocated_amount=remaining_amount,
+                            )
+                            remaining_amount = MONEY_ZERO
+
+                    # Update next due date if specified
+                    if next_due_datetime and (pending_due - amount) > 0:
+                        for inst in fee_plan.installments.all().order_by('installment_no'):
+                            inst_paid = sum((a.allocated_amount for a in inst.allocations.filter(payment__is_reversed=False)), MONEY_ZERO)
+                            if inst.amount_due > inst_paid:
+                                inst.due_date = next_due_datetime
+                                inst.save()
+                                break
+        except _ValidationAbort as vexc:
+            return _render_modal_error(str(vexc))
 
         remaining_after = max(MONEY_ZERO, pending_due - amount)
         invalidate_financial_cache()
@@ -4871,6 +5558,8 @@ def collect_fee_modal_view(request, student_id):
         target_adm = student.admissions.filter(id=admission_id).first()
     if not target_adm:
         target_adm = student.admissions.filter(is_active=True).order_by('-created_at').first() or student.admissions.first()
+    if target_adm and not is_user_authorized_for_branch(current_user, target_adm.branch_id):
+        return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You cannot collect fees for enrollments outside your assigned branch.</div>', status=403)
 
     for adm in all_admissions:
         adm.is_selected = bool(target_adm and adm.id == target_adm.id)
@@ -4907,9 +5596,18 @@ def api_student_fee_search_view(request):
     """
     HTMX live student autocomplete search endpoint for Fee Collection screen.
     """
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return HttpResponse('Unauthorized', status=401)
+    if not (has_permission(current_user, 'can_collect_fees') or has_permission(current_user, 'can_view_students')):
+        return HttpResponse('Access Denied', status=403)
+
     q = request.GET.get('q', '').strip()
     scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
-    branch_id = request.GET.get('branch_id') or scope_b_id
+    if current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
+        branch_id = scope_b_id
+    else:
+        branch_id = request.GET.get('branch_id') or scope_b_id
     session_id = request.GET.get('session_id') or scope_s_id
 
     admissions = StudentAdmission.objects.filter(is_active=True).select_related('student', 'branch', 'session', 'fee_plan').prefetch_related('payments')
@@ -4954,18 +5652,16 @@ def payment_receipt_modal_view(request, payment_id):
     Renders printable dual-copy fee receipt modal (A4 Student/Office Copy & Thermal 80mm).
     Matches React FeeReceiptModal.tsx.
     """
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
+    if not (has_permission(current_user, 'can_collect_fees') or has_permission(current_user, 'can_view_students')):
+        return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You do not have permission to view receipts.</div>', status=403)
 
     payment = get_object_or_404(
         Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due', 'received_by', 'created_by', 'reversed_by'),
         id=payment_id
     )
 
-    if not is_user_authorized_for_student(current_user, payment.student):
+    if not is_user_authorized_for_branch(current_user, payment.branch_id):
         return HttpResponse('<div class="p-6 text-rose-600 font-bold text-center">Access Denied: You cannot view receipts outside your assigned branch.</div>', status=403)
 
     allocations = payment.allocations.select_related('installment').all()
@@ -5015,18 +5711,17 @@ def payment_receipt_print_view(request, payment_id):
     Student Slip, Office Slip, and 80mm Thermal Receipt.
     Matches React FeeReceiptModal print output.
     """
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
+    if not (has_permission(current_user, 'can_collect_fees') or has_permission(current_user, 'can_view_students')):
+        messages.error(request, "Access Denied: You do not have permission to view receipts.")
+        return redirect('dashboard')
 
     payment = get_object_or_404(
         Payment.objects.select_related('student', 'branch', 'session', 'admission', 'previous_due', 'received_by', 'created_by', 'reversed_by'),
         id=payment_id
     )
 
-    if not is_user_authorized_for_student(current_user, payment.student):
+    if not is_user_authorized_for_branch(current_user, payment.branch_id):
         messages.error(request, "Access Denied: You cannot view or print receipts outside your assigned branch.")
         return redirect('fee_collect')
 
@@ -5081,53 +5776,72 @@ def payment_receipt_void_view(request, payment_id):
     Cancels/refunds an official fee receipt with audit trail.
     Restores student pending dues by increasing outstanding balance.
     """
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
+    current_user = _resolve_current_user(request)
 
-    next_url = request.POST.get('next') or request.GET.get('next') or request.META.get('HTTP_REFERER') or reverse('fee_collect')
+    raw_next = request.POST.get('next') or request.GET.get('next') or request.META.get('HTTP_REFERER') or ''
+    if raw_next and url_has_allowed_host_and_scheme(
+        raw_next,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = raw_next
+    else:
+        next_url = reverse('fee_collect')
+
+    wants_json = 'application/json' in (request.headers.get('Accept') or '')
 
     if not has_permission(current_user, 'can_void_receipts'):
-        if request.headers.get('Accept') == 'application/json':
+        if wants_json:
             return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to refund/void receipts.'}, status=403)
         messages.error(request, "Access Denied: You do not have permission to refund/void receipts.")
         return redirect(next_url)
 
     payment = get_object_or_404(Payment.objects.select_related('student', 'previous_due'), id=payment_id)
-    if not is_user_authorized_for_student(current_user, payment.student):
-        if request.headers.get('Accept') == 'application/json':
+    if not is_user_authorized_for_branch(current_user, payment.branch_id):
+        if wants_json:
             return JsonResponse({'success': False, 'error': 'Access Denied: You cannot void receipts outside your assigned branch.'}, status=403)
         messages.error(request, "Access Denied: You cannot void receipts outside your assigned branch.")
         return redirect(next_url)
     if payment.is_reversed:
-        if request.headers.get('Accept') == 'application/json':
+        if wants_json:
             return JsonResponse({'success': False, 'error': f"Receipt #{payment.receipt_number} has already been refunded/reversed."}, status=400)
         messages.warning(request, f"Receipt #{payment.receipt_number} has already been refunded/reversed.")
         return redirect(next_url)
 
     if request.method == 'POST':
         refund_mode = request.POST.get('refund_mode', 'CASH').strip().upper()
+        if refund_mode not in VALID_PAYMENT_MODES:
+            refund_mode = 'CASH'
         reversal_reason = request.POST.get('reversal_reason', '').strip()
         if not reversal_reason:
+            if wants_json:
+                return JsonResponse({'success': False, 'error': 'A specific mandatory reason is required to refund/return collected fees.'}, status=400)
             messages.error(request, "A specific mandatory reason is required to refund/return collected fees.")
             return redirect(next_url)
 
         formatted_reason = f"[REFUND via {refund_mode}] {reversal_reason}"
 
-        with transaction.atomic():
-            payment.is_reversed = True
-            payment.reversal_reason = formatted_reason
-            payment.reversed_at = timezone.now()
-            payment.reversed_by = current_user
-            payment.updated_by = current_user
-            payment.save()
+        try:
+            with transaction.atomic():
+                payment = Payment.objects.select_for_update().get(id=payment.id)
+                if payment.is_reversed:
+                    raise _ValidationAbort(f"Receipt #{payment.receipt_number} has already been refunded/reversed.")
+                payment.is_reversed = True
+                payment.reversal_reason = formatted_reason
+                payment.reversed_at = timezone.now()
+                payment.reversed_by = current_user
+                payment.updated_by = current_user
+                payment.save()
 
-            if payment.previous_due:
-                pd = payment.previous_due
-                pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
-                pd.save()
+                if payment.previous_due_id:
+                    pd = PreviousSessionDue.objects.select_for_update().get(id=payment.previous_due_id)
+                    pd.collected_amount = max(MONEY_ZERO, pd.collected_amount - payment.total_amount)
+                    pd.save()
+        except _ValidationAbort as vexc:
+            if wants_json:
+                return JsonResponse({'success': False, 'error': str(vexc)}, status=400)
+            messages.warning(request, str(vexc))
+            return redirect(next_url)
 
         invalidate_financial_cache()
         invalidate_student_cache(payment.student_id)
@@ -5165,10 +5879,17 @@ def fees_dues_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'update_due_date':
+            if not has_permission(current_user, 'can_edit_students'):
+                messages.error(request, "Access Denied: You do not have permission to update installment due dates.")
+                return redirect('fees_dues')
             installment_id = request.POST.get('installment_id')
             new_date_str = request.POST.get('due_date', '').strip()
             if installment_id and new_date_str:
-                inst = get_object_or_404(Installment, id=installment_id)
+                inst = get_object_or_404(Installment.objects.select_related('fee_plan__admission'), id=installment_id)
+                adm = getattr(getattr(inst, 'fee_plan', None), 'admission', None)
+                if not adm or not is_user_authorized_for_branch(current_user, adm.branch_id):
+                    messages.error(request, "Access Denied: You cannot update installments outside your assigned branch.")
+                    return redirect('fees_dues')
                 try:
                     inst.due_date = parse_form_date(new_date_str)
                     inst.save()
@@ -5182,9 +5903,12 @@ def fees_dues_view(request):
     search_query = request.GET.get('q', '').strip()
     status_filter = request.GET.get('status', 'ALL').upper()
     scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
-    branch_filter = request.GET.get('branch_id')
-    if branch_filter is None:
+    if current_user and current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
         branch_filter = scope_b_id
+    else:
+        branch_filter = request.GET.get('branch_id')
+        if branch_filter is None:
+            branch_filter = scope_b_id
 
     session_filter = request.GET.get('session_id')
     if session_filter is None or session_filter == 'CURRENT':
@@ -5650,19 +6374,40 @@ def expenses_list_view(request):
                     scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
                     branch = scope_b or Branch.objects.filter(is_active=True).first()
 
-            payment_mode = request.POST.get('payment_mode', 'UPI')
-            vendor = request.POST.get('vendor', '').strip() or None
-            reference_number = request.POST.get('reference_number', '').strip() or None
+            payment_mode = request.POST.get('payment_mode', 'UPI').strip().upper()
+            if payment_mode not in VALID_PAYMENT_MODES:
+                payment_mode = 'UPI'
+            vendor = (request.POST.get('vendor', '').strip()[:200]) or None
+            reference_number = (request.POST.get('reference_number', '').strip()[:100]) or None
 
             # Expense Date
             exp_date_str = request.POST.get('expense_date', '').strip()
-            if exp_date_str:
+            try:
+                exp_dt = parse_form_date(exp_date_str, default=timezone.now())
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect('expenses_list')
+
+            # Validate attachment BEFORE creating expense so invalid files never create orphan records
+            att_file = request.FILES.get('attachment')
+            att_url = None
+            att_orig_name = None
+            att_size = 0
+            att_mime = 'application/octet-stream'
+            if att_file:
                 try:
-                    exp_dt = timezone.make_aware(datetime.strptime(exp_date_str, '%Y-%m-%d'))
-                except Exception:
-                    exp_dt = timezone.now()
-            else:
-                exp_dt = timezone.now()
+                    att_url, att_orig_name = _save_validated_document_upload(
+                        att_file,
+                        subdir='attachments',
+                        filename_prefix='bill',
+                        allowed_exts=ALLOWED_ATTACHMENT_EXTS,
+                        max_bytes=10 * 1024 * 1024,
+                    )
+                    att_size = att_file.size
+                    att_mime = att_file.content_type or 'application/octet-stream'
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('expenses_list')
 
             expense = Expense.objects.create(
                 branch=branch,
@@ -5676,32 +6421,22 @@ def expenses_list_view(request):
                 created_by=current_user,
             )
 
-            # Handle File Attachment
-            if request.FILES.get('attachment'):
-                file_obj = request.FILES['attachment']
-                import uuid
-                ext = os.path.splitext(file_obj.name)[1] or ''
-                orig_name = file_obj.name
-                filename = f"bill-{uuid.uuid4()}-{int(datetime.now().timestamp())}{ext}"
-                attachments_dir = os.path.join(settings.MEDIA_ROOT, 'attachments')
-                os.makedirs(attachments_dir, exist_ok=True)
-                filepath = os.path.join(attachments_dir, filename)
-                with open(filepath, 'wb+') as dest:
-                    for chunk in file_obj.chunks():
-                        dest.write(chunk)
-                file_url = f"/media/attachments/{filename}"
+            if att_url:
                 ExpenseAttachment.objects.create(
                     expense=expense,
-                    file_name=orig_name,
-                    file_path=file_url,
-                    file_size=file_obj.size,
-                    mime_type=file_obj.content_type or 'application/octet-stream',
+                    file_name=att_orig_name,
+                    file_path=att_url,
+                    file_size=att_size,
+                    mime_type=att_mime,
                 )
 
             messages.success(request, f"Expense voucher for '₹{amount_val:,.0f}' ({cat.name}) recorded successfully!")
             return redirect('expenses_list')
 
         elif action == 'update':
+            if not has_permission(current_user, 'can_add_expenses'):
+                messages.error(request, "Access Denied: You do not have permission to update expense entries.")
+                return redirect('expenses_list')
             expense_id = request.POST.get('expense_id')
             expense = get_object_or_404(Expense, id=expense_id)
             if current_user and current_user.is_branch_manager and current_user.branch_id and has_permission(current_user, 'restricted_to_assigned_branch'):
@@ -5737,40 +6472,46 @@ def expenses_list_view(request):
                     expense.branch = get_object_or_404(Branch, id=branch_id)
 
             expense.description = description
-            expense.payment_mode = request.POST.get('payment_mode', 'UPI')
-            expense.vendor = request.POST.get('vendor', '').strip() or None
-            expense.reference_number = request.POST.get('reference_number', '').strip() or None
+            upd_mode = request.POST.get('payment_mode', 'UPI').strip().upper()
+            expense.payment_mode = upd_mode if upd_mode in VALID_PAYMENT_MODES else 'UPI'
+            expense.vendor = (request.POST.get('vendor', '').strip()[:200]) or None
+            expense.reference_number = (request.POST.get('reference_number', '').strip()[:100]) or None
 
             exp_date_str = request.POST.get('expense_date', '').strip()
             if exp_date_str:
                 try:
-                    expense.expense_date = timezone.make_aware(datetime.strptime(exp_date_str, '%Y-%m-%d'))
-                except Exception:
-                    pass
+                    expense.expense_date = parse_form_date(exp_date_str)
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('expenses_list')
+
+            # Validate and handle new attachment upload if provided before mutating expense
+            att_file = request.FILES.get('attachment')
+            att_url = None
+            att_orig_name = None
+            if att_file:
+                try:
+                    att_url, att_orig_name = _save_validated_document_upload(
+                        att_file,
+                        subdir='attachments',
+                        filename_prefix='bill',
+                        allowed_exts=ALLOWED_ATTACHMENT_EXTS,
+                        max_bytes=10 * 1024 * 1024,
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('expenses_list')
 
             expense.updated_by = current_user
             expense.save()
 
-            # Handle new attachment upload if provided
-            if request.FILES.get('attachment'):
-                file_obj = request.FILES['attachment']
-                import uuid
-                ext = os.path.splitext(file_obj.name)[1] or ''
-                orig_name = file_obj.name
-                filename = f"bill-{uuid.uuid4()}-{int(datetime.now().timestamp())}{ext}"
-                attachments_dir = os.path.join(settings.MEDIA_ROOT, 'attachments')
-                os.makedirs(attachments_dir, exist_ok=True)
-                filepath = os.path.join(attachments_dir, filename)
-                with open(filepath, 'wb+') as dest:
-                    for chunk in file_obj.chunks():
-                        dest.write(chunk)
-                file_url = f"/media/attachments/{filename}"
+            if att_url:
                 ExpenseAttachment.objects.create(
                     expense=expense,
-                    file_name=orig_name,
-                    file_path=file_url,
-                    file_size=file_obj.size,
-                    mime_type=file_obj.content_type or 'application/octet-stream',
+                    file_name=att_orig_name,
+                    file_path=att_url,
+                    file_size=att_file.size,
+                    mime_type=att_file.content_type or 'application/octet-stream',
                 )
 
             messages.success(request, f"Expense voucher updated successfully.")
@@ -5789,28 +6530,26 @@ def expenses_list_view(request):
             desc = expense.description
             amt = expense.amount
 
-            # Clean up physical files on disk
-            for att in expense.attachments.all():
-                if att.file_path and att.file_path.startswith('/media/'):
-                    disk_rel = att.file_path[len('/media/'):]
-                    disk_full = os.path.join(settings.MEDIA_ROOT, disk_rel)
-                    try:
-                        if os.path.exists(disk_full):
-                            os.remove(disk_full)
-                    except Exception:
-                        pass
-
+            # Clean up physical files on disk safely
+            att_urls = [att.file_path for att in expense.attachments.all() if att.file_path]
             expense.delete()
+            for att_url in att_urls:
+                _delete_media_file_by_url(att_url, defer_commit=False)
             messages.success(request, f"Expense voucher '{desc}' (₹{amt:,.0f}) permanently deleted.")
             return redirect('expenses_list')
 
         elif action == 'create_category':
-            cat_name = request.POST.get('category_name', '').strip()
             is_ajax = (
                 request.headers.get('x-requested-with') == 'XMLHttpRequest' or
                 'application/json' in request.headers.get('Accept', '') or
                 request.content_type == 'application/json'
             )
+            if not has_permission(current_user, 'can_add_expenses'):
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to manage expense categories.'}, status=403)
+                messages.error(request, 'Access Denied: You do not have permission to manage expense categories.')
+                return redirect('expenses_list')
+            cat_name = request.POST.get('category_name', '').strip()
             if not cat_name:
                 if is_ajax:
                     return JsonResponse({'success': False, 'error': 'Category name cannot be empty.'}, status=400)
@@ -5852,6 +6591,11 @@ def expenses_list_view(request):
                 'application/json' in request.headers.get('Accept', '') or
                 request.content_type == 'application/json'
             )
+            if not has_permission(current_user, 'can_add_expenses'):
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to update expense categories.'}, status=403)
+                messages.error(request, 'Access Denied: You do not have permission to update expense categories.')
+                return redirect('expenses_list')
 
             if not category_id:
                 if is_ajax:
@@ -5903,6 +6647,11 @@ def expenses_list_view(request):
                 'application/json' in request.headers.get('Accept', '') or
                 request.content_type == 'application/json'
             )
+            if not has_permission(current_user, 'can_delete_expenses'):
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to delete expense categories.'}, status=403)
+                messages.error(request, 'Access Denied: You do not have permission to delete expense categories.')
+                return redirect('expenses_list')
 
             if not category_id:
                 if is_ajax:
@@ -5943,17 +6692,30 @@ def expenses_list_view(request):
     category_filter = request.GET.get('category_id', 'ALL')
     payment_mode_filter = request.GET.get('payment_mode', 'ALL')
     scope_b_id, scope_s_id, scope_b, scope_s = get_active_scope(request)
-    branch_filter = request.GET.get('branch_id')
-    if branch_filter is None:
+    if current_user and current_user.is_branch_manager and has_permission(current_user, 'restricted_to_assigned_branch'):
         branch_filter = scope_b_id
+    else:
+        branch_filter = request.GET.get('branch_id')
+        if branch_filter is None:
+            branch_filter = scope_b_id
 
     date_preset = request.GET.get('date_preset', 'ALL').upper()
     start_date_str = request.GET.get('start_date', '').strip()
     end_date_str = request.GET.get('end_date', '').strip()
     sort_field = request.GET.get('sort', 'expenseDate')
     sort_direction = request.GET.get('direction', 'desc').lower()
-    page_size = int(request.GET.get('page_size', 25))
-    page_num = int(request.GET.get('page', 1))
+    try:
+        page_size = int(request.GET.get('page_size', 25))
+        if page_size < 1 or page_size > 500:
+            page_size = 25
+    except (TypeError, ValueError):
+        page_size = 25
+    try:
+        page_num = int(request.GET.get('page', 1))
+        if page_num < 1:
+            page_num = 1
+    except (TypeError, ValueError):
+        page_num = 1
     export_type = request.GET.get('export', '').lower()
 
     # 3. Base Queryset
@@ -6115,6 +6877,11 @@ def expenses_list_view(request):
         b_obj = Branch.objects.filter(id=branch_filter).first()
         if b_obj:
             branch_name_label = b_obj.name
+
+    if export_type in ('excel', 'pdf'):
+        if not has_permission(current_user, 'can_export_reports'):
+            messages.error(request, "Access Denied: You do not have permission to export expense statements.")
+            return HttpResponse("Access Denied: You do not have permission to export expense statements.", status=403)
 
     if export_type == 'excel':
         xlsx_bytes = export_expenses_to_excel(raw_expenses, {'branch_name': branch_name_label})
@@ -6294,7 +7061,8 @@ def financial_reports_view(request):
                 prev_dues_collected = prev_dues_agg['tot_col'] or MONEY_ZERO
                 prev_dues_pending = max(MONEY_ZERO, prev_dues_total - prev_dues_collected)
 
-                total_fees_agreed = plan_fees_agreed + prev_dues_total
+                # All-Sessions consolidates across every historical admission, so avoid double-counting carried debt
+                total_fees_agreed = (plan_fees_agreed + prev_dues_total) if target_session else plan_fees_agreed
 
                 pay_qs = Payment.objects.filter(
                     is_reversed=False,
@@ -6318,16 +7086,17 @@ def financial_reports_view(request):
                      for a in active_admissions),
                     MONEY_ZERO
                 )
-                total_pending_dues = plan_pending_dues + prev_dues_pending
+                total_pending_dues = (plan_pending_dues + prev_dues_pending) if target_session else plan_pending_dues
                 collection_efficiency = round((float(total_collections) / float(total_fees_agreed) * 100), 1) if total_fees_agreed and float(total_fees_agreed) > 0 else 0.0
     
                 exp_qs = Expense.objects.all().select_related('category', 'branch')
-                if target_session and target_session.start_date and target_session.end_date:
+                sess_end_dt = _session_end_dt(target_session) if target_session else None
+                if target_session and target_session.start_date and sess_end_dt:
                     exp_qs = exp_qs.filter(
                         expense_date__gte=target_session.start_date,
-                        expense_date__lte=target_session.end_date
+                        expense_date__lte=sess_end_dt
                     )
-                elif target_session and (not target_session.start_date or not target_session.end_date):
+                elif target_session and (not target_session.start_date or not sess_end_dt):
                     exp_qs = exp_qs.none()
                 if selected_branch_id != 'ALL':
                     exp_qs = exp_qs.filter(branch_id=selected_branch_id)
@@ -6351,7 +7120,7 @@ def financial_reports_view(request):
                     b_prev_out = sum((d.outstanding_amount for d in b_prev_dues), MONEY_ZERO)
                     b_prev_col = sum((d.collected_amount for d in b_prev_dues), MONEY_ZERO)
                     b_prev_pend = max(MONEY_ZERO, b_prev_out - b_prev_col)
-                    b_fees = b_plan_fees + b_prev_out
+                    b_fees = (b_plan_fees + b_prev_out) if target_session else b_plan_fees
 
                     b_pays = [p for p in payments if p.branch_id == b.id]
                     b_col = sum((p.total_amount for p in b_pays), MONEY_ZERO)
@@ -6361,7 +7130,7 @@ def financial_reports_view(request):
                          for a in b_adms),
                         MONEY_ZERO
                     )
-                    b_dues = b_plan_dues + b_prev_pend
+                    b_dues = (b_plan_dues + b_prev_pend) if target_session else b_plan_dues
                     b_net = b_col - b_exp
                     b_rate = round((float(b_col) / float(b_fees) * 100), 1) if b_fees and float(b_fees) > 0 else 0.0
     
@@ -6636,9 +7405,10 @@ def financial_reports_view(request):
             e_cats_qs = Expense.objects.all()
             if selected_branch_id != 'ALL':
                 e_cats_qs = e_cats_qs.filter(branch_id=selected_branch_id)
-            if selected_session_id != 'ALL' and target_session and target_session.start_date and target_session.end_date:
-                e_cats_qs = e_cats_qs.filter(expense_date__gte=target_session.start_date, expense_date__lte=target_session.end_date)
-            elif selected_session_id != 'ALL' and target_session and (not target_session.start_date or not target_session.end_date):
+            e_cat_end_dt = _session_end_dt(target_session) if (selected_session_id != 'ALL' and target_session) else None
+            if selected_session_id != 'ALL' and target_session and target_session.start_date and e_cat_end_dt:
+                e_cats_qs = e_cats_qs.filter(expense_date__gte=target_session.start_date, expense_date__lte=e_cat_end_dt)
+            elif selected_session_id != 'ALL' and target_session and (not target_session.start_date or not e_cat_end_dt):
                 e_cats_qs = e_cats_qs.none()
 
             cat_aggs = e_cats_qs.values('category_id', 'category__name').annotate(
@@ -6770,7 +7540,7 @@ def financial_reports_view(request):
         'session_audit': session_audit_data,
         'payment_modes': payment_modes_data,
         'expense_categories': expense_categories_data,
-        'printed_date': datetime.now().strftime('%d %B %Y'),
+        'printed_date': timezone.localtime().strftime('%d %B %Y'),
     }
 
     return render(request, 'reports.html', context)
@@ -6819,20 +7589,26 @@ def daily_reports_view(request):
     if active_mode not in ('DAILY', 'MONTHLY', 'CUSTOM'):
         active_mode = 'DAILY'
 
-    today_str = datetime.now().strftime('%Y-%m-%d')
+    local_now = timezone.localtime()
+    today_str = local_now.strftime('%Y-%m-%d')
     daily_date = request.GET.get('date') or today_str
 
     try:
-        selected_month = int(request.GET.get('month', datetime.now().month - 1))
+        selected_month = int(request.GET.get('month', local_now.month - 1))
+        if selected_month < 0 or selected_month > 11:
+            selected_month = local_now.month - 1
     except (ValueError, TypeError):
-        selected_month = datetime.now().month - 1
+        selected_month = local_now.month - 1
 
     try:
-        selected_year = int(request.GET.get('year', datetime.now().year))
+        selected_year = int(request.GET.get('year', local_now.year))
+        if selected_year < 1900 or selected_year > 2100:
+            selected_year = local_now.year
     except (ValueError, TypeError):
-        selected_year = datetime.now().year
+        selected_year = local_now.year
 
-    custom_start_date = request.GET.get('start_date') or datetime(datetime.now().year, datetime.now().month, 1).strftime('%Y-%m-%d')
+    month_start_date = local_now.date().replace(day=1)
+    custom_start_date = request.GET.get('start_date') or month_start_date.strftime('%Y-%m-%d')
     custom_end_date = request.GET.get('end_date') or today_str
 
     # Date range calculations
@@ -6840,7 +7616,7 @@ def daily_reports_view(request):
         try:
             d_obj = datetime.strptime(daily_date, '%Y-%m-%d').date()
         except ValueError:
-            d_obj = datetime.now().date()
+            d_obj = local_now.date()
             daily_date = today_str
         start_dt = timezone.make_aware(datetime.combine(d_obj, datetime.min.time()))
         end_dt = timezone.make_aware(datetime.combine(d_obj, datetime.max.time()))
@@ -6857,12 +7633,12 @@ def daily_reports_view(request):
         try:
             s_obj = datetime.strptime(custom_start_date, '%Y-%m-%d').date()
         except ValueError:
-            s_obj = datetime(datetime.now().year, datetime.now().month, 1).date()
+            s_obj = month_start_date
             custom_start_date = s_obj.strftime('%Y-%m-%d')
         try:
             e_obj = datetime.strptime(custom_end_date, '%Y-%m-%d').date()
         except ValueError:
-            e_obj = datetime.now().date()
+            e_obj = local_now.date()
             custom_end_date = today_str
         if s_obj > e_obj:
             s_obj, e_obj = e_obj, s_obj
@@ -7123,10 +7899,10 @@ def daily_reports_view(request):
         'refunds': refunds,
         'total_refunds': total_refunds,
         'refunds_count': refunds_count,
-        'years': list(range(datetime.now().year - 3, datetime.now().year + 4)),
+        'years': list(range(local_now.year - 3, local_now.year + 4)),
         'month_names': [(i, calendar.month_name[i+1]) for i in range(12)],
         'today_str': today_str,
-        'printed_date': datetime.now().strftime('%d %B %Y'),
+        'printed_date': local_now.strftime('%d %B %Y'),
     }
 
     # HTMX Partial Rendering for Table Swaps
@@ -7173,16 +7949,23 @@ def user_report_view(request):
     is_branch_restricted = (not is_dev and not is_owner and user_perms.get('restricted_to_assigned_branch', False))
     user_branch_id = str(current_user.branch_id) if current_user.branch else None
 
-    # Users List
+    # Users List (enforcing Developer hiding & assigned branch isolation)
     users_qs = User.objects.filter(is_active=True).order_by('name')
     if not is_dev:
         users_qs = users_qs.exclude(role='DEVELOPER')
+    if is_branch_restricted:
+        users_qs = users_qs.filter(branch_id=user_branch_id) if user_branch_id else users_qs.none()
     users_list = list(users_qs)
 
     selected_user_id = request.GET.get('user_id', 'ALL')
     target_user = None
     if selected_user_id != 'ALL':
-        target_user = User.objects.filter(id=selected_user_id).first()
+        target_qs = User.objects.filter(id=selected_user_id)
+        if not is_dev:
+            target_qs = target_qs.exclude(role='DEVELOPER')
+        if is_branch_restricted:
+            target_qs = target_qs.filter(branch_id=user_branch_id) if user_branch_id else target_qs.none()
+        target_user = target_qs.first()
         if not target_user:
             selected_user_id = 'ALL'
 
@@ -7261,7 +8044,7 @@ def user_report_view(request):
     if selected_branch_id != 'ALL':
         p_qs = p_qs.filter(branch_id=selected_branch_id)
     if selected_session_id != 'ALL':
-        p_qs = p_qs.filter(session_id=selected_session_id)
+        p_qs = p_qs.filter(Q(session_id=selected_session_id) | Q(admission__session_id=selected_session_id))
     p_qs = p_qs.order_by('-payment_date')
 
     # 2. Query Expenses
@@ -7272,6 +8055,16 @@ def user_report_view(request):
         e_qs = e_qs.filter(created_by_id=selected_user_id)
     if selected_branch_id != 'ALL':
         e_qs = e_qs.filter(branch_id=selected_branch_id)
+    if selected_session_id != 'ALL':
+        selected_session_obj = AcademicSession.objects.filter(id=selected_session_id).first()
+        sess_end_dt = _session_end_dt(selected_session_obj) if selected_session_obj else None
+        if selected_session_obj and selected_session_obj.start_date and sess_end_dt:
+            e_qs = e_qs.filter(
+                expense_date__gte=selected_session_obj.start_date,
+                expense_date__lte=sess_end_dt
+            )
+        else:
+            e_qs = e_qs.none()
     e_qs = e_qs.order_by('-expense_date')
 
     # 3. Query Admissions (enrolled by user / fee plan creator)
@@ -7478,6 +8271,7 @@ def user_report_view(request):
 
         safe_user = (target_user.name if target_user else 'All_Staff').replace(' ', '_')
         safe_date = today.strftime('%Y-%m-%d')
+
         if export_type == 'excel':
             xlsx_content = export_user_report_excel(report_payload, {'branch_label': branch_label, 'session_label': session_label})
             response = HttpResponse(
@@ -7507,7 +8301,7 @@ def user_report_view(request):
         'active_tab': request.GET.get('tab', 'COLLECTIONS'),
         'is_branch_restricted': is_branch_restricted,
         'target_user': target_user,
-        'printed_date': datetime.now().strftime('%d %B %Y'),
+        'printed_date': timezone.localtime().strftime('%d %B %Y'),
     }
     return render(request, 'user_report.html', context)
 
@@ -7556,46 +8350,57 @@ def branches_list_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'create':
-            name = request.POST.get('name', '').strip()
-            class_name = request.POST.get('class_name', '').strip() or None
-            code = request.POST.get('code', '').strip().upper()
-            contact_person = request.POST.get('contact_person', '').strip()
-            phone = request.POST.get('phone', '').strip()
-            email = request.POST.get('email', '').strip() or None
-            tagline = request.POST.get('tagline', '').strip() or None
+            name = request.POST.get('name', '').strip()[:150]
+            class_name = (request.POST.get('class_name', '').strip()[:200]) or None
+            code = request.POST.get('code', '').strip().upper()[:50]
+            contact_person = request.POST.get('contact_person', '').strip()[:150]
+            phone = request.POST.get('phone', '').strip()[:50]
+            email = (request.POST.get('email', '').strip()[:150]) or None
+            tagline = (request.POST.get('tagline', '').strip()[:255]) or None
             address = request.POST.get('address', '').strip()
 
-            if Branch.objects.filter(code=code).exists():
-                messages.error(request, f"A branch with code '{code}' already exists. Please choose a different code.")
+            if not name or not code:
+                messages.error(request, "Branch Name and Branch Code are required.")
+                return redirect('branches_list')
+
+            if Branch.objects.filter(Q(code=code) | Q(name__iexact=name)).exists():
+                messages.error(request, f"A branch with name '{name}' or code '{code}' already exists.")
                 return redirect('branches_list')
 
             logo_url = None
             if request.FILES.get('logo'):
-                logo_file = request.FILES['logo']
-                ext = os.path.splitext(logo_file.name)[1] or '.png'
-                import uuid
-                filename = f"logo-branch-{uuid.uuid4()}-{int(datetime.now().timestamp())}{ext}"
-                from django.conf import settings
-                photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
-                os.makedirs(photos_dir, exist_ok=True)
-                filepath = os.path.join(photos_dir, filename)
-                with open(filepath, 'wb+') as dest:
-                    for chunk in logo_file.chunks():
-                        dest.write(chunk)
-                logo_url = f"/media/photos/{filename}"
+                try:
+                    logo_url, _ = _save_validated_image_upload(
+                        request.FILES['logo'],
+                        subdir='photos',
+                        filename_prefix='logo-branch',
+                        allowed_exts=ALLOWED_LOGO_EXTS,
+                        max_bytes=5 * 1024 * 1024,
+                        max_dim=1024,
+                        generate_thumb=False,
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('branches_list')
 
-            branch = Branch.objects.create(
-                name=name,
-                class_name=class_name,
-                code=code,
-                contact_person=contact_person or None,
-                phone=phone or None,
-                email=email,
-                tagline=tagline,
-                address=address or None,
-                logo_url=logo_url,
-                is_active=True,
-            )
+            try:
+                with transaction.atomic():
+                    branch = Branch.objects.create(
+                        name=name,
+                        class_name=class_name,
+                        code=code,
+                        contact_person=contact_person or None,
+                        phone=phone or None,
+                        email=email,
+                        tagline=tagline,
+                        address=address or None,
+                        logo_url=logo_url,
+                        is_active=True,
+                    )
+            except IntegrityError:
+                _delete_media_file_by_url(logo_url, defer_commit=False)
+                messages.error(request, f"Branch name '{name}' or code '{code}' conflicts with an existing branch.")
+                return redirect('branches_list')
             invalidate_global_context_cache()
             messages.success(request, f"Branch '{branch.name}' created successfully.")
             return redirect('branches_list')
@@ -7603,33 +8408,52 @@ def branches_list_view(request):
         elif action == 'update':
             branch_id = request.POST.get('branch_id')
             branch = get_object_or_404(Branch, id=branch_id)
-            branch.name = request.POST.get('name', '').strip()
-            branch.class_name = request.POST.get('class_name', '').strip() or None
-            branch.code = request.POST.get('code', '').strip().upper()
-            branch.contact_person = request.POST.get('contact_person', '').strip() or None
-            branch.phone = request.POST.get('phone', '').strip() or None
-            branch.email = request.POST.get('email', '').strip() or None
-            branch.tagline = request.POST.get('tagline', '').strip() or None
+            new_name = request.POST.get('name', '').strip()[:150]
+            new_class_name = (request.POST.get('class_name', '').strip()[:200]) or None
+            new_code = request.POST.get('code', '').strip().upper()[:50]
+            if not new_name or not new_code:
+                messages.error(request, "Branch Name and Branch Code cannot be empty.")
+                return redirect('branches_list')
+            if Branch.objects.filter(Q(code=new_code) | Q(name__iexact=new_name)).exclude(id=branch.id).exists():
+                messages.error(request, f"Another branch already uses name '{new_name}' or code '{new_code}'.")
+                return redirect('branches_list')
+
+            branch.name = new_name
+            branch.class_name = new_class_name
+            branch.code = new_code
+            branch.contact_person = (request.POST.get('contact_person', '').strip()[:150]) or None
+            branch.phone = (request.POST.get('phone', '').strip()[:50]) or None
+            branch.email = (request.POST.get('email', '').strip()[:150]) or None
+            branch.tagline = (request.POST.get('tagline', '').strip()[:255]) or None
             branch.address = request.POST.get('address', '').strip() or None
 
-            if request.POST.get('remove_logo') == '1':
+            old_logo_url = branch.logo_url
+            if request.FILES.get('logo'):
+                try:
+                    new_logo_url, _ = _save_validated_image_upload(
+                        request.FILES['logo'],
+                        subdir='photos',
+                        filename_prefix='logo-branch',
+                        allowed_exts=ALLOWED_LOGO_EXTS,
+                        max_bytes=5 * 1024 * 1024,
+                        max_dim=1024,
+                        generate_thumb=False,
+                    )
+                    branch.logo_url = new_logo_url
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect('branches_list')
+            elif request.POST.get('remove_logo') == '1':
                 branch.logo_url = None
 
-            if request.FILES.get('logo'):
-                logo_file = request.FILES['logo']
-                ext = os.path.splitext(logo_file.name)[1] or '.png'
-                import uuid
-                filename = f"logo-branch-{uuid.uuid4()}-{int(datetime.now().timestamp())}{ext}"
-                from django.conf import settings
-                photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
-                os.makedirs(photos_dir, exist_ok=True)
-                filepath = os.path.join(photos_dir, filename)
-                with open(filepath, 'wb+') as dest:
-                    for chunk in logo_file.chunks():
-                        dest.write(chunk)
-                branch.logo_url = f"/media/photos/{filename}"
-
-            branch.save()
+            try:
+                with transaction.atomic():
+                    branch.save()
+            except IntegrityError:
+                messages.error(request, f"Branch name '{new_name}' or code '{new_code}' conflicts with an existing branch.")
+                return redirect('branches_list')
+            if (request.FILES.get('logo') or request.POST.get('remove_logo') == '1') and old_logo_url:
+                _delete_media_file_by_url(old_logo_url, defer_commit=False)
             invalidate_global_context_cache()
             messages.success(request, f"Branch '{branch.name}' updated successfully.")
             return redirect('branches_list')
@@ -7706,8 +8530,8 @@ def sessions_list_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'create':
-            name = request.POST.get('name', '').strip()
-            display_name = request.POST.get('display_name', '').strip()
+            name = request.POST.get('name', '').strip()[:50]
+            display_name = request.POST.get('display_name', '').strip()[:150]
             start_date_str = request.POST.get('start_date', '').strip()
             end_date_str = request.POST.get('end_date', '').strip()
             is_current = request.POST.get('is_current') == 'on'
@@ -7748,20 +8572,24 @@ def sessions_list_view(request):
                 )
                 return redirect('sessions_list')
 
-            if is_current:
-                AcademicSession.objects.filter(is_current=True).update(is_current=False)
-
             start_dt = timezone.make_aware(datetime.combine(start_d, datetime.min.time()))
             end_dt = timezone.make_aware(datetime.combine(end_d, datetime.max.time().replace(microsecond=0)))
 
-            session = AcademicSession.objects.create(
-                name=name,
-                display_name=display_name or f"Academic Year {name}",
-                start_date=start_dt,
-                end_date=end_dt,
-                is_current=is_current,
-                isActive=True,
-            )
+            try:
+                with transaction.atomic():
+                    if is_current:
+                        AcademicSession.objects.filter(is_current=True).update(is_current=False)
+                    session = AcademicSession.objects.create(
+                        name=name,
+                        display_name=display_name or f"Academic Year {name}"[:150],
+                        start_date=start_dt,
+                        end_date=end_dt,
+                        is_current=is_current,
+                        isActive=True,
+                    )
+            except IntegrityError:
+                messages.error(request, f"Academic session code '{name}' already exists.")
+                return redirect('sessions_list')
             invalidate_global_context_cache()
             if is_current:
                 request.session['selected_session_id'] = str(session.id)
@@ -7771,8 +8599,8 @@ def sessions_list_view(request):
         elif action == 'update':
             session_id = request.POST.get('session_id')
             session = get_object_or_404(AcademicSession, id=session_id)
-            name = request.POST.get('name', '').strip()
-            display_name = request.POST.get('display_name', '').strip()
+            name = request.POST.get('name', '').strip()[:50]
+            display_name = request.POST.get('display_name', '').strip()[:150]
             start_date_str = request.POST.get('start_date', '').strip()
             end_date_str = request.POST.get('end_date', '').strip()
             is_current = request.POST.get('is_current') == 'on'
@@ -7816,19 +8644,26 @@ def sessions_list_view(request):
             start_dt = timezone.make_aware(datetime.combine(start_d, datetime.min.time()))
             end_dt = timezone.make_aware(datetime.combine(end_d, datetime.max.time().replace(microsecond=0)))
 
-            session.name = name
-            session.display_name = display_name or f"Academic Year {name}"
-            session.start_date = start_dt
-            session.end_date = end_dt
+            try:
+                with transaction.atomic():
+                    session = AcademicSession.objects.select_for_update().get(id=session.id)
+                    session.name = name
+                    session.display_name = display_name or f"Academic Year {name}"[:150]
+                    session.start_date = start_dt
+                    session.end_date = end_dt
 
-            if is_current and not session.is_current:
-                AcademicSession.objects.filter(is_current=True).update(is_current=False)
-                session.is_current = True
+                    if is_current and not session.is_current:
+                        AcademicSession.objects.filter(is_current=True).update(is_current=False)
+                        session.is_current = True
+                    elif not is_current and session.is_current:
+                        session.is_current = False
+
+                    session.save()
+            except IntegrityError:
+                messages.error(request, f"Academic session code '{name}' is already in use.")
+                return redirect('sessions_list')
+            if is_current:
                 request.session['selected_session_id'] = str(session.id)
-            elif not is_current and session.is_current:
-                session.is_current = False
-
-            session.save()
             invalidate_global_context_cache()
             messages.success(request, f"Academic session '{session.display_name}' updated successfully.")
             return redirect('sessions_list')
@@ -7836,9 +8671,10 @@ def sessions_list_view(request):
         elif action == 'set_current':
             session_id = request.POST.get('session_id')
             session = get_object_or_404(AcademicSession, id=session_id)
-            AcademicSession.objects.filter(is_current=True).update(is_current=False)
-            session.is_current = True
-            session.save()
+            with transaction.atomic():
+                AcademicSession.objects.filter(is_current=True).update(is_current=False)
+                session.is_current = True
+                session.save(update_fields=['is_current'])
             invalidate_global_context_cache()
             request.session['selected_session_id'] = str(session.id)
             messages.success(request, f"Active academic session switched to '{session.display_name}'.")
@@ -7885,7 +8721,15 @@ def sessions_list_view(request):
                 return redirect('sessions_list')
 
             disp = session.display_name or session.name
-            session.delete()
+            try:
+                with transaction.atomic():
+                    session.delete()
+            except (RestrictedError, ProtectedError, IntegrityError):
+                messages.error(
+                    request,
+                    f"Cannot delete session '{disp}': Financial payments, fee plans, or prior dues remain linked to this session. Deactivate it instead."
+                )
+                return redirect('sessions_list')
             invalidate_global_context_cache()
             messages.success(request, f"Academic session '{disp}' deleted successfully.")
             return redirect('sessions_list')
@@ -7928,8 +8772,8 @@ def sessions_list_view(request):
             'conflicting_with': ", ".join(conflict_map.get(s.id, [])),
         })
 
-    # JSON serialization for client-side instant validation
-    sessions_json = json.dumps([
+    # Structured list for safe json_script template serialization
+    sessions_list_json = [
         {
             'id': str(s.id),
             'name': s.name,
@@ -7942,16 +8786,42 @@ def sessions_list_view(request):
             'isCurrent': s.is_current,
         }
         for s in sessions
-    ])
+    ]
 
     context = {
         'sessions_data': sessions_data,
         'current_session': current_session,
         'current_session_students': current_session_students,
-        'sessions_json': sessions_json,
+        'sessions_list_json': sessions_list_json,
         'total_conflicts_count': len(conflicting_session_ids),
     }
     return render(request, 'sessions.html', context)
+
+
+def _parse_safe_int(raw_val, default=0, min_val=None, max_val=None):
+    """Safely parse integer query/form values with optional clamping."""
+    try:
+        parsed = int(str(raw_val).strip()) if raw_val not in (None, '') else default
+    except (ValueError, TypeError):
+        return default
+    if min_val is not None:
+        parsed = max(min_val, parsed)
+    if max_val is not None:
+        parsed = min(max_val, parsed)
+    return parsed
+
+
+def _resolve_safe_backup_filepath(backups_dir: str, raw_name: str):
+    """Resolve a single-filename backup path strictly inside backups_dir."""
+    safe_name = os.path.basename(str(raw_name or '').strip())
+    if not safe_name or safe_name in ('.', '..'):
+        return '', ''
+    real_base = os.path.realpath(backups_dir)
+    real_target = os.path.realpath(os.path.join(real_base, safe_name))
+    if os.path.commonpath([real_base, real_target]) != real_base or real_target == real_base:
+        return safe_name, ''
+    return safe_name, real_target
+
 
 def backup_manage_view(request):
     """
@@ -7975,9 +8845,8 @@ def backup_manage_view(request):
     # Handle Downloads via ?download=<filename>
     download_file = request.GET.get('download')
     if download_file:
-        safe_name = os.path.basename(download_file)
-        file_path = os.path.join(paths['backups_dir'], safe_name)
-        if os.path.exists(file_path):
+        safe_name, file_path = _resolve_safe_backup_filepath(paths['backups_dir'], download_file)
+        if file_path and os.path.isfile(file_path):
             return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=safe_name)
         messages.error(request, f"Backup file '{safe_name}' not found on disk.")
         return redirect('backup_manage')
@@ -8007,11 +8876,10 @@ def backup_manage_view(request):
 
         elif action == 'restore_local':
             file_name = request.POST.get('file_name', '').strip()
-            if not file_name:
+            safe_name, file_path = _resolve_safe_backup_filepath(paths['backups_dir'], file_name)
+            if not safe_name or not file_path or not os.path.isfile(file_path):
                 messages.error(request, "Please select a valid backup snapshot to restore.")
                 return redirect('backup_manage')
-            safe_name = os.path.basename(file_name)
-            file_path = os.path.join(paths['backups_dir'], safe_name)
             try:
                 res = execute_restore_from_file(file_path, safe_name)
                 messages.success(request, res['message'])
@@ -8028,12 +8896,16 @@ def backup_manage_view(request):
                 messages.error(request, "No backup file uploaded. Please select a .zip, .db, or .dump file.")
                 return redirect('backup_manage')
             uploaded_file = request.FILES['backup_file']
+            max_upload_bytes = getattr(settings, 'BACKUP_MAX_UPLOAD_BYTES', 512 * 1024 * 1024)
+            if uploaded_file.size > max_upload_bytes:
+                messages.error(request, f"Backup file exceeds the {max_upload_bytes // (1024 * 1024)} MB safety limit.")
+                return redirect('backup_manage')
             ext = os.path.splitext(uploaded_file.name)[1].lower()
             if ext not in ('.zip', '.db', '.dump'):
                 messages.error(request, "Only .zip (Full Backup), .db, or .dump (Database Snapshot) files can be restored.")
                 return redirect('backup_manage')
 
-            timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
+            timestamp = timezone.localtime().strftime('%Y-%m-%dT%H-%M-%S')
             permanent_name = f"sutawane-uploaded-{timestamp}{ext}"
             permanent_path = os.path.join(paths['backups_dir'], permanent_name)
 
@@ -8047,6 +8919,11 @@ def backup_manage_view(request):
                 if request.GET.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
                     return JsonResponse({'success': True, 'uploadedFileName': permanent_name, **res})
             except Exception as e:
+                if os.path.exists(permanent_path):
+                    try:
+                        os.remove(permanent_path)
+                    except Exception:
+                        pass
                 messages.error(request, f"Upload restore failed: {str(e)}")
                 if request.GET.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
                     return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -8087,6 +8964,11 @@ def backup_manage_view(request):
 
 def api_backup_list_view(request):
     """GET /api/backup/ - Lists all existing backups & storage stats matching React."""
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    if not (can_manage_system(request) or has_permission(current_user, 'can_access_backup')):
+        return JsonResponse({'error': 'You do not have permission to view backups.'}, status=403)
     data = list_backups()
     return JsonResponse({'success': True, **data})
 
@@ -8100,7 +8982,7 @@ def api_backup_create_view(request):
         backup = create_full_backup_snapshot()
         return JsonResponse({
             'success': True,
-            'message': 'Full backup archive created successfully including SQLite database and media files.',
+            'message': 'Full backup archive created successfully including database and media files.',
             'backup': backup,
         }, status=201)
     except Exception as e:
@@ -8109,10 +8991,14 @@ def api_backup_create_view(request):
 
 def api_backup_download_view(request, file_name):
     """GET /api/backup/<file_name>/download/ - Streams backup file directly."""
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    if not (can_manage_system(request) or has_permission(current_user, 'can_access_backup')):
+        return JsonResponse({'error': 'You do not have permission to download backups.'}, status=403)
     paths = get_storage_paths()
-    safe_name = os.path.basename(file_name)
-    file_path = os.path.join(paths['backups_dir'], safe_name)
-    if not os.path.exists(file_path):
+    safe_name, file_path = _resolve_safe_backup_filepath(paths['backups_dir'], file_name)
+    if not file_path or not os.path.isfile(file_path):
         return JsonResponse({'error': 'Requested backup file does not exist'}, status=404)
     return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=safe_name)
 
@@ -8134,9 +9020,8 @@ def api_backup_restore_local_view(request):
             return JsonResponse({'error': 'Backup fileName is required for local restore'}, status=400)
 
         paths = get_storage_paths()
-        safe_name = os.path.basename(str(file_name).strip())
-        file_path = os.path.join(paths['backups_dir'], safe_name)
-        if not os.path.exists(file_path):
+        safe_name, file_path = _resolve_safe_backup_filepath(paths['backups_dir'], file_name)
+        if not file_path or not os.path.isfile(file_path):
             return JsonResponse({'error': f"Backup snapshot '{safe_name}' not found in storage."}, status=404)
 
         result = execute_restore_from_file(file_path, safe_name)
@@ -8154,22 +9039,33 @@ def api_backup_upload_restore_view(request):
         uploaded_file = request.FILES.get('backupFile') or request.FILES.get('backup_file')
         if not uploaded_file:
             return JsonResponse({'error': 'No backup file uploaded. Please select a .zip, .db, or .dump file.'}, status=400)
+        max_upload_bytes = getattr(settings, 'BACKUP_MAX_UPLOAD_BYTES', 512 * 1024 * 1024)
+        if uploaded_file.size > max_upload_bytes:
+            return JsonResponse({'error': f'Backup file exceeds the {max_upload_bytes // (1024 * 1024)} MB safety limit.'}, status=400)
 
         paths = get_storage_paths()
         ext = os.path.splitext(uploaded_file.name)[1].lower()
         if ext not in ('.zip', '.db', '.dump'):
             return JsonResponse({'error': 'Only .zip (Full Backup), .db, or .dump (Database Snapshot) files are accepted for restore'}, status=400)
 
-        timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
+        timestamp = timezone.localtime().strftime('%Y-%m-%dT%H-%M-%S')
         permanent_name = f"sutawane-uploaded-{timestamp}{ext}"
         permanent_path = os.path.join(paths['backups_dir'], permanent_name)
 
-        with open(permanent_path, 'wb') as dest:
-            for chunk in uploaded_file.chunks():
-                dest.write(chunk)
+        try:
+            with open(permanent_path, 'wb') as dest:
+                for chunk in uploaded_file.chunks():
+                    dest.write(chunk)
 
-        result = execute_restore_from_file(permanent_path, uploaded_file.name)
-        return JsonResponse({'success': True, 'uploadedFileName': permanent_name, **result})
+            result = execute_restore_from_file(permanent_path, uploaded_file.name)
+            return JsonResponse({'success': True, 'uploadedFileName': permanent_name, **result})
+        except Exception as exc:
+            if os.path.exists(permanent_path):
+                try:
+                    os.remove(permanent_path)
+                except Exception:
+                    pass
+            raise exc
     except Exception as e:
         return JsonResponse({'error': 'Failed to process uploaded backup file', 'details': str(e)}, status=500)
 
@@ -8192,7 +9088,7 @@ def api_backup_delete_view(request, file_name):
 # Institute Settings & Master Branding Management
 # -----------------------------------------------------------------------------
 
-def get_institute_settings_dict():
+def get_institute_settings_dict(include_secrets: bool = False):
     """Returns dictionary of all system settings with robust fallbacks from RAM cache."""
     settings_map = get_cached_settings_dict()
     res = {
@@ -8231,73 +9127,50 @@ def get_institute_settings_dict():
     # Ensure obsolete port 8000 is always corrected to active local bridge port 3000
     if ':8000' in str(res.get('whatsapp_endpoint', '')):
         res['whatsapp_endpoint'] = res['whatsapp_endpoint'].replace(':8000', ':3000')
+    if not include_secrets:
+        return sanitize_settings_for_context(res)
     return res
 
 
 def save_master_logo(file_obj):
     """
-    Saves an uploaded master logo image to media/photos/ and updates SystemSetting.
-    Removes old logo from disk if it was an uploaded file.
+    Saves a validated raster master logo image to media/photos/ and updates SystemSetting.
+    Rejects SVG/invalid files and safely removes old uploaded logo from disk.
     """
-    ext = os.path.splitext(file_obj.name)[1].lower() or '.png'
-    if ext not in ('.png', '.jpg', '.jpeg', '.webp', '.svg'):
-        raise ValueError("Only image files (.png, .jpg, .jpeg, .webp, .svg) are allowed for institute logo.")
+    logo_url, _ = _save_validated_image_upload(
+        file_obj,
+        subdir='photos',
+        filename_prefix='logo-master',
+        allowed_exts=ALLOWED_LOGO_EXTS,
+        max_bytes=5 * 1024 * 1024,
+        max_dim=1024,
+        generate_thumb=False,
+    )
 
-    from django.conf import settings
-    photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
-    os.makedirs(photos_dir, exist_ok=True)
-
-    # Clean old logo from disk if it was uploaded
     old_setting = SystemSetting.objects.filter(key='logo_url').first()
-    if old_setting and old_setting.value:
-        old_val = old_setting.value
-        if '/media/photos/' in old_val or '/api/uploads/photos/' in old_val:
-            old_name = os.path.basename(old_val)
-            old_p = os.path.join(photos_dir, old_name)
-            if os.path.exists(old_p):
-                try:
-                    os.remove(old_p)
-                except Exception:
-                    pass
+    old_val = old_setting.value if old_setting and old_setting.value else None
 
-    timestamp = int(datetime.now().timestamp() * 1000)
-    filename = f"logo-master-{timestamp}{ext}"
-    dest_path = os.path.join(photos_dir, filename)
-
-    with open(dest_path, 'wb+') as dest:
-        for chunk in file_obj.chunks():
-            dest.write(chunk)
-
-    logo_url = f"/media/photos/{filename}"
     SystemSetting.objects.update_or_create(
         key='logo_url',
         defaults={'value': logo_url}
     )
+    if old_val and ('/media/photos/' in old_val or '/api/uploads/photos/' in old_val):
+        _delete_media_file_by_url(f"/media/photos/{os.path.basename(old_val)}", defer_commit=False)
     invalidate_global_context_cache()
     return logo_url
 
 
 def remove_master_logo():
     """Removes current master logo from disk and clears SystemSetting."""
-    from django.conf import settings
-    photos_dir = os.path.join(settings.MEDIA_ROOT, 'photos')
-
     old_setting = SystemSetting.objects.filter(key='logo_url').first()
-    if old_setting and old_setting.value:
-        old_val = old_setting.value
-        if '/media/photos/' in old_val or '/api/uploads/photos/' in old_val:
-            old_name = os.path.basename(old_val)
-            old_p = os.path.join(photos_dir, old_name)
-            if os.path.exists(old_p):
-                try:
-                    os.remove(old_p)
-                except Exception:
-                    pass
+    old_val = old_setting.value if old_setting and old_setting.value else None
 
     SystemSetting.objects.update_or_create(
         key='logo_url',
         defaults={'value': ''}
     )
+    if old_val and ('/media/photos/' in old_val or '/api/uploads/photos/' in old_val):
+        _delete_media_file_by_url(f"/media/photos/{os.path.basename(old_val)}", defer_commit=False)
     invalidate_global_context_cache()
 
 
@@ -8313,12 +9186,16 @@ def settings_manage_view(request):
         if user_id:
             current_user = User.objects.filter(id=user_id, is_active=True).first()
 
-    if current_user and current_user.is_branch_manager and not has_permission(current_user, 'can_access_settings'):
+    if not current_user:
+        return redirect('login')
+
+    if not has_permission(current_user, 'can_access_settings'):
         messages.error(request, "Access Denied: You do not have permission to access Settings.")
         return redirect('dashboard')
 
-    is_admin = bool(current_user and (current_user.is_class_owner or current_user.is_developer))
-    settings_dict = get_institute_settings_dict()
+    is_admin = bool(current_user.is_class_owner or current_user.is_developer)
+    settings_dict = get_institute_settings_dict(include_secrets=False)
+    settings_dict['whatsapp_meta_webhook_token'] = get_cached_settings_dict().get('whatsapp_meta_webhook_token', '')
     settings_map = settings_dict
     active_tab = request.GET.get('tab', 'profile')
     if active_tab == 'banks':
@@ -8385,6 +9262,13 @@ def settings_manage_view(request):
                 new_branch_id = request.POST.get('branch_id', '').strip() or None
                 new_is_active = request.POST.get('is_active') in ('true', '1', 'on') if 'is_active' in request.POST else True
 
+                if new_role not in ('BRANCH_MANAGER', 'CLASS_OWNER'):
+                    err_msg = "Invalid role selected. Accounts must be Branch Manager or Class Owner."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=403)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
                 if not new_name or not new_username or not new_password:
                     err_msg = "Please provide Name, Username, and Password for the new user."
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
@@ -8446,6 +9330,13 @@ def settings_manage_view(request):
                     return redirect('/settings/?tab=roles')
 
                 new_role = request.POST.get('role', target_user.role).strip()
+                if new_role not in ('BRANCH_MANAGER', 'CLASS_OWNER'):
+                    err_msg = "Invalid role selected. Cannot assign Developer privileges via settings."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=403)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
+
                 # Protect against demoting the sole active Class Owner
                 if target_user.is_class_owner and new_role != 'CLASS_OWNER':
                     if User.objects.filter(role='CLASS_OWNER', is_active=True).count() <= 1:
@@ -8501,6 +9392,12 @@ def settings_manage_view(request):
             elif action == 'reset_user_password':
                 target_user_id = request.POST.get('user_id', '').strip()
                 target_user = get_object_or_404(User, id=target_user_id)
+                if target_user.is_developer and not (current_user and current_user.is_developer):
+                    err_msg = "Only developers can reset a Developer account password."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
+                        return JsonResponse({'success': False, 'error': err_msg}, status=403)
+                    messages.error(request, err_msg)
+                    return redirect('/settings/?tab=roles')
                 new_password = request.POST.get('new_password', '').strip()
 
                 if not new_password or len(new_password) < 6:
@@ -8585,7 +9482,7 @@ def settings_manage_view(request):
                 messages.error(request, "Please enter a valid 10-digit mobile number for the test alert.")
                 return redirect("/settings/?tab=whatsapp")
 
-            # Persist any updated provider/mode/endpoint if submitted along with test
+            # Persist any updated provider/mode/endpoint if submitted along with test (preserve blank secret tokens)
             for k in [
                 'whatsapp_enabled', 'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone',
                 'whatsapp_meta_phone_id', 'whatsapp_meta_waba_id', 'whatsapp_meta_access_token',
@@ -8594,7 +9491,10 @@ def settings_manage_view(request):
                 'whatsapp_meta_template_reminder', 'whatsapp_meta_template_lang',
             ]:
                 if k in request.POST:
-                    SystemSetting.objects.update_or_create(key=k, defaults={'value': request.POST.get(k, '').strip()})
+                    val = request.POST.get(k, '').strip()
+                    if k in ('whatsapp_meta_access_token', 'whatsapp_meta_webhook_token') and not val:
+                        continue
+                    SystemSetting.objects.update_or_create(key=k, defaults={'value': val})
             invalidate_global_context_cache()
             settings_map = get_cached_settings_dict()
 
@@ -8652,6 +9552,8 @@ def settings_manage_view(request):
             for f in all_fields:
                 if f in request.POST:
                     val = request.POST.get(f, '').strip()
+                    if f in ('whatsapp_meta_access_token', 'whatsapp_meta_webhook_token') and not val:
+                        continue
                     SystemSetting.objects.update_or_create(
                         key=f,
                         defaults={'value': val}
@@ -8660,7 +9562,9 @@ def settings_manage_view(request):
             # Optional logo upload bundled with the form
             if request.FILES.get('logo'):
                 logo_file = request.FILES['logo']
-                if logo_file.size <= 5 * 1024 * 1024:
+                if logo_file.size > 5 * 1024 * 1024:
+                    messages.warning(request, "Settings saved, but uploaded logo exceeds 5 MB limit.")
+                else:
                     try:
                         save_master_logo(logo_file)
                     except Exception as e:
@@ -8670,10 +9574,11 @@ def settings_manage_view(request):
             messages.success(request, "Settings updated successfully!")
             return redirect(f"/settings/?tab={active_tab}")
 
-    settings_dict = get_institute_settings_dict()
+    settings_dict = get_institute_settings_dict(include_secrets=False)
+    settings_dict['whatsapp_meta_webhook_token'] = get_cached_settings_dict().get('whatsapp_meta_webhook_token', '')
 
     if request.GET.get('format') == 'json' or request.headers.get('Accept') == 'application/json':
-        return JsonResponse(settings_dict)
+        return JsonResponse(get_institute_settings_dict(include_secrets=False))
 
     receipt_counters = ReceiptCounter.objects.select_related('branch', 'session').order_by('branch__name', '-session__start_date')[:25]
     health_logs = HealthLog.objects.order_by('-created_at')[:30]
@@ -8751,14 +9656,29 @@ def settings_manage_view(request):
 # Settings REST API Endpoints (100% React Parity)
 # -----------------------------------------------------------------------------
 
+ALLOWED_API_SETTINGS_KEYS = {
+    'institute_name', 'tagline', 'phone', 'email',
+    'address', 'address_line_2', 'city', 'taluka', 'district', 'state', 'pincode',
+    'website', 'receipt_footer', 'receipt_prefix', 'receipt_signatory',
+    'bank_beneficiary_name', 'bank_name', 'bank_account_no', 'bank_ifsc', 'bank_branch', 'upi_id',
+    'whatsapp_enabled', 'whatsapp_provider', 'whatsapp_mode', 'whatsapp_endpoint', 'whatsapp_sender_phone',
+    'whatsapp_receipt_auto', 'whatsapp_reminder_auto', 'whatsapp_admission_auto',
+    'whatsapp_meta_phone_id', 'whatsapp_meta_waba_id', 'whatsapp_meta_access_token',
+    'whatsapp_meta_app_id', 'whatsapp_meta_api_version', 'whatsapp_meta_webhook_token',
+    'whatsapp_meta_template_receipt', 'whatsapp_meta_template_welcome',
+    'whatsapp_meta_template_reminder', 'whatsapp_meta_template_lang',
+}
+
+
 def api_settings_view(request):
     """GET /api/settings/ or POST /api/settings/ matching React backend."""
+    if not can_manage_system(request):
+        return JsonResponse({'error': 'You do not have permission to access or modify system settings.'}, status=403)
+
     if request.method == 'GET':
-        return JsonResponse(get_institute_settings_dict())
+        return JsonResponse(get_institute_settings_dict(include_secrets=False))
 
     elif request.method == 'POST':
-        if not can_manage_system(request):
-            return JsonResponse({'error': 'You do not have permission to modify settings.'}, status=403)
         try:
             body = {}
             if request.body:
@@ -8768,10 +9688,15 @@ def api_settings_view(request):
                     pass
             data = body or request.POST
             for key, val in data.items():
+                if key not in ALLOWED_API_SETTINGS_KEYS:
+                    continue
                 if val is not None:
+                    val_str = str(val).strip()
+                    if key in ('whatsapp_meta_access_token', 'whatsapp_meta_webhook_token') and not val_str:
+                        continue
                     SystemSetting.objects.update_or_create(
                         key=key,
-                        defaults={'value': str(val).strip()}
+                        defaults={'value': val_str}
                     )
             invalidate_global_context_cache()
             return JsonResponse({'success': True, 'message': 'Settings saved successfully'})
@@ -8798,6 +9723,8 @@ def api_settings_logo_view(request):
                 'logoUrl': logo_url,
                 'message': 'Class / Institute logo updated successfully',
             })
+        except ValueError as ve:
+            return JsonResponse({'error': str(ve)}, status=400)
         except Exception as e:
             return JsonResponse({'error': 'Failed to upload logo', 'details': str(e)}, status=500)
 
@@ -8817,21 +9744,29 @@ def api_whatsapp_status_view(request):
     """
     GET /api/settings/whatsapp-status/
     High-performance internal proxy for checking local WhatsApp bridge status (Port 3000).
-    Eliminates browser Private Network Access (PNA), Mixed-Content, or cross-port blocks.
-    Returns status: READY | QR_READY | OFFLINE with live account metadata and QR Data URL.
     """
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    if not (has_permission(current_user, 'can_access_settings') or has_permission(current_user, 'can_send_fee_reminders') or can_manage_system(request)):
+        return JsonResponse({'success': False, 'error': 'Access Denied'}, status=403)
+
     import urllib.request
     import json
     from urllib.parse import urlparse
 
     settings_map = get_cached_settings_dict()
     configured_ep = (settings_map.get('whatsapp_endpoint') or '').strip()
+    bridge_token = (os.getenv('WHATSAPP_BRIDGE_TOKEN') or settings_map.get('whatsapp_bridge_token') or '').strip()
+    bridge_headers = {'Accept': 'application/json'}
+    if bridge_token:
+        bridge_headers['X-Bridge-Token'] = bridge_token
 
     endpoints = []
     if configured_ep:
         try:
             parsed = urlparse(configured_ep)
-            if parsed.scheme and parsed.netloc:
+            if parsed.scheme in ('http', 'https') and parsed.netloc:
                 endpoints.append(f"{parsed.scheme}://{parsed.netloc}")
         except Exception:
             pass
@@ -8842,14 +9777,14 @@ def api_whatsapp_status_view(request):
 
     for base in endpoints:
         try:
-            req = urllib.request.Request(f"{base}/health", headers={'Accept': 'application/json'})
+            req = urllib.request.Request(f"{base}/health", headers=bridge_headers)
             with urllib.request.urlopen(req, timeout=1.8) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode('utf-8'))
                     # If health didn't include qrDataUrl yet and status is QR_READY, grab it from /qr
                     if data.get('status') == 'QR_READY' and not data.get('qrDataUrl'):
                         try:
-                            qr_req = urllib.request.Request(f"{base}/qr?json=true", headers={'Accept': 'application/json'})
+                            qr_req = urllib.request.Request(f"{base}/qr?json=true", headers=bridge_headers)
                             with urllib.request.urlopen(qr_req, timeout=1.5) as qr_resp:
                                 if qr_resp.status == 200:
                                     qr_data = json.loads(qr_resp.read().decode('utf-8'))
@@ -8879,11 +9814,13 @@ def api_whatsapp_qr_view(request):
     """
     GET /api/settings/whatsapp-qr/
     Proxies live WhatsApp QR code directly from the local bridge (Port 3000).
-    Supports:
-      - format=img -> returns raw image/png stream for native <img> tag rendering
-      - json=true -> returns JSON with qrDataUrl
-      - default -> returns styled full-page scanner HTML
     """
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    if not (has_permission(current_user, 'can_access_settings') or can_manage_system(request)):
+        return JsonResponse({'success': False, 'error': 'Access Denied'}, status=403)
+
     import urllib.request
     import json
     import base64
@@ -8892,13 +9829,18 @@ def api_whatsapp_qr_view(request):
     is_img = request.GET.get('format', '').lower() == 'img'
     is_json = request.GET.get('json', '').lower() in ('true', '1')
     target = '/qr?json=true' if (is_json or is_img) else '/qr'
+    settings_map = get_cached_settings_dict()
+    bridge_token = (os.getenv('WHATSAPP_BRIDGE_TOKEN') or settings_map.get('whatsapp_bridge_token') or '').strip()
 
     endpoints = ['http://127.0.0.1:3000', 'http://localhost:3000']
     for base in endpoints:
         try:
+            qr_headers = {'Accept': 'application/json' if (is_json or is_img) else 'text/html,application/xhtml+xml,application/xml'}
+            if bridge_token:
+                qr_headers['X-Bridge-Token'] = bridge_token
             req = urllib.request.Request(
                 f"{base}{target}",
-                headers={'Accept': 'application/json' if (is_json or is_img) else 'text/html,application/xhtml+xml,application/xml'}
+                headers=qr_headers
             )
             with urllib.request.urlopen(req, timeout=2.5) as resp:
                 content = resp.read()
@@ -8954,11 +9896,22 @@ def api_whatsapp_action_view(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    if not (has_permission(current_user, 'can_access_settings') or can_manage_system(request)):
+        return JsonResponse({'error': 'Access Denied'}, status=403)
+
     import urllib.request
     import json
 
     action = (request.POST.get('action') or request.GET.get('action') or 'logout').strip().lower()
     target_path = '/logout' if action in ('unlink', 'logout') else '/restart'
+    settings_map = get_cached_settings_dict()
+    bridge_token = (os.getenv('WHATSAPP_BRIDGE_TOKEN') or settings_map.get('whatsapp_bridge_token') or '').strip()
+    act_headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+    if bridge_token:
+        act_headers['X-Bridge-Token'] = bridge_token
 
     endpoints = ['http://127.0.0.1:3000', 'http://localhost:3000']
     for base in endpoints:
@@ -8966,7 +9919,7 @@ def api_whatsapp_action_view(request):
             req = urllib.request.Request(
                 f"{base}{target_path}",
                 data=b'{}',
-                headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+                headers=act_headers,
                 method='POST'
             )
             with urllib.request.urlopen(req, timeout=5.0) as resp:
@@ -8981,30 +9934,45 @@ def api_whatsapp_action_view(request):
     }, status=503)
 
 
+@require_POST
 def api_verify_meta_credentials_view(request):
     """
     POST /api/settings/meta-verify/
     Verifies Meta Official WhatsApp Cloud API credentials by pinging Graph API.
-    Endpoint: https://graph.facebook.com/{version}/{phone_number_id}
-    Returns verified status, phone number, business name, and quality rating.
     """
-    if request.method not in ('POST', 'GET'):
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    if not (has_permission(current_user, 'can_access_settings') or can_manage_system(request)):
+        return JsonResponse({'success': False, 'error': 'Access Denied'}, status=403)
 
     import urllib.request
     import urllib.error
     import json
 
     settings_map = get_cached_settings_dict()
-    phone_id = (request.POST.get('phone_id') or request.GET.get('phone_id') or settings_map.get('whatsapp_meta_phone_id', '')).strip()
-    access_token = (request.POST.get('access_token') or request.GET.get('access_token') or settings_map.get('whatsapp_meta_access_token', '')).strip()
-    api_version = (request.POST.get('api_version') or request.GET.get('api_version') or settings_map.get('whatsapp_meta_api_version', 'v21.0')).strip() or 'v21.0'
+    phone_id = (request.POST.get('phone_id') or settings_map.get('whatsapp_meta_phone_id', '')).strip()
+    access_token = (request.POST.get('access_token') or settings_map.get('whatsapp_meta_access_token', '')).strip()
+    api_version = (request.POST.get('api_version') or settings_map.get('whatsapp_meta_api_version', 'v21.0')).strip() or 'v21.0'
 
     if not phone_id or not access_token:
         return JsonResponse({
             'success': False,
             'status': 'MISSING_CREDENTIALS',
             'error': 'Both Phone Number ID and Permanent Access Token are required to test Meta Cloud API.'
+        }, status=400)
+
+    if not re.fullmatch(r'v\d+\.\d+', api_version):
+        return JsonResponse({
+            'success': False,
+            'status': 'INVALID_INPUT',
+            'error': 'Invalid Meta Graph API version format (expected e.g. v21.0).'
+        }, status=400)
+    if not re.fullmatch(r'[0-9A-Za-z_-]{1,64}', phone_id):
+        return JsonResponse({
+            'success': False,
+            'status': 'INVALID_INPUT',
+            'error': 'Invalid Meta Phone Number ID format.'
         }, status=400)
 
     url = f"https://graph.facebook.com/{api_version}/{phone_id}?fields=display_phone_number,verified_name,code_verification_status,quality_rating,id"
@@ -9053,24 +10021,38 @@ from django.views.decorators.csrf import csrf_exempt
 def api_whatsapp_meta_webhook_view(request):
     """
     Official Meta WhatsApp Cloud API Webhook Handler.
-    GET: Handles Meta Webhook verification challenge (hub.mode, hub.verify_token, hub.challenge).
-    POST: Ingests real-time message delivery receipts (sent, delivered, read, failed).
+    GET: Handles Meta Webhook verification challenge (requires configured verify token).
+    POST: Validates webhook configuration and optional X-Hub-Signature-256 before updating delivery receipts.
     """
     settings_map = get_cached_settings_dict()
-    configured_token = settings_map.get('whatsapp_meta_webhook_token', '').strip()
+    configured_token = (settings_map.get('whatsapp_meta_webhook_token') or '').strip()
+    app_secret = (settings_map.get('whatsapp_meta_app_secret') or os.getenv('WHATSAPP_META_APP_SECRET') or '').strip()
 
     if request.method == 'GET':
         mode = request.GET.get('hub.mode')
-        verify_token = request.GET.get('hub.verify_token')
+        verify_token = (request.GET.get('hub.verify_token') or '').strip()
         challenge = request.GET.get('hub.challenge')
 
         if mode == 'subscribe':
-            if not configured_token or verify_token == configured_token:
-                return HttpResponse(challenge or 'CHALLENGE_ACCEPTED', content_type='text/plain', status=200)
-            return HttpResponse('Verification token mismatch', content_type='text/plain', status=403)
+            if not configured_token or not hmac.compare_digest(verify_token, configured_token):
+                return HttpResponse('Verification token mismatch', content_type='text/plain', status=403)
+            return HttpResponse(challenge or 'CHALLENGE_ACCEPTED', content_type='text/plain', status=200)
         return HttpResponse('Invalid webhook challenge mode', content_type='text/plain', status=400)
 
     elif request.method == 'POST':
+        if not configured_token:
+            return HttpResponse('Webhook is not configured', content_type='text/plain', status=403)
+
+        if app_secret:
+            sig_header = (request.headers.get('X-Hub-Signature-256') or '').strip()
+            expected_sig = 'sha256=' + hmac.new(
+                app_secret.encode('utf-8'),
+                request.body or b'',
+                hashlib.sha256,
+            ).hexdigest()
+            if not sig_header or not hmac.compare_digest(sig_header, expected_sig):
+                return HttpResponse('Invalid webhook signature', content_type='text/plain', status=403)
+
         try:
             body = json.loads(request.body.decode('utf-8'))
             entries = body.get('entry', [])
@@ -9080,14 +10062,21 @@ def api_whatsapp_meta_webhook_view(request):
                     statuses = value.get('statuses', [])
                     for s in statuses:
                         status = s.get('status')
-                        recipient_id = s.get('recipient_id', '')
+                        recipient_id = str(s.get('recipient_id', '') or '')
                         if status == 'failed' and recipient_id:
                             errors = s.get('errors', [])
                             err_msg = errors[0].get('message') if errors else 'Delivery failed'
-                            NotificationLog.objects.filter(recipient_mobile__endswith=recipient_id[-10:]).order_by('-created_at')[:1].update(
-                                status='FAILED',
-                                response_payload=f"Meta Webhook: {err_msg}"
+                            latest_id = (
+                                NotificationLog.objects.filter(recipient_mobile__endswith=recipient_id[-10:])
+                                .order_by('-created_at')
+                                .values_list('id', flat=True)
+                                .first()
                             )
+                            if latest_id:
+                                NotificationLog.objects.filter(id=latest_id).update(
+                                    status='FAILED',
+                                    response_payload=f"Meta Webhook: {err_msg}"[:2000],
+                                )
             return HttpResponse('EVENT_RECEIVED', content_type='text/plain', status=200)
         except Exception:
             return HttpResponse('EVENT_RECEIVED', content_type='text/plain', status=200)
@@ -9099,8 +10088,13 @@ def api_notification_logs_view(request):
     """
     GET /api/settings/notification-logs/
     High-performance real-time JSON API endpoint returning live notification KPI counts
-    and paginated audit logs list. Enables instantaneous polling and live updating without page reloads.
+    and paginated audit logs list.
     """
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    if not (has_permission(current_user, 'can_access_settings') or has_permission(current_user, 'can_send_fee_reminders') or can_manage_system(request)):
+        return JsonResponse({'success': False, 'error': 'Access Denied'}, status=403)
     notif_qs = NotificationLog.objects.all().order_by('-created_at')
     total_count = notif_qs.count()
     sent_count = notif_qs.filter(status='SENT').count()
@@ -9111,10 +10105,7 @@ def api_notification_logs_view(request):
     status_filter = request.GET.get('status', '').strip()
     type_filter = request.GET.get('type', '').strip()
 
-    try:
-        limit = min(int(request.GET.get('limit', 100)), 300)
-    except (ValueError, TypeError):
-        limit = 100
+    limit = _parse_safe_int(request.GET.get('limit', 100), default=100, min_val=1, max_val=300)
 
     filtered_logs = notif_qs
     if search_q:
@@ -9177,6 +10168,12 @@ def api_resend_notification_view(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
 
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
+    if not (has_permission(current_user, 'can_send_fee_reminders') or has_permission(current_user, 'can_access_settings') or can_manage_system(request)):
+        return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to resend notifications.'}, status=403)
+
     log_id = request.POST.get('log_id') or request.GET.get('log_id')
     if not log_id:
         try:
@@ -9192,15 +10189,6 @@ def api_resend_notification_view(request):
         log = NotificationLog.objects.get(id=log_id)
     except NotificationLog.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Log record not found.'}, status=404)
-
-    current_user = getattr(request, 'current_user', None)
-    if not current_user:
-        user_id = request.session.get('user_id')
-        if user_id:
-            current_user = User.objects.filter(id=user_id, is_active=True).first()
-
-    if current_user and current_user.is_branch_manager and not (has_permission(current_user, 'can_send_fee_reminders') or has_permission(current_user, 'can_access_settings')):
-        return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to resend notifications.'}, status=403)
 
     sent_by_user = 'Admin (Retry)'
     if current_user and getattr(current_user, 'name', None):
@@ -9263,58 +10251,69 @@ def support_view(request):
 def api_public_inquiry_view(request):
     """
     Public Admission / Counseling Lead Submission API.
-    Receives JSON or Form data from the website modal or contact form.
-    Stores lead in WebsiteInquiry, creates initial InquiryFollowUp log,
-    and returns a success payload with assigned inquiry number.
+    Rate-limited per IP and length-validated to prevent spam flooding and DB errors.
     """
+    if not _client_ip_rate_limit(request, 'public_inquiry', limit=15, window_seconds=600):
+        return JsonResponse({
+            'success': False,
+            'error': 'Too many inquiry submissions from this network. Please try again in a few minutes.'
+        }, status=429)
+
     try:
         if request.content_type == 'application/json':
             payload = json.loads(request.body.decode('utf-8'))
         else:
             payload = request.POST.dict()
 
-        student_name = (payload.get('student_name') or payload.get('name') or '').strip()
-        phone = (payload.get('phone') or payload.get('mobile') or '').strip()
-        standard_course = (payload.get('standard_course') or payload.get('standard') or 'General Inquiry').strip()
-        preferred_branch = (payload.get('preferred_branch') or payload.get('campus') or payload.get('branch') or 'Vaijapur (Main Campus)').strip()
-        message = (payload.get('message') or payload.get('notes') or '').strip()
-        parent_name = (payload.get('parent_name') or '').strip()
-        email = (payload.get('email') or '').strip()
+        student_name = (payload.get('student_name') or payload.get('name') or '').strip()[:120]
+        phone = (payload.get('phone') or payload.get('mobile') or '').strip()[:25]
+        standard_course = (payload.get('standard_course') or payload.get('standard') or 'General Inquiry').strip()[:100]
+        preferred_branch = (payload.get('preferred_branch') or payload.get('campus') or payload.get('branch') or 'Vaijapur (Main Campus)').strip()[:100]
+        message = (payload.get('message') or payload.get('notes') or '').strip()[:1000]
+        parent_name = (payload.get('parent_name') or '').strip()[:120]
+        email = (payload.get('email') or '').strip()[:150]
 
         if not student_name or not phone:
             return JsonResponse({'success': False, 'error': 'Student Name and Phone Number are required.'}, status=400)
 
-        # Generate unique inquiry number: INQ-YYYY-XXXX
-        current_year = timezone.now().year
+        # Generate unique inquiry number safely across concurrent workers: INQ-YYYY-XXXX
+        current_year = timezone.localtime().year
         prefix = f"INQ-{current_year}-"
-        last_inq = WebsiteInquiry.objects.filter(inquiry_number__startswith=prefix).order_by('-inquiry_number').first()
-        if last_inq and last_inq.inquiry_number:
+        inquiry = None
+        for attempt in range(5):
             try:
-                seq = int(last_inq.inquiry_number.split('-')[-1]) + 1
-            except (ValueError, IndexError):
-                seq = WebsiteInquiry.objects.count() + 1
-        else:
-            seq = WebsiteInquiry.objects.count() + 1
-        inquiry_number = f"{prefix}{seq:04d}"
+                with transaction.atomic():
+                    last_inq = WebsiteInquiry.objects.filter(inquiry_number__startswith=prefix).order_by('-inquiry_number').first()
+                    if last_inq and last_inq.inquiry_number:
+                        try:
+                            seq = int(last_inq.inquiry_number.split('-')[-1]) + 1 + attempt
+                        except (ValueError, IndexError):
+                            seq = WebsiteInquiry.objects.count() + 1 + attempt
+                    else:
+                        seq = WebsiteInquiry.objects.count() + 1 + attempt
+                    inquiry_number = f"{prefix}{seq:04d}"
 
-        with transaction.atomic():
-            inquiry = WebsiteInquiry.objects.create(
-                inquiry_number=inquiry_number,
-                student_name=student_name,
-                parent_name=parent_name or None,
-                phone=phone,
-                email=email or None,
-                standard_course=standard_course,
-                preferred_branch=preferred_branch,
-                message=message or None,
-                status='NEW',
-            )
-            InquiryFollowUp.objects.create(
-                inquiry=inquiry,
-                contact_method='WHATSAPP',
-                notes=f"Initial inquiry registered from Website ({preferred_branch}). Query: {message[:120] if message else 'Standard Batch Inquiry'}",
-                status_after='NEW',
-            )
+                    inquiry = WebsiteInquiry.objects.create(
+                        inquiry_number=inquiry_number,
+                        student_name=student_name,
+                        parent_name=parent_name or None,
+                        phone=phone,
+                        email=email or None,
+                        standard_course=standard_course,
+                        preferred_branch=preferred_branch,
+                        message=message or None,
+                        status='NEW',
+                    )
+                    InquiryFollowUp.objects.create(
+                        inquiry=inquiry,
+                        contact_method='WHATSAPP',
+                        notes=f"Initial inquiry registered from Website ({preferred_branch}). Query: {message[:120] if message else 'Standard Batch Inquiry'}",
+                        status_after='NEW',
+                    )
+                break
+            except IntegrityError:
+                if attempt == 4:
+                    raise
 
         return JsonResponse({
             'success': True,
@@ -9470,6 +10469,9 @@ def api_inquiry_followup_view(request, inquiry_id):
 @require_POST
 def api_inquiry_status_view(request, inquiry_id):
     """Quick update of inquiry status."""
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
     inquiry = get_object_or_404(WebsiteInquiry, id=inquiry_id)
     new_status = request.POST.get('status') or (json.loads(request.body.decode('utf-8')).get('status') if request.content_type == 'application/json' else None)
     if new_status and new_status in dict(WebsiteInquiry.STATUS_CHOICES):
@@ -9481,7 +10483,12 @@ def api_inquiry_status_view(request, inquiry_id):
 
 @require_POST
 def api_inquiry_delete_view(request, inquiry_id):
-    """Delete an inquiry."""
+    """Delete an inquiry (restricted to owners/developers or staff with delete permission)."""
+    current_user = _resolve_current_user(request)
+    if not current_user:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+    if not (current_user.is_class_owner or current_user.is_developer or has_permission(current_user, 'can_delete_students')):
+        return JsonResponse({'success': False, 'error': 'Access Denied: You do not have permission to delete inquiries.'}, status=403)
     inquiry = get_object_or_404(WebsiteInquiry, id=inquiry_id)
     inquiry.delete()
     return JsonResponse({'success': True, 'message': 'Inquiry deleted.'})
@@ -9801,7 +10808,11 @@ def optimize_and_save_gallery_image(file_obj, subfolder='photos', max_dimension=
 
     try:
         file_obj.seek(0)
+        verify_img = Image.open(file_obj)
+        verify_img.verify()
+        file_obj.seek(0)
         img = Image.open(file_obj)
+        img.load()
 
         # 1. Correct mobile EXIF orientation
         try:
@@ -9862,15 +10873,8 @@ def optimize_and_save_gallery_image(file_obj, subfolder='photos', max_dimension=
 
         return main_url, thumb_url
 
-    except Exception:
-        # Fallback to direct raw save if PIL cannot process
-        file_obj.seek(0)
-        filename = f"{base_token}{ext}"
-        dest_path = os.path.join(target_dir, filename)
-        with open(dest_path, 'wb+') as dest:
-            for chunk in file_obj.chunks():
-                dest.write(chunk)
-        return f"/media/website/gallery/{subfolder}/{filename}", None
+    except Exception as exc:
+        raise ValueError("Invalid or corrupted image file.") from exc
 
 
 def save_website_gallery_file(file_obj, subfolder='photos'):
@@ -9921,7 +10925,7 @@ def website_management_view(request):
 
         if action == 'add_notification':
             title = request.POST.get('title', '').strip()
-            content = request.POST.get('content', '').strip()
+            content = _sanitize_rich_html(request.POST.get('content', '').strip())
             is_active = request.POST.get('is_active') == 'on' or request.POST.get('is_active') == 'true'
             is_pinned = request.POST.get('is_pinned') == 'on' or request.POST.get('is_pinned') == 'true'
             try:
@@ -9933,6 +10937,14 @@ def website_management_view(request):
                 messages.error(request, "Notification title is required.")
                 return redirect(f"{request.path}?tab=home")
 
+            files = request.FILES.getlist('documents')
+            for uploaded_file in files:
+                try:
+                    _validate_uploaded_document(uploaded_file, allowed_exts=ALLOWED_NOTICE_DOC_EXTS, max_bytes=10 * 1024 * 1024)
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect(f"{request.path}?tab=home")
+
             notif = WebsiteNotification.objects.create(
                 title=title,
                 content=content,
@@ -9942,7 +10954,6 @@ def website_management_view(request):
             )
 
             # Upload attached documents
-            files = request.FILES.getlist('documents')
             for uploaded_file in files:
                 size_str = _format_file_size_display(uploaded_file.size)
                 WebsiteNotificationDocument.objects.create(
@@ -9964,7 +10975,7 @@ def website_management_view(request):
                 return redirect(f"{request.path}?tab=home")
 
             title = request.POST.get('title', '').strip()
-            content = request.POST.get('content', '').strip()
+            content = _sanitize_rich_html(request.POST.get('content', '').strip())
             is_active = request.POST.get('is_active') == 'on' or request.POST.get('is_active') == 'true'
             is_pinned = request.POST.get('is_pinned') == 'on' or request.POST.get('is_pinned') == 'true'
             try:
@@ -9976,6 +10987,14 @@ def website_management_view(request):
                 messages.error(request, "Notice title cannot be empty.")
                 return redirect(f"{request.path}?tab=home")
 
+            files = request.FILES.getlist('documents')
+            for uploaded_file in files:
+                try:
+                    _validate_uploaded_document(uploaded_file, allowed_exts=ALLOWED_NOTICE_DOC_EXTS, max_bytes=10 * 1024 * 1024)
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect(f"{request.path}?tab=home")
+
             notif.title = title
             notif.content = content
             notif.is_active = is_active
@@ -9984,7 +11003,6 @@ def website_management_view(request):
             notif.save()
 
             # Upload new attached documents
-            files = request.FILES.getlist('documents')
             for uploaded_file in files:
                 size_str = _format_file_size_display(uploaded_file.size)
                 WebsiteNotificationDocument.objects.create(
@@ -10078,6 +11096,10 @@ def website_management_view(request):
             return redirect(f"{request.path}?tab=home")
 
         elif action == 'add_topper':
+            try:
+                topper_sort = int(request.POST.get('sort_order', 0) or 0)
+            except (ValueError, TypeError):
+                topper_sort = 0
             WebsiteTopper.objects.create(
                 student_name=request.POST.get('student_name', '').strip(),
                 exam_stream=request.POST.get('exam_stream', '').strip(),
@@ -10087,7 +11109,7 @@ def website_management_view(request):
                 quote=request.POST.get('quote', '').strip() or None,
                 avatar_initials=request.POST.get('avatar_initials', 'ST').strip().upper()[:4] or 'ST',
                 avatar_color=request.POST.get('avatar_color', 'avatar-blue').strip() or 'avatar-blue',
-                sort_order=int(request.POST.get('sort_order', 0) or 0),
+                sort_order=topper_sort,
                 is_active=request.POST.get('is_active') in ('on', 'true', '1'),
             )
             invalidate_global_context_cache()
@@ -10105,7 +11127,10 @@ def website_management_view(request):
             topper.quote = request.POST.get('quote', '').strip() or None
             topper.avatar_initials = request.POST.get('avatar_initials', 'ST').strip().upper()[:4] or 'ST'
             topper.avatar_color = request.POST.get('avatar_color', 'avatar-blue').strip() or 'avatar-blue'
-            topper.sort_order = int(request.POST.get('sort_order', 0) or 0)
+            try:
+                topper.sort_order = int(request.POST.get('sort_order', 0) or 0)
+            except (ValueError, TypeError):
+                pass
             topper.is_active = request.POST.get('is_active') in ('on', 'true', '1')
             topper.save()
             invalidate_global_context_cache()
@@ -10121,8 +11146,12 @@ def website_management_view(request):
             return redirect(f"{request.path}?tab=home")
 
         elif action == 'add_batch':
-            is_active_val = request.POST.get('is_active') in ('on', 'true', '1') or ('is_active' not in request.POST)
+            is_active_val = request.POST.get('is_active') in ('on', 'true', '1')
             is_featured_val = request.POST.get('is_featured') in ('on', 'true', '1')
+            try:
+                batch_sort = int(request.POST.get('sort_order', 0) or 0)
+            except (ValueError, TypeError):
+                batch_sort = 0
             WebsiteBatchCard.objects.create(
                 title=request.POST.get('title', '').strip(),
                 category=request.POST.get('category', 'science'),
@@ -10131,7 +11160,7 @@ def website_management_view(request):
                 target_text=request.POST.get('target_text', '').strip(),
                 features=request.POST.get('features', '').strip(),
                 timing_text=request.POST.get('timing_text', '').strip(),
-                sort_order=int(request.POST.get('sort_order', 0) or 0),
+                sort_order=batch_sort,
                 is_active=is_active_val,
                 is_featured=is_featured_val,
                 featured_tag=request.POST.get('featured_tag', '').strip(),
@@ -10150,7 +11179,10 @@ def website_management_view(request):
             batch.target_text = request.POST.get('target_text', '').strip()
             batch.features = request.POST.get('features', '').strip()
             batch.timing_text = request.POST.get('timing_text', '').strip()
-            batch.sort_order = int(request.POST.get('sort_order', 0) or 0)
+            try:
+                batch.sort_order = int(request.POST.get('sort_order', 0) or 0)
+            except (ValueError, TypeError):
+                pass
             batch.is_active = request.POST.get('is_active') in ('on', 'true', '1')
             batch.is_featured = request.POST.get('is_featured') in ('on', 'true', '1')
             batch.featured_tag = request.POST.get('featured_tag', '').strip()
@@ -10187,7 +11219,7 @@ def website_management_view(request):
             ).first()
             category_name = cat_ref.name if cat_ref else (category_val or 'Campus Infrastructure')
             caption = request.POST.get('caption', '').strip() or None
-            sort_order = int(request.POST.get('sort_order', 0) or 0)
+            sort_order = _parse_safe_int(request.POST.get('sort_order', 0), default=0)
             is_active = request.POST.get('is_active') == 'on' or request.POST.get('is_active') == 'true'
 
             file_url = ''
@@ -10256,7 +11288,7 @@ def website_management_view(request):
                 item.category = cat_ref.name if cat_ref else category_val
                 item.category_ref = cat_ref
             item.caption = request.POST.get('caption', '').strip() or None
-            item.sort_order = int(request.POST.get('sort_order', 0) or 0)
+            item.sort_order = _parse_safe_int(request.POST.get('sort_order', item.sort_order), default=item.sort_order)
             item.is_active = request.POST.get('is_active') == 'on' or request.POST.get('is_active') == 'true'
 
             if media_type == 'IMAGE':
@@ -10462,7 +11494,7 @@ def website_management_view(request):
                 hours_sub=request.POST.get('hours_sub', '').strip(),
                 map_embed_url=request.POST.get('map_embed_url', '').strip() or None,
                 map_direct_url=request.POST.get('map_direct_url', '').strip() or None,
-                sort_order=int(request.POST.get('sort_order', 0) or 0),
+                sort_order=_parse_safe_int(request.POST.get('sort_order', 0), default=0),
                 is_active=request.POST.get('is_active') == 'on',
             )
             invalidate_global_context_cache()
@@ -10484,7 +11516,7 @@ def website_management_view(request):
             campus.hours_sub = request.POST.get('hours_sub', '').strip()
             campus.map_embed_url = request.POST.get('map_embed_url', '').strip() or None
             campus.map_direct_url = request.POST.get('map_direct_url', '').strip() or None
-            campus.sort_order = int(request.POST.get('sort_order', 0) or 0)
+            campus.sort_order = _parse_safe_int(request.POST.get('sort_order', campus.sort_order), default=campus.sort_order)
             campus.is_active = request.POST.get('is_active') == 'on'
             campus.save()
             invalidate_global_context_cache()
@@ -10545,9 +11577,8 @@ def website_management_view(request):
 
 def custom_500_handler(request):
     """
-    Production-grade 500 error handler that captures detailed exception information,
-    error message, and stack trace, rendering it inside 500.html with an interactive
-    error popup and actionable recovery recommendations.
+    Production-grade 500 error handler.
+    Only exposes stack trace & internal hints when DEBUG=True or to authenticated DEVELOPER users.
     """
     import sys
     import traceback
@@ -10555,47 +11586,64 @@ def custom_500_handler(request):
     from django.http import HttpResponseServerError
 
     exc_type, exc_value, tb = sys.exc_info()
-    error_details = "".join(traceback.format_exception(exc_type, exc_value, tb)) if exc_type else ""
-    error_message = str(exc_value) if exc_value else "An unexpected server error occurred."
-    error_type = exc_type.__name__ if exc_type else "InternalServerError"
+    raw_details = "".join(traceback.format_exception(exc_type, exc_value, tb)) if exc_type else ""
+    raw_message = str(exc_value) if exc_value else "An unexpected server error occurred."
+    raw_type = exc_type.__name__ if exc_type else "InternalServerError"
+
+    current_user = None
+    try:
+        current_user = _resolve_current_user(request)
+    except Exception:
+        current_user = getattr(request, 'current_user', None)
+
+    can_see_debug = bool(settings.DEBUG or (current_user and getattr(current_user, 'is_developer', False)))
 
     hint = None
-    msg_lower = error_message.lower()
-    if "no such table" in msg_lower or "no such column" in msg_lower:
-        hint = (
-            "Database Schema Mismatch: A database table or column is missing. "
-            "If you recently restored a backup or updated the software, run 'python manage.py migrate' "
-            "in your production server terminal to create missing tables and columns."
-        )
-    elif "readonly" in msg_lower or "permission" in msg_lower or "disk i/o" in msg_lower:
-        hint = (
-            "File Permission / Lock Error: The SQLite database file may be locked or have incorrect read/write permissions. "
-            "Restart the production service (e.g. sudo systemctl restart gunicorn / waitress) and check file permissions."
-        )
-    elif "database is locked" in msg_lower:
-        hint = (
-            "Database Locked: Another process or background worker holds an open transaction lock. "
-            "Restart your web server process to release locked connections."
-        )
+    if can_see_debug:
+        msg_lower = raw_message.lower()
+        if "no such table" in msg_lower or "no such column" in msg_lower or "does not exist" in msg_lower:
+            hint = (
+                "Database Schema Mismatch: A database table or column is missing. "
+                "If you recently restored a backup or updated the software, run 'python manage.py migrate' "
+                "in your production server terminal to create missing tables and columns."
+            )
+        elif "readonly" in msg_lower or "permission" in msg_lower or "disk i/o" in msg_lower:
+            hint = (
+                "File Permission / Lock Error: Check database and media directory read/write permissions "
+                "and restart the production web service."
+            )
+        elif "database is locked" in msg_lower or "could not connect" in msg_lower:
+            hint = (
+                "Database Connection / Lock Error: Verify PostgreSQL / database connectivity and worker pool health."
+            )
+        error_type = raw_type
+        error_message = raw_message
+        error_details = raw_details
+    else:
+        error_type = "InternalServerError"
+        error_message = "An unexpected server error occurred. Please try again or contact developer support."
+        error_details = ""
 
     context = {
         'error_type': error_type,
         'error_message': error_message,
         'error_details': error_details,
         'error_hint': hint,
+        'can_see_debug': can_see_debug,
         'request_path': getattr(request, 'path', ''),
     }
 
     try:
         return render(request, '500.html', context, status=500)
     except Exception:
-        # Failsafe fallback: render template directly without context processors
         try:
             t = loader.get_template('500.html')
             return HttpResponseServerError(t.render(context))
         except Exception:
+            details_block = f"<pre>{html.escape(error_details)}</pre>" if error_details else ""
             return HttpResponseServerError(
-                f"<h1>500 Server Error: {error_type}</h1><p>{error_message}</p><pre>{error_details}</pre>"
+                f"<h1>500 Server Error: {html.escape(error_type)}</h1>"
+                f"<p>{html.escape(error_message)}</p>{details_block}"
             )
 
 

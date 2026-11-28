@@ -174,38 +174,96 @@
         }
       });
 
-      // Forward focus from native select to custom trigger (e.g. when <label for="..."> is clicked)
+      // Forward focus / validation from native select to custom trigger
       this.select.addEventListener('focus', () => {
         if (!this.select.disabled) {
           this.triggerEl.focus();
         }
       });
 
+      this.select.addEventListener('invalid', () => {
+        if (!this.select.disabled) {
+          this.triggerEl.classList.add('border-destructive');
+          if (!this.isOpen) {
+            setTimeout(() => {
+              this.triggerEl.focus();
+            }, 0);
+          }
+        }
+      });
+
       // Native select change sync (if modified programmatically by other scripts)
       this.select.addEventListener('change', () => {
+        this.triggerEl.classList.remove('border-destructive');
         this.readOptions();
         this.updateLabel();
       });
+
+      // Wrap programmatic .value / .selectedIndex setters so UI stays synced without native change event
+      const self = this;
+      const valueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+      if (valueDesc && valueDesc.configurable) {
+        Object.defineProperty(this.select, 'value', {
+          configurable: true,
+          get() {
+            return valueDesc.get.call(this);
+          },
+          set(val) {
+            valueDesc.set.call(this, val);
+            self.triggerEl.classList.remove('border-destructive');
+            self.readOptions();
+            self.updateLabel();
+            if (self.isOpen) {
+              self.renderOptionsList();
+            }
+          }
+        });
+      }
+      const idxDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
+      if (idxDesc && idxDesc.configurable) {
+        Object.defineProperty(this.select, 'selectedIndex', {
+          configurable: true,
+          get() {
+            return idxDesc.get.call(this);
+          },
+          set(val) {
+            idxDesc.set.call(this, val);
+            self.triggerEl.classList.remove('border-destructive');
+            self.readOptions();
+            self.updateLabel();
+            if (self.isOpen) {
+              self.renderOptionsList();
+            }
+          }
+        });
+      }
 
       // Form reset handler
       if (this.select.form) {
         this.select.form.addEventListener('reset', () => {
           setTimeout(() => {
+            this.triggerEl.classList.remove('border-destructive');
             this.readOptions();
             this.updateLabel();
           }, 10);
         });
       }
 
-      // Mutation observer to detect dynamic option additions/removals
+      // Mutation observer to detect dynamic option additions/removals & disabled attribute updates
       this.observer = new MutationObserver(() => {
+        this.triggerEl.classList.toggle('is-disabled', !!this.select.disabled);
+        this.triggerEl.tabIndex = this.select.disabled ? -1 : 0;
+        if (this.select.disabled && this.isOpen) {
+          this.close();
+        }
         this.readOptions();
         this.updateLabel();
         if (this.isOpen) {
           this.renderOptionsList();
         }
       });
-      this.observer.observe(this.select, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class'] });
+      this.observer.observe(this.select, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'class'] });
+      this.select._searchableInstance = this;
     }
 
     toggle() {
@@ -583,11 +641,24 @@
     }
 
     highlightMatch(text, query) {
-      if (!query) return this.escapeHtml(text);
-      const safeText = this.escapeHtml(text);
-      const safeQuery = this.escapeHtml(query);
-      const regex = new RegExp(`(${this.escapeRegex(safeQuery)})`, 'gi');
-      return safeText.replace(regex, '<mark>$1</mark>');
+      const rawText = text == null ? '' : String(text);
+      if (!query) return this.escapeHtml(rawText);
+      const regex = new RegExp(`(${this.escapeRegex(String(query))})`, 'gi');
+      let result = '';
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(rawText)) !== null) {
+        if (match[0].length === 0) break;
+        if (match.index > lastIndex) {
+          result += this.escapeHtml(rawText.slice(lastIndex, match.index));
+        }
+        result += '<mark>' + this.escapeHtml(match[0]) + '</mark>';
+        lastIndex = match.index + match[0].length;
+      }
+      if (lastIndex < rawText.length) {
+        result += this.escapeHtml(rawText.slice(lastIndex));
+      }
+      return result;
     }
 
     escapeHtml(str) {
@@ -612,6 +683,12 @@
       if (this.triggerEl && this.triggerEl.parentNode) {
         this.triggerEl.parentNode.removeChild(this.triggerEl);
       }
+      try {
+        delete this.select.value;
+        delete this.select.selectedIndex;
+        delete this.select._searchableInstance;
+      } catch (e) {}
+      this.select.tabIndex = 0;
       this.select.classList.remove('searchable-select-hidden');
       delete this.select.dataset.searchableUpgraded;
     }
@@ -649,8 +726,21 @@
       });
     },
 
+    refresh: function (selectElement) {
+      if (!selectElement || !selectElement._searchableInstance) return;
+      const inst = selectElement._searchableInstance;
+      inst.triggerEl.classList.toggle('is-disabled', !!selectElement.disabled);
+      inst.triggerEl.tabIndex = selectElement.disabled ? -1 : 0;
+      inst.readOptions();
+      inst.updateLabel();
+      if (inst.isOpen) {
+        inst.renderOptionsList();
+      }
+    },
+
     sync: function (selectElement) {
       if (selectElement) {
+        SearchableSelect.refresh(selectElement);
         selectElement.dispatchEvent(new Event('change', { bubbles: true }));
       }
     },

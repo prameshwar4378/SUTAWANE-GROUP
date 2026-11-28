@@ -85,13 +85,16 @@
           <span>Support / Admin Login</span>
         </a>
 
-        <a
-          href="{% url 'logout' %}"
-          class="inline-flex items-center justify-center gap-1.5 text-xs h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-          <span>Sign Out</span>
-        </a>
+        <form method="post" action="{% url 'logout' %}" class="inline m-0 p-0">
+          {% csrf_token %}
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center gap-1.5 text-xs h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+          >
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span>Sign Out</span>
+          </button>
+        </form>
       </div>
     </div>
   </div>

@@ -111,7 +111,7 @@
   {% if category_breakdown %}
   <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
     <a
-      href="?{% for k, v in filters.items %}{% if k != 'category_id' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}category_id=ALL"
+      href="?{% for k, v in filters.items %}{% if k != 'category_id' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}category_id=ALL"
       class="px-3 py-1.5 rounded-lg border font-medium transition-all whitespace-nowrap flex items-center gap-1.5 {% if filters.category_id == 'ALL' or not filters.category_id %}bg-primary text-primary-foreground border-primary shadow-sm{% else %}bg-card hover:bg-muted text-muted-foreground{% endif %}"
     >
       <span>All Categories</span>
@@ -122,7 +122,7 @@
 
     {% for cat in category_breakdown %}
       <a
-        href="?{% for k, v in filters.items %}{% if k != 'category_id' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}category_id={{ cat.id }}"
+        href="?{% for k, v in filters.items %}{% if k != 'category_id' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}category_id={{ cat.id }}"
         class="px-3 py-1.5 rounded-lg border font-medium transition-all whitespace-nowrap flex items-center gap-1.5 {% if filters.category_id == cat.id %}bg-primary text-primary-foreground border-primary shadow-sm{% else %}bg-card hover:bg-muted text-foreground{% endif %}"
       >
         <span>{{ cat.name }}</span>
@@ -159,7 +159,7 @@
           />
           {% if filters.q %}
             <a
-              href="?{% for k, v in filters.items %}{% if k != 'q' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}"
+              href="?{% for k, v in filters.items %}{% if k != 'q' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}"
               class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
               title="Clear search"
             >
@@ -321,7 +321,7 @@
 
         <!-- Export to Excel Button -->
         <a
-          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=excel"
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}export=excel"
           class="inline-flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-md border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-medium transition-colors shadow-2xs"
         >
           <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
@@ -330,7 +330,7 @@
 
         <!-- Export to PDF Button -->
         <a
-          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=pdf"
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}export=pdf"
           class="inline-flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-md border border-rose-500/40 text-rose-700 dark:text-rose-400 bg-background hover:bg-rose-50 dark:hover:bg-rose-950/30 font-medium transition-colors shadow-2xs"
         >
           <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-600"></i>
@@ -1061,8 +1061,9 @@
 
   // --- Attachment Viewer Modal Functions ---
   function openAttachmentModal(fileName, filePath, mimeType) {
-    document.getElementById('attachmentViewerFileName').textContent = fileName;
-    document.getElementById('attachmentOpenNewTabBtn').href = filePath;
+    document.getElementById('attachmentViewerFileName').textContent = fileName || '';
+    const safePath = (typeof filePath === 'string' && (filePath.startsWith('/media/') || filePath.startsWith('/static/'))) ? filePath : '#';
+    document.getElementById('attachmentOpenNewTabBtn').href = safePath;
     const container = document.getElementById('attachmentContentArea');
     container.innerHTML = '';
 
@@ -1070,17 +1071,19 @@
       container.innerHTML = `
         <div class="text-center space-y-3 py-6">
           <i data-lucide="file-text" class="w-16 h-16 text-rose-600 mx-auto"></i>
-          <p class="text-xs font-semibold text-foreground">PDF Document: ${fileName}</p>
-          <a href="${filePath}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+          <p class="text-xs font-semibold text-foreground">PDF Document: ${escapeHtml(fileName)}</p>
+          <a href="${escapeHtml(safePath)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
             <i data-lucide="eye" class="w-3.5 h-3.5"></i>
             <span>Open PDF in New Window</span>
           </a>
         </div>
       `;
     } else {
-      container.innerHTML = `
-        <img src="${filePath}" alt="Bill scan" class="max-w-full max-h-[60vh] rounded shadow-sm object-contain" />
-      `;
+      const img = document.createElement('img');
+      img.src = safePath;
+      img.alt = 'Bill scan';
+      img.className = 'max-w-full max-h-[60vh] rounded shadow-sm object-contain';
+      container.appendChild(img);
     }
 
     document.getElementById('attachmentViewerModal').classList.remove('hidden');
@@ -1186,7 +1189,15 @@
 
   function escapeJs(str) {
     if (!str) return '';
-    return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
+    return String(str)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '\\"')
+      .replace(/</g, '\\u003C')
+      .replace(/>/g, '\\u003E')
+      .replace(/&/g, '\\u0026')
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n');
   }
 
   function openManageCategoriesModal() {

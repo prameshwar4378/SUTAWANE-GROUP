@@ -13,16 +13,37 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://127.0.0.1:8000';
+const BRIDGE_AUTH_TOKEN = (process.env.WHATSAPP_BRIDGE_TOKEN || '').trim();
 
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// CORS headers for local Django access
+// CORS headers restricted to configured origin for Django server-to-bridge access
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    const reqOrigin = req.headers.origin;
+    const allowedOrigins = ALLOWED_ORIGIN.split(',').map(o => o.trim()).filter(Boolean);
+    if (reqOrigin && allowedOrigins.includes(reqOrigin)) {
+        res.header('Access-Control-Allow-Origin', reqOrigin);
+        res.header('Vary', 'Origin');
+    }
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Bridge-Token');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
+
+// Optional shared secret authentication when WHATSAPP_BRIDGE_TOKEN is configured
+app.use((req, res, next) => {
+    if (!BRIDGE_AUTH_TOKEN) return next();
+    const headerToken = (req.headers['x-bridge-token'] || '').toString().trim();
+    const authHeader = (req.headers.authorization || '').toString().trim();
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const provided = headerToken || bearerToken;
+    if (!provided || provided !== BRIDGE_AUTH_TOKEN) {
+        return res.status(403).json({ success: false, error: 'Forbidden: invalid or missing bridge token' });
+    }
     next();
 });
 
@@ -438,13 +459,13 @@ app.post('/restart', async (req, res) => {
     }
 });
 
-// Start Express HTTP Server
-app.listen(PORT, '0.0.0.0', () => {
+// Start Express HTTP Server (loopback only by default; override BIND_HOST if explicitly required)
+app.listen(PORT, BIND_HOST, () => {
     console.log(`\n============================================================`);
-    console.log(` 🚀 [WhatsApp Gateway] HTTP Server running on http://localhost:${PORT}`);
-    console.log(` Health: http://localhost:${PORT}/health`);
-    console.log(` QR Code: http://localhost:${PORT}/qr`);
-    console.log(` Send API: POST http://localhost:${PORT}/send`);
+    console.log(` 🚀 [WhatsApp Gateway] HTTP Server running on http://${BIND_HOST}:${PORT}`);
+    console.log(` Health: http://${BIND_HOST}:${PORT}/health`);
+    console.log(` QR Code: http://${BIND_HOST}:${PORT}/qr`);
+    console.log(` Send API: POST http://${BIND_HOST}:${PORT}/send`);
     console.log(`============================================================\n`);
 
     client.initialize().catch(err => {

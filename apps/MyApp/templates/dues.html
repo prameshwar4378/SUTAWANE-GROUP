@@ -112,7 +112,7 @@
   <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-fit overflow-x-auto shadow-2xs">
     <!-- All Pending -->
     <a
-      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=ALL"
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}status=ALL"
       class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'ALL' %}bg-slate-900 text-white border-slate-900 shadow-sm{% else %}border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/80{% endif %}"
     >
       <i data-lucide="clock-alert" class="w-3.5 h-3.5 {% if filters.status == 'ALL' %}text-white{% else %}text-slate-500{% endif %}"></i>
@@ -124,7 +124,7 @@
 
     <!-- Overdue -->
     <a
-      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=OVERDUE"
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}status=OVERDUE"
       class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'OVERDUE' %}bg-rose-600 text-white border-rose-600 shadow-sm{% else %}border-transparent text-rose-700 hover:text-rose-800 hover:bg-rose-50{% endif %}"
     >
       <i data-lucide="alert-triangle" class="w-3.5 h-3.5 {% if filters.status == 'OVERDUE' %}text-white{% else %}text-rose-500{% endif %}"></i>
@@ -136,7 +136,7 @@
 
     <!-- Due Today -->
     <a
-      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=DUE"
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}status=DUE"
       class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'DUE' %}bg-amber-600 text-white border-amber-600 shadow-sm{% else %}border-transparent text-amber-700 hover:text-amber-800 hover:bg-amber-50{% endif %}"
     >
       <i data-lucide="calendar" class="w-3.5 h-3.5 {% if filters.status == 'DUE' %}text-white{% else %}text-amber-500{% endif %}"></i>
@@ -148,7 +148,7 @@
 
     <!-- Partially Paid -->
     <a
-      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=PARTIAL"
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}status=PARTIAL"
       class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'PARTIAL' %}bg-blue-600 text-white border-blue-600 shadow-sm{% else %}border-transparent text-blue-700 hover:text-blue-800 hover:bg-blue-50{% endif %}"
     >
       <i data-lucide="trending-down" class="w-3.5 h-3.5 {% if filters.status == 'PARTIAL' %}text-white{% else %}text-blue-500{% endif %}"></i>
@@ -160,7 +160,7 @@
 
     <!-- Upcoming Dues -->
     <a
-      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}status=UPCOMING"
+      href="?{% for k, v in filters.items %}{% if k != 'status' and k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}status=UPCOMING"
       class="inline-flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer {% if filters.status == 'UPCOMING' %}bg-emerald-600 text-white border-emerald-600 shadow-sm{% else %}border-transparent text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50{% endif %}"
     >
       <i data-lucide="calendar-days" class="w-3.5 h-3.5 {% if filters.status == 'UPCOMING' %}text-white{% else %}text-emerald-500{% endif %}"></i>
@@ -190,7 +190,7 @@
           />
           {% if filters.q %}
           <a
-            href="?{% for k, v in filters.items %}{% if k != 'q' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}"
+            href="?{% for k, v in filters.items %}{% if k != 'q' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}"
             class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
             title="Clear search"
           >
@@ -386,7 +386,7 @@
         {% if is_developer or is_class_owner or user_permissions.can_export_reports %}
         <!-- Export to Excel Button -->
         <a
-          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=excel"
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}export=excel"
           class="inline-flex items-center justify-center rounded-md text-xs font-semibold border border-emerald-500/40 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/50 h-8 px-2.5 gap-1.5 transition-colors shadow-xs"
           title="Download Pending Dues spreadsheet (.xlsx)"
         >
@@ -396,7 +396,7 @@
 
         <!-- Export to PDF Button -->
         <a
-          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}export=pdf"
+          href="?{% for k, v in filters.items %}{% if k != 'export' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}export=pdf"
           target="_blank"
           class="inline-flex items-center justify-center rounded-md text-xs font-semibold border border-rose-500/40 text-rose-700 bg-rose-50/50 hover:bg-rose-100/50 h-8 px-2.5 gap-1.5 transition-colors shadow-xs"
           title="Generate Official Dues Register PDF (.pdf)"
@@ -421,7 +421,7 @@
       <div class="flex items-center gap-2">
         {% if pagination.has_prev %}
         <a
-          href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ pagination.prev_page }}"
+          href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ pagination.prev_page }}"
           class="inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium text-foreground transition-colors"
         >
           <i data-lucide="chevron-left" class="w-3.5 h-3.5 mr-1"></i>
@@ -440,7 +440,7 @@
 
         {% if pagination.has_next %}
         <a
-          href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ pagination.next_page }}"
+          href="?{% for k, v in filters.items %}{% if k != 'page' and v %}{{ k|urlencode }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ pagination.next_page }}"
           class="inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent h-7 px-2.5 text-xs font-medium text-foreground transition-colors"
         >
           <span>Next</span>
@@ -773,7 +773,8 @@
 
   function initDuesRowClick() {
     const table = document.getElementById('duesMasterTable');
-    if (!table) return;
+    if (!table || table.dataset.rowClickBound === '1') return;
+    table.dataset.rowClickBound = '1';
 
     table.addEventListener('click', function(e) {
       if (e.target.closest('button, a, input, select, textarea, form, label, .col-actions')) {
@@ -799,6 +800,11 @@
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
     }
+  });
+
+  document.body.addEventListener('htmx:afterSwap', function() {
+    applyColumnVisibility();
+    initDuesRowClick();
   });
 </script>
 {% endblock %}

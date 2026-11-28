@@ -1300,7 +1300,7 @@
 
                   <!-- Live Meta Credentials Status Badge -->
                   <div id="metaStatusBadge">
-                    {% if settings.whatsapp_meta_phone_id and settings.whatsapp_meta_access_token %}
+                    {% if settings.whatsapp_meta_phone_id and settings.whatsapp_meta_access_token_configured %}
                       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-2xs">
                         <span class="w-2 h-2 rounded-full bg-blue-500"></span> CONFIGURED
                       </span>
@@ -1414,8 +1414,9 @@
                         type="password"
                         name="whatsapp_meta_access_token"
                         id="metaAccessTokenInput"
-                        value="{{ settings.whatsapp_meta_access_token }}"
-                        placeholder="EAAB..."
+                        value=""
+                        data-has-saved="{% if settings.whatsapp_meta_access_token_configured %}true{% else %}false{% endif %}"
+                        placeholder="{% if settings.whatsapp_meta_access_token_configured %}Token saved securely (leave blank to keep existing, or paste new EA...){% else %}EAAB...{% endif %}"
                         autocomplete="new-password"
                         class="w-full h-10 pl-3.5 pr-10 text-xs font-mono font-medium rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                       >
@@ -3094,16 +3095,16 @@
     window.copyMetaWebhookUrl = function() {
       const urlInput = document.getElementById('metaWebhookCallbackUrlInput');
       if (!urlInput) return;
-      navigator.clipboard.writeText(urlInput.value).then(() => {
+      const copyPromise = typeof window.copyTextSafe === 'function'
+        ? window.copyTextSafe(urlInput.value)
+        : (navigator.clipboard ? navigator.clipboard.writeText(urlInput.value) : Promise.reject());
+      copyPromise.then(() => {
         const lbl = document.getElementById('copyWebhookLabel');
         if (lbl) {
           lbl.textContent = 'Copied!';
           setTimeout(() => { lbl.textContent = 'Copy Callback URL'; }, 2000);
         }
-      }).catch(() => {
-        urlInput.select();
-        document.execCommand('copy');
-      });
+      }).catch(() => {});
     };
 
     window.generateRandomWebhookToken = function() {
@@ -3117,6 +3118,16 @@
       tokenInput.value = rand;
     };
 
+    function _escapeMetaHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     window.verifyMetaApiCredentials = async function() {
       const btn = document.getElementById('btnVerifyMetaCreds');
       const resContainer = document.getElementById('metaVerificationResult');
@@ -3127,9 +3138,10 @@
 
       const phoneId = phoneIdInput ? phoneIdInput.value.trim() : '';
       const token = tokenInput ? tokenInput.value.trim() : '';
+      const hasSavedToken = !!(tokenInput && tokenInput.dataset.hasSaved === 'true');
       const version = versionSelect ? versionSelect.value.trim() : 'v21.0';
 
-      if (!phoneId || !token) {
+      if (!phoneId || (!token && !hasSavedToken)) {
         if (resContainer) {
           resContainer.className = 'p-3.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/30 text-rose-800 dark:text-rose-200 text-xs flex items-start gap-2.5';
           resContainer.innerHTML = `
@@ -3155,7 +3167,7 @@
         const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
         const formData = new FormData();
         formData.append('phone_id', phoneId);
-        formData.append('access_token', token);
+        if (token) formData.append('access_token', token);
         formData.append('api_version', version);
         if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken);
 
@@ -3187,24 +3199,24 @@
                   </span>
                   <strong class="font-bold text-emerald-900 dark:text-emerald-200 text-xs sm:text-sm">Meta WhatsApp Cloud API Successfully Verified!</strong>
                 </div>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-bold">API ${version} ACTIVE</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-bold">API ${_escapeMetaHtml(version)} ACTIVE</span>
               </div>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
                 <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
                   <span class="text-[10px] uppercase text-muted-foreground block font-bold">Display Number</span>
-                  <span class="font-bold font-mono text-foreground">${data.phone_number || 'N/A'}</span>
+                  <span class="font-bold font-mono text-foreground">${_escapeMetaHtml(data.phone_number || 'N/A')}</span>
                 </div>
                 <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
                   <span class="text-[10px] uppercase text-muted-foreground block font-bold">Business Name</span>
-                  <span class="font-bold text-foreground truncate block">${data.verified_name || 'Verified WABA'}</span>
+                  <span class="font-bold text-foreground truncate block">${_escapeMetaHtml(data.verified_name || 'Verified WABA')}</span>
                 </div>
                 <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
                   <span class="text-[10px] uppercase text-muted-foreground block font-bold">Quality Rating</span>
-                  <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase">${data.quality_rating || 'GREEN'}</span>
+                  <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase">${_escapeMetaHtml(data.quality_rating || 'GREEN')}</span>
                 </div>
                 <div class="p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200 dark:border-emerald-900">
                   <span class="text-[10px] uppercase text-muted-foreground block font-bold">Verification</span>
-                  <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase">${data.code_verification_status || 'VERIFIED'}</span>
+                  <span class="font-bold text-emerald-600 dark:text-emerald-400 uppercase">${_escapeMetaHtml(data.code_verification_status || 'VERIFIED')}</span>
                 </div>
               </div>
               <p class="text-[11px] text-emerald-700 dark:text-emerald-300">Credentials are valid and ready. Click <strong>"Save Notification Configuration"</strong> below to persist your settings.</p>
@@ -3227,7 +3239,7 @@
                 <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
                 <div>
                   <strong class="font-bold text-rose-900 dark:text-rose-100">Meta API Verification Failed:</strong>
-                  <p class="text-[11px] mt-1 font-mono text-rose-700 dark:text-rose-300 bg-white/60 dark:bg-slate-900/50 p-2 rounded-md border border-rose-200 dark:border-rose-900 select-all">${errMsg}</p>
+                  <p class="text-[11px] mt-1 font-mono text-rose-700 dark:text-rose-300 bg-white/60 dark:bg-slate-900/50 p-2 rounded-md border border-rose-200 dark:border-rose-900 select-all">${_escapeMetaHtml(errMsg)}</p>
                 </div>
               </div>
               <ul class="list-disc list-inside text-[11px] text-rose-700 dark:text-rose-300 space-y-0.5 pl-1">
@@ -3246,7 +3258,7 @@
             <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
             <div>
               <strong class="font-bold">Network / Diagnostic Error:</strong>
-              <p class="text-[11px] mt-0.5">${err.message}</p>
+              <p class="text-[11px] mt-0.5">${_escapeMetaHtml(err && err.message ? err.message : String(err))}</p>
             </div>
           `;
           resContainer.classList.remove('hidden');
@@ -3343,7 +3355,10 @@
     window.copyNotifModalText = function() {
       const textEl = document.getElementById('notifModalMessageText');
       if (!textEl) return;
-      navigator.clipboard.writeText(textEl.textContent).then(() => {
+      const copyPromise = typeof window.copyTextSafe === 'function'
+        ? window.copyTextSafe(textEl.textContent)
+        : (navigator.clipboard ? navigator.clipboard.writeText(textEl.textContent) : Promise.reject());
+      copyPromise.then(() => {
         const copyLabel = document.getElementById('notifModalCopyBtnLabel');
         if (copyLabel) {
           copyLabel.textContent = 'Copied!';

@@ -3,9 +3,19 @@
  * Fully compliant with Tailwind design tokens (light & dark mode).
  */
 
-/* Hide native select when upgraded, but keep accessible in DOM */
+/* Visually hide native select when upgraded while keeping it focusable for HTML5 required validation */
 select.searchable-select-hidden {
-  display: none !important;
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* Universal Positioning Utilities for Inputs & Icons */
