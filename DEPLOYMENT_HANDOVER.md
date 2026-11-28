@@ -18,7 +18,7 @@ This document records the complete production deployment architecture, security 
 * **Reverse Proxy:** Nginx
 * **External Web Port:** **`8080`** (Direct IP Access: `http://173.249.33.152:8080/`)
 * **Local WhatsApp Bridge Port:** `3000` (Internal loopback only)
-* **Database:** SQLite (`db.sqlite3` with WhiteNoise static compression)
+* **Database:** PostgreSQL (`sutawane_db` / `sutawane_user` in production via `SUTAWANE_EDUCATION.settings.production`; local development uses SQLite `db.sqlite3` via `SUTAWANE_EDUCATION.settings.development`) with WhiteNoise static compression
 
 ### Multi-Project Coexistence Guarantee
 The VPS actively hosts another live production application (**UltraCoachMatrix**):
@@ -99,26 +99,39 @@ ssh sutawane@173.249.33.152
 
 ## 4. Production Environment Configuration (`.env`)
 
-Located at: `/home/sutawane/sutawane_classes/.env`
+Located at: `/home/sutawane/sutawane_classes/.env` (see `.env.production.example` for the complete template):
 
 ```env
 # =============================================================================
-# Sutawane Classes - Production Environment (Direct IP Mode)
+# Sutawane Classes - Production Environment
 # =============================================================================
+DJANGO_ENV=production
 DJANGO_DEBUG=False
-DJANGO_SECRET_KEY=sutawane_classes_prod_sec_key_9917_pawar_secure
+DJANGO_SECRET_KEY=<STRONG_RANDOM_SECRET_KEY>
 
-# IP Whitelist (Must match server IP and loopbacks)
-DJANGO_ALLOWED_HOSTS=173.249.33.152,127.0.0.1,localhost
+# Domain & IP Whitelist
+DJANGO_ALLOWED_HOSTS=portal.sutawanegroup.com,sutawanegroup.com,www.sutawanegroup.com,173.249.33.152,127.0.0.1,localhost
 
-# CSRF Trusted Origins (Mandatory for Django 4/5 form submissions over Port 8080)
-DJANGO_CSRF_TRUSTED_ORIGINS=http://173.249.33.152:8080,http://127.0.0.1:8080
+# CSRF Trusted Origins
+DJANGO_CSRF_TRUSTED_ORIGINS=https://portal.sutawanegroup.com,https://sutawanegroup.com,https://www.sutawanegroup.com,http://173.249.33.152:8080,http://127.0.0.1:8080
 
-# Production HTTP Flag Settings
-SECURE_SSL_REDIRECT=False
-SESSION_COOKIE_SECURE=False
-CSRF_COOKIE_SECURE=False
-SECURE_HSTS_SECONDS=0
+# Enable HTTPS flags when served via SSL domain (portal.sutawanegroup.com)
+DJANGO_SECURE_SSL=True
+
+# Production PostgreSQL Database
+DB_NAME=sutawane_db
+DB_USER=sutawane_user
+DB_PASSWORD=<STRONG_DB_PASSWORD>
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_CONN_MAX_AGE=60
+DB_SSLMODE=prefer
+
+# External Media, Backups & Logs
+DJANGO_MEDIA_ROOT=/home/sutawane/media
+DJANGO_BACKUPS_DIR=/home/sutawane/backup_zip
+DJANGO_LOGS_DIR=/home/sutawane/logs
+DJANGO_CACHE_BACKEND=filebased
 
 PORT=8000
 ```
@@ -137,12 +150,14 @@ chmod 600 /home/sutawane/sutawane_classes/.env
 ```ini
 [Unit]
 Description=Sutawane Classes Django Gunicorn Service
-After=network.target
+After=network.target postgresql.service
 
 [Service]
 User=sutawane
 Group=www-data
 WorkingDirectory=/home/sutawane/sutawane_classes
+Environment=DJANGO_ENV=production
+Environment=DJANGO_SETTINGS_MODULE=SUTAWANE_EDUCATION.settings.production
 EnvironmentFile=/home/sutawane/sutawane_classes/.env
 RuntimeDirectory=sutawane
 RuntimeDirectoryMode=0755
@@ -342,8 +357,8 @@ sudo tail -f /var/log/nginx/error.log
 
 ### Manual Backup (Database + Media):
 ```bash
-# Backup SQLite DB with timestamp
-cp /home/sutawane/sutawane_classes/db.sqlite3 /home/sutawane/backups/db_$(date +%Y%m%d_%H%M%S).sqlite3
+# Backup PostgreSQL DB with timestamp
+PGPASSWORD='<STRONG_DB_PASSWORD>' pg_dump -h 127.0.0.1 -U sutawane_user -F c -f /home/sutawane/backups/sutawane_db_$(date +%Y%m%d_%H%M%S).dump sutawane_db
 
 # Backup student media files
 tar -czf /home/sutawane/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz /home/sutawane/media

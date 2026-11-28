@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+export DJANGO_ENV=${DJANGO_ENV:-production}
+export DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-SUTAWANE_EDUCATION.settings.production}
 echo "============================================================"
 echo "  SUTAWANE CLASSES MANAGEMENT SOFTWARE - PRODUCTION SERVER"
 echo "============================================================"

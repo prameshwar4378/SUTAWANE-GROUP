@@ -28,7 +28,10 @@ MANIFEST
 
 # Environment & Secrets (Never commit secrets to git!)
 .env
+.env.production
+.env.local
 local_settings.py
+cache_storage/
 
 # Generated staticfiles (generated via collectstatic) & User uploads
 staticfiles/

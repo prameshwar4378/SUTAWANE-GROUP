@@ -36,15 +36,9 @@
       <!-- Category Filter Pills Bar -->
       <div class="modern-filter-bar">
         <button type="button" class="modern-filter-btn active" data-video-filter="all">All Videos</button>
-        {% if gallery_categories %}
-          {% for cat in gallery_categories %}
-          <button type="button" class="modern-filter-btn" data-video-filter="{{ cat.slug }}">{{ cat.name }}</button>
-          {% endfor %}
-        {% else %}
-          <button type="button" class="modern-filter-btn" data-video-filter="topper-felicitation">Topper Interviews</button>
-          <button type="button" class="modern-filter-btn" data-video-filter="science-labs-classrooms">Concept Masterclasses</button>
-          <button type="button" class="modern-filter-btn" data-video-filter="workshops-seminars">Seminars &amp; Motivation</button>
-        {% endif %}
+        {% for cat in gallery_categories %}
+        <button type="button" class="modern-filter-btn" data-video-filter="{{ cat.slug }}">{{ cat.name }}</button>
+        {% endfor %}
       </div>
 
     </div>
@@ -64,7 +58,7 @@
           target="_blank" 
           rel="noopener noreferrer" 
           class="modern-video-card" 
-          data-cat="{{ video.category_slug }}"
+          data-cat="{{ video.effective_category_slug|default:video.category_slug }}"
           title="Watch on Official YouTube: {{ video.title }}"
           style="text-decoration:none;color:inherit;cursor:pointer;"
         >

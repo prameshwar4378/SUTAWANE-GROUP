@@ -1,12 +1,52 @@
 import os
 import shutil
+import subprocess
 import zipfile
 import json
 import time
 import sqlite3
 from datetime import datetime
+from django.apps import apps
 from django.conf import settings
 from django.db import connection, connections
+
+
+def _is_postgres():
+    """Return True when Django's default database backend is PostgreSQL."""
+    engine = settings.DATABASES.get('default', {}).get('ENGINE', '')
+    return 'postgresql' in engine or connection.vendor == 'postgresql'
+
+
+def _get_pg_conn_details():
+    """Return (db_name, cli_args, env) for pg_dump / pg_restore subprocess calls."""
+    db_conf = settings.DATABASES['default']
+    db_name = str(db_conf.get('NAME') or '')
+    host = str(db_conf.get('HOST') or '127.0.0.1')
+    port = str(db_conf.get('PORT') or '5432')
+    user = str(db_conf.get('USER') or '')
+    password = str(db_conf.get('PASSWORD') or '')
+
+    args = ['-h', host, '-p', port]
+    if user:
+        args.extend(['-U', user])
+
+    env = os.environ.copy()
+    if password:
+        env['PGPASSWORD'] = password
+    return db_name, args, env
+
+
+def _get_db_size_bytes(db_path):
+    """Return active database size in bytes for either PostgreSQL or SQLite."""
+    if _is_postgres():
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_database_size(current_database());")
+                row = cursor.fetchone()
+                return int(row[0]) if row and row[0] is not None else 0
+        except Exception:
+            return 0
+    return os.path.getsize(db_path) if os.path.exists(db_path) else 0
 
 
 def _atomic_replace_sqlite(staging_path, target_path, max_attempts=4):
@@ -83,22 +123,44 @@ def _create_online_db_snapshot(db_path, dest_path):
             src.backup(dst)
 
 
-def _gather_system_summary(db_path):
+def _gather_system_summary(db_path=None):
     """
     Collects a human-readable text summary of all models and key system configurations.
     Enables instant plain-text verification and inspection of the backup contents.
     """
+    is_pg = _is_postgres()
     summary = {
         'generatedAt': datetime.now().isoformat(),
         'appName': 'Sutawane Classes Management Software',
-        'databaseEngine': 'SQLite 3 Local Persistent (Django ORM)',
+        'databaseEngine': 'PostgreSQL (Django ORM)' if is_pg else 'SQLite 3 Local Persistent (Django ORM)',
         'modelCounts': {},
         'settings': {},
         'branches': [],
         'sessions': [],
         'courses': [],
     }
-    if not os.path.exists(db_path):
+
+    if is_pg:
+        try:
+            core_models = apps.get_app_config('core').get_models()
+            for model in core_models:
+                try:
+                    summary['modelCounts'][model._meta.db_table] = model._default_manager.count()
+                except Exception:
+                    pass
+            SystemSetting = apps.get_model('core', 'SystemSetting')
+            Branch = apps.get_model('core', 'Branch')
+            AcademicSession = apps.get_model('core', 'AcademicSession')
+            Course = apps.get_model('core', 'Course')
+            summary['settings'] = dict(SystemSetting.objects.values_list('key', 'value'))
+            summary['branches'] = list(Branch.objects.values('id', 'name', 'code', 'is_active'))
+            summary['sessions'] = list(AcademicSession.objects.values('id', 'name', 'is_current', 'isActive'))
+            summary['courses'] = list(Course.objects.values('id', 'name', 'is_active'))
+        except Exception as e:
+            summary['error'] = str(e)
+        return summary
+
+    if not db_path or not os.path.exists(db_path):
         return summary
 
     try:
@@ -163,14 +225,21 @@ def get_storage_paths():
     """
     Returns exact storage path locations on local machine:
     - base_dir: Project root directory
-    - database_path: Path to active SQLite database
+    - database_path: Path to active SQLite database or PostgreSQL DSN summary
     - media_root: Root directory for all media assets
     - photos_dir: Media directory for student & branch photos
     - attachments_dir: Media directory for expense receipts & bills
     - backups_dir: Dedicated directory for persistent backup archives
     """
     base_dir = str(settings.BASE_DIR)
-    db_path = str(settings.DATABASES['default']['NAME'])
+    if _is_postgres():
+        db_conf = settings.DATABASES['default']
+        db_path = (
+            f"postgresql://{db_conf.get('USER', '')}@"
+            f"{db_conf.get('HOST', '127.0.0.1')}:{db_conf.get('PORT', '5432')}/{db_conf.get('NAME', '')}"
+        )
+    else:
+        db_path = str(settings.DATABASES['default']['NAME'])
 
     # Media directories (configured in settings.MEDIA_ROOT, defaults to /home/sutawane/media on production)
     media_root = str(getattr(settings, 'MEDIA_ROOT', os.path.join(base_dir, 'media')))
@@ -256,14 +325,32 @@ def create_full_backup_snapshot(label_prefix='sutawane-full-backup'):
 
     db_path = paths['database_path']
     media_root = paths['media_root']
+    is_pg = _is_postgres()
 
-    # 1. Take safe online point-in-time SQLite snapshot to staging file
-    staging_snapshot = file_path + '.dbsnapshot'
-    _create_online_db_snapshot(db_path, staging_snapshot)
+    # 1. Take safe online point-in-time database snapshot to staging file
+    staging_snapshot = file_path + ('.pgdump' if is_pg else '.dbsnapshot')
+    if is_pg:
+        pg_dump_bin = shutil.which('pg_dump')
+        if not pg_dump_bin:
+            raise RuntimeError("pg_dump binary not found on system PATH. Install postgresql-client on the server.")
+        db_name, conn_args, pg_env = _get_pg_conn_details()
+        proc = subprocess.run(
+            [pg_dump_bin, *conn_args, '-F', 'c', '-f', staging_snapshot, db_name],
+            env=pg_env,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"pg_dump failed: {proc.stderr.strip() or proc.stdout.strip()}")
+        db_arcname = 'sutawane.dump'
+    else:
+        _create_online_db_snapshot(db_path, staging_snapshot)
+        db_arcname = 'sutawane.db'
+
     db_size = os.path.getsize(staging_snapshot) if os.path.exists(staging_snapshot) else 0
 
     # 2. Gather human-readable system summary text and counts
-    summary = _gather_system_summary(staging_snapshot)
+    summary = _gather_system_summary(staging_snapshot if not is_pg else None)
 
     photos_count = 0
     attachments_count = 0
@@ -272,9 +359,9 @@ def create_full_backup_snapshot(label_prefix='sutawane-full-backup'):
     total_media_bytes = 0
 
     with zipfile.ZipFile(file_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-        # Add Database (store under both sutawane.db and db.sqlite3 for universal tool compatibility)
+        # Add Database dump/snapshot
         if os.path.exists(staging_snapshot):
-            zf.write(staging_snapshot, arcname='sutawane.db')
+            zf.write(staging_snapshot, arcname=db_arcname)
 
         # Add All Media Files recursively from media_root
         if os.path.exists(media_root):
@@ -309,7 +396,7 @@ def create_full_backup_snapshot(label_prefix='sutawane-full-backup'):
             'otherMediaCount': other_media_count,
             'totalMediaCount': total_media_count,
             'totalMediaBytes': total_media_bytes,
-            'databaseEngine': 'SQLite 3 Local Persistent (Django ORM)',
+            'databaseEngine': 'PostgreSQL (Django ORM)' if is_pg else 'SQLite 3 Local Persistent (Django ORM)',
             'modelCounts': summary.get('modelCounts', {}),
         }
         zf.writestr('backup-meta.json', json.dumps(manifest, indent=2))
@@ -340,14 +427,100 @@ def create_full_backup_snapshot(label_prefix='sutawane-full-backup'):
 
 
 
+def _restore_pg_dump(dump_path):
+    """Restore a PostgreSQL custom-format dump file via pg_restore."""
+    pg_restore_bin = shutil.which('pg_restore')
+    if not pg_restore_bin:
+        raise RuntimeError("pg_restore binary not found on system PATH. Install postgresql-client on the server.")
+    db_name, conn_args, pg_env = _get_pg_conn_details()
+    connections.close_all()
+    proc = subprocess.run(
+        [pg_restore_bin, *conn_args, '--clean', '--if-exists', '--no-owner', '--no-acl', '-d', db_name, dump_path],
+        env=pg_env,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"pg_restore failed: {proc.stderr.strip() or proc.stdout.strip()}")
+
+
+def _extract_media_from_zip(zf, media_root):
+    """Safely extract media entries from a backup zip archive, blocking zip-slip traversal."""
+    restored_photos = 0
+    restored_attachments = 0
+    restored_other = 0
+    restored_total = 0
+    special_entries = ('sutawane.db', 'db.sqlite3', 'sutawane.dump', 'backup-meta.json', 'system-summary.json')
+
+    for name in zf.namelist():
+        if name.endswith('/') or name.endswith('\\') or name in special_entries or name.endswith('.db') or name.endswith('.dump'):
+            continue
+
+        rel_norm = name.replace('\\', '/')
+        if rel_norm.startswith('media/'):
+            rel_norm = rel_norm[6:]
+
+        if not rel_norm or rel_norm.startswith('/') or '..' in rel_norm:
+            continue
+
+        dest_file = os.path.normpath(os.path.join(media_root, rel_norm))
+        try:
+            if os.path.commonpath([dest_file, media_root]) != media_root:
+                continue
+        except Exception:
+            continue
+
+        os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+        with open(dest_file, 'wb') as f_out:
+            f_out.write(zf.read(name))
+
+        restored_total += 1
+        if rel_norm.startswith('photos/'):
+            restored_photos += 1
+        elif rel_norm.startswith('attachments/'):
+            restored_attachments += 1
+        else:
+            restored_other += 1
+
+    return restored_photos, restored_attachments, restored_other, restored_total
+
+
+def _finalize_restore():
+    """Verify DB connectivity/integrity, sync pending migrations, and clear caches."""
+    connection.connect()
+    with connection.cursor() as cursor:
+        if _is_postgres():
+            cursor.execute("SELECT 1;")
+            res = cursor.fetchone()
+            if not res or res[0] != 1:
+                raise ValueError(f"Restored PostgreSQL database failed health check: {res}")
+        else:
+            cursor.execute("PRAGMA integrity_check;")
+            res = cursor.fetchone()
+            if not res or res[0] != 'ok':
+                raise ValueError(f"Restored database failed integrity check: {res}")
+
+    try:
+        from django.core.management import call_command
+        call_command('migrate', interactive=False)
+    except Exception:
+        pass
+
+    try:
+        from .context_processors import invalidate_global_context_cache
+        invalidate_global_context_cache()
+    except Exception:
+        pass
+
+
 def execute_restore_from_file(target_file_path, original_filename):
     """
     Core Restore Engine:
     1. Automatically creates an instant pre-restore safety snapshot of current data (Zero Data Loss Guarantee).
     2. Validates archive integrity.
-    3. Replaces active SQLite database file using dual-mode atomic replacement.
+    3. Restores SQLite (.db / .zip) or PostgreSQL (.dump / .zip) database cleanly.
     4. Restores all media files (photos, vouchers, attachments, documents) preserving folder hierarchy.
-    5. Reconnects database connection and verifies PRAGMA integrity_check.
+    5. Reconnects database connection and verifies integrity.
     """
     if not os.path.exists(target_file_path):
         raise FileNotFoundError(f"Target backup file '{target_file_path}' does not exist on disk.")
@@ -355,6 +528,7 @@ def execute_restore_from_file(target_file_path, original_filename):
     paths = get_storage_paths()
     media_root = paths['media_root']
     ext = os.path.splitext(target_file_path)[1].lower() or os.path.splitext(original_filename)[1].lower()
+    is_pg = _is_postgres()
 
     # 1. Automatic Pre-Restore Safety Snapshot (Zero Data Loss Guarantee)
     safety = create_full_backup_snapshot(label_prefix='sutawane-pre-restore-safety')
@@ -363,89 +537,47 @@ def execute_restore_from_file(target_file_path, original_filename):
     restored_attachments = 0
     restored_other = 0
     restored_total = 0
-    new_db_size = 0
 
     if ext == '.zip':
         with zipfile.ZipFile(target_file_path, 'r') as zf:
             name_list = zf.namelist()
 
-            # Find SQLite database inside archive
-            db_entry = next(
-                (name for name in name_list if name in ('sutawane.db', 'db.sqlite3') or (name.endswith('.db') and '/' not in name and '\\' not in name)),
-                None
-            )
-            if not db_entry:
-                raise ValueError("Corrupted or invalid backup archive: No SQLite database file found inside the zip.")
-
-            # Extract database to staging file and atomically replace
-            staging_db = paths['database_path'] + '.staging'
-            with open(staging_db, 'wb') as db_out:
-                db_out.write(zf.read(db_entry))
-
-            _atomic_replace_sqlite(staging_db, paths['database_path'])
-            new_db_size = os.path.getsize(paths['database_path'])
-
-            # Extract all media files preserving directory hierarchy
-            special_entries = ('sutawane.db', 'db.sqlite3', 'backup-meta.json', 'system-summary.json')
-            for name in name_list:
-                # Skip directory markers and non-media root metadata
-                if name.endswith('/') or name.endswith('\\') or name in special_entries or name.endswith('.db'):
-                    continue
-
-                # Normalize relative path (support both media/... and photos/... formats)
-                rel_norm = name.replace('\\', '/')
-                if rel_norm.startswith('media/'):
-                    rel_norm = rel_norm[6:]
-
-                # Disallow empty or absolute or escaping paths
-                if not rel_norm or rel_norm.startswith('/') or '..' in rel_norm:
-                    continue
-
-                dest_file = os.path.normpath(os.path.join(media_root, rel_norm))
-
-                # Security check against zip-slip directory traversal
+            if is_pg:
+                dump_entry = next(
+                    (name for name in name_list if name == 'sutawane.dump' or (name.endswith('.dump') and '/' not in name and '\\' not in name)),
+                    None
+                )
+                if not dump_entry:
+                    raise ValueError("Corrupted or invalid backup archive: No PostgreSQL dump (.dump) file found inside the zip.")
+                staging_dump = os.path.join(paths['backups_dir'], f".restore_staging_{int(time.time())}.dump")
                 try:
-                    if os.path.commonpath([dest_file, media_root]) != media_root:
-                        continue
-                except Exception:
-                    continue
+                    with open(staging_dump, 'wb') as dump_out:
+                        dump_out.write(zf.read(dump_entry))
+                    _restore_pg_dump(staging_dump)
+                finally:
+                    if os.path.exists(staging_dump):
+                        try:
+                            os.remove(staging_dump)
+                        except Exception:
+                            pass
+            else:
+                db_entry = next(
+                    (name for name in name_list if name in ('sutawane.db', 'db.sqlite3') or (name.endswith('.db') and '/' not in name and '\\' not in name)),
+                    None
+                )
+                if not db_entry:
+                    raise ValueError("Corrupted or invalid backup archive: No SQLite database file found inside the zip.")
 
-                # Ensure target subdirectory exists
-                os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                staging_db = paths['database_path'] + '.staging'
+                with open(staging_db, 'wb') as db_out:
+                    db_out.write(zf.read(db_entry))
 
-                # Write restored media file
-                with open(dest_file, 'wb') as f_out:
-                    f_out.write(zf.read(name))
+                _atomic_replace_sqlite(staging_db, paths['database_path'])
 
-                restored_total += 1
-                if rel_norm.startswith('photos/'):
-                    restored_photos += 1
-                elif rel_norm.startswith('attachments/'):
-                    restored_attachments += 1
-                else:
-                    restored_other += 1
+            restored_photos, restored_attachments, restored_other, restored_total = _extract_media_from_zip(zf, media_root)
 
-        # Reconnect and run database integrity check
-        connection.connect()
-        with connection.cursor() as cursor:
-            cursor.execute("PRAGMA integrity_check;")
-            res = cursor.fetchone()
-            if not res or res[0] != 'ok':
-                raise ValueError(f"Restored database failed integrity check: {res}")
-
-        # Post-restore auto-sync: Run migrations to align older backups with current software schema
-        try:
-            from django.core.management import call_command
-            call_command('migrate', interactive=False)
-        except Exception:
-            pass
-
-        # Clear in-memory caches to purge stale pre-restore models and settings
-        try:
-            from .context_processors import invalidate_global_context_cache
-            invalidate_global_context_cache()
-        except Exception:
-            pass
+        _finalize_restore()
+        new_db_size = _get_db_size_bytes(paths['database_path'])
 
         breakdown_msg = f"{restored_photos} photos & {restored_attachments} vouchers"
         if restored_other > 0:
@@ -461,40 +593,32 @@ def execute_restore_from_file(target_file_path, original_filename):
             'message': f"Full system restore complete: Database restored ({format_bytes(new_db_size)}), {restored_total} total media files ({breakdown_msg}) recovered successfully.",
         }
 
-    elif ext == '.db':
-        # Validate SQLite magic header
+    elif ext == '.dump' and is_pg:
+        _restore_pg_dump(target_file_path)
+        _finalize_restore()
+        new_db_size = _get_db_size_bytes(paths['database_path'])
+        return {
+            'safetySnapshot': safety['fileName'],
+            'restoredPhotos': 0,
+            'restoredAttachments': 0,
+            'restoredOther': 0,
+            'restoredTotalMedia': 0,
+            'dbSizeBytes': new_db_size,
+            'message': f"PostgreSQL database snapshot restore complete ({format_bytes(new_db_size)}). All records, tables, and settings restored.",
+        }
+
+    elif ext == '.db' and not is_pg:
         with open(target_file_path, 'rb') as f:
             header = f.read(16)
         if not header.startswith(b'SQLite format 3'):
             raise ValueError("Invalid database file: header does not match SQLite format 3.")
 
-        # Stage and atomically replace database
         staging_db = paths['database_path'] + '.staging'
         shutil.copyfile(target_file_path, staging_db)
         _atomic_replace_sqlite(staging_db, paths['database_path'])
-        new_db_size = os.path.getsize(paths['database_path'])
 
-        # Reconnect & verify
-        connection.connect()
-        with connection.cursor() as cursor:
-            cursor.execute("PRAGMA integrity_check;")
-            res = cursor.fetchone()
-            if not res or res[0] != 'ok':
-                raise ValueError(f"Restored database failed integrity check: {res}")
-
-        # Post-restore auto-sync: Run migrations to align older backups with current software schema
-        try:
-            from django.core.management import call_command
-            call_command('migrate', interactive=False)
-        except Exception:
-            pass
-
-        # Clear in-memory caches to purge stale pre-restore models and settings
-        try:
-            from .context_processors import invalidate_global_context_cache
-            invalidate_global_context_cache()
-        except Exception:
-            pass
+        _finalize_restore()
+        new_db_size = _get_db_size_bytes(paths['database_path'])
 
         return {
             'safetySnapshot': safety['fileName'],
@@ -507,7 +631,8 @@ def execute_restore_from_file(target_file_path, original_filename):
         }
 
     else:
-        raise ValueError("Unsupported backup file format. Only .zip and .db files are supported.")
+        supported = ".zip and .dump" if is_pg else ".zip and .db"
+        raise ValueError(f"Unsupported backup file format for the active database engine. Only {supported} files are supported.")
 
 
 def list_backups():
@@ -532,7 +657,7 @@ def list_backups():
             continue
 
         ext = os.path.splitext(f)[1].lower()
-        if ext not in ('.zip', '.db'):
+        if ext not in ('.zip', '.db', '.dump'):
             continue
 
         st = os.stat(full_p)
@@ -556,7 +681,7 @@ def list_backups():
                         names = [n for n in zf.namelist() if not n.endswith('/') and not n.endswith('\\')]
                         photos_count = len([n for n in names if 'photos/' in n])
                         attachments_count = len([n for n in names if 'attachments/' in n])
-                        media_files = [n for n in names if n not in ('sutawane.db', 'db.sqlite3', 'backup-meta.json', 'system-summary.json') and not n.endswith('.db')]
+                        media_files = [n for n in names if n not in ('sutawane.db', 'db.sqlite3', 'sutawane.dump', 'backup-meta.json', 'system-summary.json') and not n.endswith('.db') and not n.endswith('.dump')]
                         total_media_count = len(media_files)
                         other_media_count = max(0, total_media_count - photos_count - attachments_count)
             except Exception:
@@ -580,7 +705,7 @@ def list_backups():
     backups_list.sort(key=lambda b: b['createdAt'], reverse=True)
 
     db_path = paths['database_path']
-    db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
+    db_size = _get_db_size_bytes(db_path)
     photos_stats = get_dir_stats(paths['photos_dir'])
     attachments_stats = get_dir_stats(paths['attachments_dir'])
     total_media_stats = get_dir_stats(paths['media_root'])
@@ -588,6 +713,7 @@ def list_backups():
     stats = {
         'dbSize': db_size,
         'dbSizeFormatted': format_bytes(db_size),
+        'databaseEngineLabel': 'PostgreSQL' if _is_postgres() else 'SQLite 3',
         'photosCount': photos_stats['count'],
         'photosSizeBytes': photos_stats['total_bytes'],
         'photosSizeFormatted': format_bytes(photos_stats['total_bytes']),

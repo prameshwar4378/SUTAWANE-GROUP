@@ -7,6 +7,9 @@ Django>=5.0.0,<7.0.0
 asgiref>=3.8.0
 sqlparse>=0.5.0
 
+# PostgreSQL Database Adapter (Production)
+psycopg[binary]>=3.2.0
+
 # Production Static Asset Compression & Serving
 whitenoise>=6.6.0
 

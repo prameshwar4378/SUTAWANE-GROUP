@@ -2,6 +2,7 @@ import os
 import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
+from django.conf import settings
 from django.core.mail import send_mail, EmailMultiAlternatives
 from .models import SystemSetting, User, RolePermission
 
@@ -123,7 +124,6 @@ def _save_otp_entry(clean_email: str, entry: dict):
         payload = {
             'code': str(entry['code']).strip(),
             'expires_at': entry['expires_at'].isoformat() if hasattr(entry['expires_at'], 'isoformat') else str(entry['expires_at']),
-            'attempts': int(entry.get('attempts', 0)),
         }
         SystemSetting.objects.update_or_create(
             key=key,
@@ -159,7 +159,6 @@ def generate_and_send_developer_otp(email: str) -> tuple[bool, str, str]:
     entry = {
         'code': code,
         'expires_at': expires_at,
-        'attempts': 0,
     }
     _save_otp_entry(clean_email, entry)
 
@@ -240,20 +239,12 @@ def verify_developer_otp(email: str, entered_code: str) -> tuple[bool, str]:
         _clear_otp_entry(clean_email)
         return False, "The OTP code has expired. Please request a new verification code."
 
-    attempts = entry.get('attempts', 0)
-    if attempts >= 5:
-        _clear_otp_entry(clean_email)
-        return False, "Too many failed attempts. OTP invalidated. Please request a new code."
-
     if secrets.compare_digest(str(entry['code']).strip(), clean_code):
         _clear_otp_entry(clean_email)
         print(f"[DEVELOPER AUTH] OTP verified successfully for {clean_email}", flush=True)
         return True, "Authentication successful."
 
-    entry['attempts'] = attempts + 1
-    _save_otp_entry(clean_email, entry)
-    remaining = 5 - entry['attempts']
-    return False, f"Invalid OTP code. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
+    return False, "Invalid OTP code. Please check and try again."
 
 
 # -------------------------------------------------------------

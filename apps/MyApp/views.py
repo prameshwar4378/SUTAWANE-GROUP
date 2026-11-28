@@ -209,135 +209,81 @@ def public_batches_view(request):
     return render(request, 'batches.html', context)
 
 
-def public_photo_gallery_view(request):
+def _group_gallery_items_by_category(items, categories):
     """
-    Public Showcase of Campus & Achievement Photos.
-    Organized into dedicated sections per category, each with its own carousel,
-    slide preview, and fullscreen lightbox.
+    Group active gallery items by active WebsiteGalleryCategory, omitting empty categories.
+    Any active items not linked to an active category fall back to 'Campus Life Highlights'.
     """
-    banner = WebsiteBanner.objects.filter(is_active=True).first()
-    all_photos = list(WebsiteGalleryItem.objects.filter(is_active=True, media_type='IMAGE').order_by('sort_order', '-created_at'))
-    page_meta = WebsitePageMeta.objects.filter(page_key='gallery').first()
-    categories = list(WebsiteGalleryCategory.objects.filter(is_active=True).order_by('sort_order', 'name'))
-
-    # Curated fallback photos per standard category slug
-    default_category_samples = {
-        'topper-felicitation': [
-            {
-                'title': 'Annual Toppers Award & Felicitation Ceremony',
-                'caption': 'Honoring State & Taluka Rankers · Main Campus Hall',
-                'file_url': 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Topper Felicitation',
-            },
-            {
-                'title': 'Gold Medal Honors for 100% Board Passers',
-                'caption': 'Prof. Sutawane Sir presenting academic laurels & certificates',
-                'file_url': 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Topper Felicitation',
-            },
-            {
-                'title': 'Scholarship Trophy Presentation & Parent Felicitation',
-                'caption': 'Celebrating medical & engineering entrance selections',
-                'file_url': 'https://images.unsplash.com/photo-1576267423445-b2e0074d68a4?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1576267423445-b2e0074d68a4?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Topper Felicitation',
-            },
-        ],
-        'campus-infrastructure': [
-            {
-                'title': 'Air-Conditioned Digital Smart Lecture Hall',
-                'caption': 'Interactive Flat Panels & Ergonomic Seating · Room 102',
-                'file_url': 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Campus Infrastructure',
-            },
-            {
-                'title': 'Quiet Reference Library & Self-Study Hall',
-                'caption': 'Equipped with 10,000+ Entrance Reference Handbooks',
-                'file_url': 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Campus Infrastructure',
-            },
-            {
-                'title': '1-on-1 Dedicated Faculty Doubt Clearance Desk',
-                'caption': 'Daily post-lecture personalized concept clarification',
-                'file_url': 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Campus Infrastructure',
-            },
-        ],
-        'science-labs-classrooms': [
-            {
-                'title': 'Hands-on Concept Demonstration Laboratory',
-                'caption': 'Physics & Chemistry Experimental Desks with safety gear',
-                'file_url': 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Science Labs & Classrooms',
-            },
-            {
-                'title': '3D Medical Anatomy & Botanical Models Lab',
-                'caption': 'NEET-UG Target Biology visual mastery tools',
-                'file_url': 'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Science Labs & Classrooms',
-            },
-        ],
-        'workshops-seminars': [
-            {
-                'title': 'State Ranker Strategy Masterclass & Seminar',
-                'caption': 'Guest Lecture by COEP & GMC Alumni Mentors',
-                'file_url': 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Workshops & Seminars',
-            },
-            {
-                'title': 'Annual Parent-Teacher Academic Conclave',
-                'caption': 'Transparent student test performance review & guidance',
-                'file_url': 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&auto=format&fit=crop&q=80',
-                'thumbnail_url': 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=480&auto=format&fit=crop&q=80',
-                'category_display': 'Workshops & Seminars',
-            },
-        ],
-    }
-
-    # Group photos by category
     sections = []
-    assigned_photo_ids = set()
+    assigned_ids = set()
 
     for cat in categories:
-        cat_photos = [p for p in all_photos if p.category_ref_id == cat.id or p.category == cat.name or p.category_slug == cat.slug]
-        for p in cat_photos:
-            assigned_photo_ids.add(p.id)
-
-        display_photos = cat_photos if cat_photos else default_category_samples.get(cat.slug, [])
+        cat_items = [
+            item for item in items
+            if item.id not in assigned_ids and (
+                item.category_ref_id == cat.id
+                or (item.category_ref_id is None and (item.category == cat.name or item.category_slug == cat.slug))
+            )
+        ]
+        if not cat_items:
+            continue
+        for item in cat_items:
+            assigned_ids.add(item.id)
+            item.effective_category_slug = cat.slug
 
         sections.append({
             'id': cat.id,
             'name': cat.name,
             'slug': cat.slug,
-            'photos': display_photos,
-            'count': len(display_photos),
-            'has_uploaded': bool(cat_photos),
+            'items': cat_items,
+            'count': len(cat_items),
         })
 
-    # Unassigned photos in general section
-    unassigned = [p for p in all_photos if p.id not in assigned_photo_ids]
+    unassigned = [item for item in items if item.id not in assigned_ids]
     if unassigned:
+        for item in unassigned:
+            item.effective_category_slug = 'campus-life-highlights'
         sections.append({
             'id': 'general',
             'name': 'Campus Life Highlights',
             'slug': 'campus-life-highlights',
-            'photos': unassigned,
+            'items': unassigned,
             'count': len(unassigned),
-            'has_uploaded': True,
         })
 
-    flat_photos = []
-    for s in sections:
-        for p in s['photos']:
-            flat_photos.append(p)
+    return sections
+
+
+def public_photo_gallery_view(request):
+    """
+    Public Showcase of Campus & Achievement Photos.
+    Organized into dedicated sections per category that has uploaded photos,
+    each with its own carousel, slide preview, and fullscreen lightbox.
+    """
+    banner = WebsiteBanner.objects.filter(is_active=True).first()
+    all_photos = [
+        p for p in WebsiteGalleryItem.objects.filter(
+            is_active=True, media_type='IMAGE'
+        ).select_related('category_ref').order_by('sort_order', '-created_at')
+        if (p.file_url or '').strip()
+    ]
+    page_meta = WebsitePageMeta.objects.filter(page_key='gallery').first()
+    categories = list(WebsiteGalleryCategory.objects.filter(is_active=True).order_by('sort_order', 'name'))
+
+    grouped_sections = _group_gallery_items_by_category(all_photos, categories)
+    sections = [
+        {
+            'id': s['id'],
+            'name': s['name'],
+            'slug': s['slug'],
+            'photos': s['items'],
+            'count': s['count'],
+            'has_uploaded': True,
+        }
+        for s in grouped_sections
+    ]
+
+    flat_photos = [p for s in sections for p in s['photos']]
 
     context = {
         'website_banner': banner,
@@ -352,7 +298,12 @@ def public_photo_gallery_view(request):
 def public_video_gallery_view(request):
     """Public Showcase of Video Lectures & Topper Interviews."""
     banner = WebsiteBanner.objects.filter(is_active=True).first()
-    videos = list(WebsiteGalleryItem.objects.filter(is_active=True, media_type='VIDEO').order_by('sort_order', '-created_at'))
+    videos = [
+        v for v in WebsiteGalleryItem.objects.filter(
+            is_active=True, media_type='VIDEO'
+        ).select_related('category_ref').order_by('sort_order', '-created_at')
+        if (v.file_url or '').strip()
+    ]
     page_meta = WebsitePageMeta.objects.filter(page_key='gallery').first()
     categories = list(WebsiteGalleryCategory.objects.filter(is_active=True).order_by('sort_order', 'name'))
 
@@ -365,10 +316,16 @@ def public_video_gallery_view(request):
         else:
             v.normalized_embed_url = v.file_url
 
+    grouped_sections = _group_gallery_items_by_category(videos, categories)
+    visible_categories = [
+        {'id': s['id'], 'name': s['name'], 'slug': s['slug']}
+        for s in grouped_sections
+    ]
+
     context = {
         'website_banner': banner,
         'gallery_videos': videos,
-        'gallery_categories': categories,
+        'gallery_categories': visible_categories,
         'page_meta': page_meta,
     }
     return render(request, 'video_gallery.html', context)
@@ -8068,12 +8025,12 @@ def backup_manage_view(request):
 
         elif action == 'upload_restore':
             if not request.FILES.get('backup_file'):
-                messages.error(request, "No backup file uploaded. Please select a .zip or .db file.")
+                messages.error(request, "No backup file uploaded. Please select a .zip, .db, or .dump file.")
                 return redirect('backup_manage')
             uploaded_file = request.FILES['backup_file']
             ext = os.path.splitext(uploaded_file.name)[1].lower()
-            if ext not in ('.zip', '.db'):
-                messages.error(request, "Only .zip (Full Backup) or .db (Database Snapshot) files can be restored.")
+            if ext not in ('.zip', '.db', '.dump'):
+                messages.error(request, "Only .zip (Full Backup), .db, or .dump (Database Snapshot) files can be restored.")
                 return redirect('backup_manage')
 
             timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
@@ -8196,12 +8153,12 @@ def api_backup_upload_restore_view(request):
     try:
         uploaded_file = request.FILES.get('backupFile') or request.FILES.get('backup_file')
         if not uploaded_file:
-            return JsonResponse({'error': 'No backup file uploaded. Please select a .zip or .db file.'}, status=400)
+            return JsonResponse({'error': 'No backup file uploaded. Please select a .zip, .db, or .dump file.'}, status=400)
 
         paths = get_storage_paths()
         ext = os.path.splitext(uploaded_file.name)[1].lower()
-        if ext not in ('.zip', '.db'):
-            return JsonResponse({'error': 'Only .zip (Full Backup) or .db (Database Snapshot) files are accepted for restore'}, status=400)
+        if ext not in ('.zip', '.db', '.dump'):
+            return JsonResponse({'error': 'Only .zip (Full Backup), .db, or .dump (Database Snapshot) files are accepted for restore'}, status=400)
 
         timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
         permanent_name = f"sutawane-uploaded-{timestamp}{ext}"

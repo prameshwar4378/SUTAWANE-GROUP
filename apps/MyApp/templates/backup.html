@@ -35,7 +35,7 @@
           <i data-lucide="database" class="w-5 h-5"></i>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground font-medium">Database (SQLite 3)</p>
+          <p class="text-xs text-muted-foreground font-medium">Database ({{ stats.databaseEngineLabel|default:"Database" }})</p>
           <p class="text-lg font-bold text-foreground">
             {{ stats.dbSizeFormatted|default:"0 B" }}
           </p>

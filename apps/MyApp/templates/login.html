@@ -192,73 +192,73 @@
   <!-- 2-Column Next-Level Creative Split Layout -->
   <main class="modern-auth-split-layout">
     
-    <!-- LEFT COLUMN: Academic Command Center Showcase -->
+    <!-- LEFT COLUMN: Software Services & Capabilities Showcase -->
     <div class="auth-left-showcase">
       
       <div class="auth-showcase-badge">
         <span>✦</span>
-        <span>SUTAWANE GROUP OF EDUCATION · MANAGEMENT OS</span>
+        <span>{{ institute_name|default:"Sutawane Classes"|upper }} · MANAGEMENT PORTAL</span>
       </div>
 
       <h1 class="auth-showcase-title">
-        The Intelligent Operating System for <span class="gradient-text-indigo">State Rankers.</span>
+        Unified Coaching Institute <span class="gradient-text-indigo">Management Software.</span>
       </h1>
 
       <p class="auth-showcase-desc">
-        Complete enterprise control for student admissions, fee collections, real-time WhatsApp parent alerts, biometric attendance, and state-level ranker tracking across all branches.
+        Manage student admissions, course enrollments, fee collections, pending dues, expenses, WhatsApp parent notifications, admission inquiries, website content, and backups across all branches.
       </p>
 
       <!-- 3D Interactive Floating System Cards -->
       <div class="auth-widgets-stack">
         
-        <!-- Widget 1: Active Admissions -->
+        <!-- Widget 1: Fee Collection & Dues -->
         <div class="auth-widget-card">
-          <div class="widget-icon-box icon-blue">📊</div>
+          <div class="widget-icon-box icon-blue">💳</div>
           <div class="widget-content">
             <div class="widget-title-row">
-              <span class="widget-label">Active Academic Term</span>
-              <span class="widget-live-pill">● 2026–27 Live</span>
+              <span class="widget-label">Fees, Dues &amp; Receipts</span>
+              <span class="widget-live-pill">● {% if selected_session %}{{ selected_session.name }} Session{% else %}Multi-Session{% endif %}</span>
             </div>
-            <div class="widget-main-stat">10,000+ Alumni Mentored</div>
-            <div class="widget-sub-stat">Consistently delivering Taluka Rank 1 &amp; Top MHT-CET Percentiles</div>
+            <div class="widget-main-stat">Fee Collection, Installments &amp; Ledgers</div>
+            <div class="widget-sub-stat">Track net payable, pending dues, discounts, dual-slip receipts &amp; PDF/Excel exports</div>
           </div>
         </div>
 
-        <!-- Widget 2: Recent State Topper Spotlight -->
+        <!-- Widget 2: Admissions, Inquiries & Branches -->
         <div class="auth-widget-card">
-          <div class="widget-icon-box icon-purple">🏆</div>
+          <div class="widget-icon-box icon-purple">👥</div>
           <div class="widget-content">
             <div class="widget-title-row">
-              <span class="widget-label">MHT-CET Topper Record</span>
-              <span class="widget-score-tag">99.82 %ile</span>
+              <span class="widget-label">Admissions, Inquiries &amp; Branches</span>
+              <span class="widget-score-tag">{% if branches %}{{ branches|length }} Active Branch{{ branches|length|pluralize:"es" }}{% else %}Multi-Branch{% endif %}</span>
             </div>
-            <div class="widget-main-stat">Omkar Patil · COEP Pune Selected</div>
-            <div class="widget-sub-stat">State Rank 14 in Engineering Entrance · Classroom Batch</div>
+            <div class="widget-main-stat">Student Admissions &amp; Inquiry Pipeline</div>
+            <div class="widget-sub-stat">Manage student profiles, batch promotion, lead follow-ups &amp; staff role permissions</div>
           </div>
         </div>
 
-        <!-- Widget 3: Live Campus Diagnostics -->
+        <!-- Widget 3: WhatsApp Alerts, Reports & Backups -->
         <div class="auth-widget-card">
-          <div class="widget-icon-box icon-emerald">⚡</div>
+          <div class="widget-icon-box icon-emerald">💬</div>
           <div class="widget-content">
             <div class="widget-title-row">
-              <span class="widget-label">Ladgaon Road Main Campus</span>
-              <span class="widget-status-online">Cloud Active</span>
+              <span class="widget-label">WhatsApp, Reports &amp; Backups</span>
+              <span class="widget-status-online">{% if whatsapp_enabled %}WhatsApp Ready{% else %}System Active{% endif %}</span>
             </div>
-            <div class="widget-main-stat">Automated Daily DPPs &amp; Parent SMS</div>
-            <div class="widget-sub-stat">Real-time attendance syncing with zero data loss guarantee</div>
+            <div class="widget-main-stat">WhatsApp Alerts, Reports &amp; Website CMS</div>
+            <div class="widget-sub-stat">Send fee receipts &amp; due reminders, audit expenses &amp; daily reports, and manage website &amp; ZIP backups</div>
           </div>
         </div>
 
       </div>
 
-      <!-- Trust Strip -->
+      <!-- Capabilities Strip -->
       <div class="auth-showcase-trust">
-        <span>★ 15+ Yrs Academic Excellence</span>
+        <span>✓ Student &amp; Fee Ledger</span>
         <span class="bullet">•</span>
-        <span>★ 100% Board Pass Rate</span>
+        <span>✓ Financial Reports &amp; Expenses</span>
         <span class="bullet">•</span>
-        <span>★ ISO 9001:2015 Standards</span>
+        <span>✓ One-Click Backup &amp; Restore</span>
       </div>
 
     </div>
@@ -297,7 +297,7 @@
             {% endif %}
           </div>
           <h2 class="next-auth-title">{{ institute_name|default:"SUTAWANE CLASSES VAIJAPUR"|upper }}</h2>
-          <p class="next-auth-subtitle">Desktop Management &amp; Coaching Operating System</p>
+          <p class="next-auth-subtitle">Coaching Institute Management Portal</p>
         </div>
 
         <!-- Subscription Alert if Expired or Inactive -->

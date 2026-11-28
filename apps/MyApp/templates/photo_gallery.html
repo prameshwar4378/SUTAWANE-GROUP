@@ -389,7 +389,13 @@
       <!-- Eyebrow Notification Pill -->
       <a href="#galleryShowcases" class="hero-notification-pill">
         <span class="pill-badge-indigo">CAMPUS CHRONICLE</span>
-        <span class="pill-text-content">{{ total_photos_count }} Moments Across {{ category_sections|length }} Dedicated Spheres</span>
+        <span class="pill-text-content">
+          {% if total_photos_count > 0 %}
+            {{ total_photos_count }} Moment{{ total_photos_count|pluralize }} Across {{ category_sections|length }} Dedicated Sphere{{ category_sections|length|pluralize }}
+          {% else %}
+            Campus Moments &amp; Photo Showcase
+          {% endif %}
+        </span>
         <span class="pill-arrow-indicator">↓</span>
       </a>
 
@@ -550,6 +556,16 @@
 
     </div>
   </section>
+  {% empty %}
+  <section class="category-gallery-section">
+    <div class="modern-container">
+      <div style="text-align:center; padding: 3.5rem 1.5rem; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 1.15rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+        <div style="font-size: 2.25rem; margin-bottom: 0.75rem;">📸</div>
+        <h2 style="font-size: 1.35rem; font-weight: 800; color: #0F172A; margin: 0 0 0.5rem 0;">Campus Photo Gallery Coming Soon</h2>
+        <p style="font-size: 0.95rem; color: #64748B; margin: 0;">No campus photos have been published yet. Please check back shortly for updates.</p>
+      </div>
+    </div>
+  </section>
   {% endfor %}
 </div>
 
@@ -700,6 +716,7 @@
 
   // 4. Fullscreen Lightbox Controller
   function openModernLightbox(globalIndex) {
+    if (!allPhotosData.length) return;
     if (globalIndex < 0 || globalIndex >= allPhotosData.length) globalIndex = 0;
     currentLightboxIndex = globalIndex;
     updateLightboxContent();
